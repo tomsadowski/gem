@@ -2,7 +2,9 @@
 #![allow(dead_code)]
 
 mod model;
-mod gemini;
+mod gemtext;
+mod gemstatus;
+mod constants;
 mod util;
 
 //  use crate::model;
@@ -35,7 +37,7 @@ fn main() -> io::Result<()> {
 
     // data init
     // TODO: init with fun stuff
-    let url = Url::parse(gemini::INIT_LINK).ok();
+    let url = Url::parse(constants::INIT_LINK).ok();
     let mut model = model::Model::init(&url);
 //    println!("{:#?}", model);
 

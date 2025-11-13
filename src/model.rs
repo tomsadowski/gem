@@ -4,7 +4,9 @@ use url::Url;
 use std::str::FromStr;
 use crate::{
     util, 
-    gemini::{GemTextDoc, Status}
+    gemtext::GemTextDoc,
+    gemstatus::Status,
+    constants,
 };
 use ratatui::prelude::*;
 use crossterm::{
@@ -16,11 +18,6 @@ use crossterm::{
         KeyCode},
 };
 
-pub const LEFT: char  = 'e';
-pub const DOWN: char  = 'i';
-pub const UP: char    = 'o';
-pub const RIGHT: char = 'n';
-pub const URL: char   = 'g';
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum Message {
@@ -79,32 +76,24 @@ impl Model {
             }
         };
         let (view, text) = match status {
-            Status::Success(meta) => {
+            Status::InputExpected(variant, msg) => {
+                (View::Message(format!("input: {}", msg)), None)
+            }
+            Status::Success(variant, meta) => {
                 if meta.starts_with("text/") {
                     (View::Text(0, 0), Some(GemTextDoc::new(content)))
                 } else {
-                    (
-                        View::Message(format!("recieved nontext response: {}", meta)), 
-                        None
-                    )
+                    (View::Message(format!("Recieved nontext response: {}", meta)), None)
                 }
             }
-            Status::Gone(meta) => {
-                (View::Message(format!("gone :( {}", meta)), None)
+            Status::PermanentFailure(variant, meta) => {
+                (View::Message(format!("Permanent Failure {:?}: {:?}", variant, meta)), None)
             }
-            Status::RedirectTemporary(new_url) 
-            | Status::RedirectPermanent(new_url) => {
-                (View::Prompt(format!("redirect to {}?", new_url)), None)
+            Status::Redirect(variant, new_url) => {
+                (View::Prompt(format!("Redirect to {}?", new_url)), None)
             }
-            Status::TransientCertificateRequired(meta)
-            | Status::AuthorisedCertificatedRequired(meta) => {
-                (View::Prompt(format!("certificate required: {}", meta)), None)
-            }
-            Status::Input(msg) => {
-                (View::Message(format!("input: {}", msg)), None)
-            }
-            Status::Secret(msg) => {
-                (View::Message(format!("secret: {}", msg)), None)
+            Status::ClientCertificateRequired(variant, meta) => {
+                (View::Prompt(format!("Certificate required: {}", meta)), None)
             }
             _ => {
                 (View::Message(format!("status type not handled")), None)
@@ -152,10 +141,10 @@ pub fn update(model: Model, msg: Message) -> Model {
         Message::Code(c) => {
             if let View::Text(x, y) = m.view {
                 match c {
-                    LEFT  => m.view = View::Text(x - 1, y),
-                    RIGHT => m.view = View::Text(x + 1, y), 
-                    UP    => m.view = View::Text(x, y - 1),
-                    DOWN  => m.view = View::Text(x, y + 1),
+                    constants::LEFT  => m.view = View::Text(x - 1, y),
+                    constants::RIGHT => m.view = View::Text(x + 1, y), 
+                    constants::UP    => m.view = View::Text(x, y - 1),
+                    constants::DOWN  => m.view = View::Text(x, y + 1),
                     _ => {}
                 }
             } else {
