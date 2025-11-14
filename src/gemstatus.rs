@@ -3,138 +3,203 @@
 use regex::Regex;
 use std::str::FromStr;
 use crate::{
-    util::{ParseError},
     constants,
 };
 
 #[derive(Debug, Clone)]
 pub enum Input {
-    Input,                          // 10
-    Sensitive,                      // 11
+    Input(i16),
+    Sensitive,
+}
+impl Input {
+    pub fn new(code: i16) -> Option<Self> {
+        match code {
+            10 => 
+                Some(Self::Input(code)),
+            11 => 
+                Some(Self::Sensitive),
+            12..=19 => 
+                Some(Self::Input(code)),
+            _ => 
+                None,
+        }
+    }
 }
 #[derive(Debug, Clone)]
 pub enum Success {
-    Success,                        // 20
+    Success(i16),
+}
+impl Success {
+    pub fn new(code: i16) -> Option<Self> {
+        match code {
+            20..=29 => 
+                Some(Self::Success(code)),
+            _ => 
+                None,
+        }
+    }
 }
 #[derive(Debug, Clone)]
 pub enum Redirect {
-    Temporary,                      // 30
-    Permanent,                      // 31
+    Temporary(i16),
+    Permanent,
+}
+impl Redirect {
+    pub fn new(code: i16) -> Option<Self> {
+        match code {
+            30 => 
+                Some(Self::Temporary(code)),
+            31 => 
+                Some(Self::Permanent),
+            32..=39 => 
+                Some(Self::Temporary(code)),
+            _ => 
+                None,
+        }
+    }
 }
 #[derive(Debug, Clone)]
 pub enum TemporaryFailure {
-    TemporaryFailure,               // 40
-    ServerUnavailable,              // 41
-    CGIError,                       // 42
-    ProxyError,                     // 43 
-    SlowDown,                       // 44
+    TemporaryFailure(i16),
+    ServerUnavailable,
+    CGIError,
+    ProxyError,
+    SlowDown,
+}
+impl TemporaryFailure {
+    pub fn new(code: i16) -> Option<Self> {
+        match code {
+            40 => 
+                Some(Self::TemporaryFailure(code)),
+            41 => 
+                Some(Self::ServerUnavailable),
+            42 => 
+                Some(Self::CGIError),
+            43 => 
+                Some(Self::ProxyError),
+            44 => 
+                Some(Self::SlowDown),          
+            45..=49 => 
+                Some(Self::TemporaryFailure(code)),
+            _ => 
+                None,
+        }
+    }
 }
 #[derive(Debug, Clone)]
 pub enum PermanentFailure {
-    PermanentFailure,               // 50
-    NotFound,                       // 51
-    Gone,                           // 52
-    ProxyRequestRefused,            // 53
-    BadRequest,                     // 59
+    PermanentFailure(i16),
+    NotFound,             
+    Gone,                 
+    ProxyRequestRefused,  
+    BadRequest,           
+}
+impl PermanentFailure {
+    pub fn new(code: i16) -> Option<Self> {
+        match code {
+            50 => 
+                Some(Self::PermanentFailure(code)),
+            51 => 
+                Some(Self::NotFound),
+            52 => 
+                Some(Self::Gone),
+            53 => 
+                Some(Self::ProxyRequestRefused),
+            54..=58 => 
+                Some(Self::PermanentFailure(code)),
+            59 => 
+                Some(Self::BadRequest),          
+            _ => 
+                None,
+        }
+    }
 }
 #[derive(Debug, Clone)]
 pub enum ClientCertificateRequired {
-    ClientCertificateRequired,      // 60
-    TransientCertificateRequired,   // 61
-    AuthorizedCertificateRequired,  // 62
-    CertificateNotAccepted,         // 63
-    FutureCertificateRejected,      // 64
-    ExpiredCertificateRejected,     // 65
+    ClientCertificateRequired(i16),
+    TransientCertificateRequired,   
+    AuthorizedCertificateRequired,  
+    CertificateNotAccepted,         
+    FutureCertificateRejected,      
+    ExpiredCertificateRejected,     
 } 
+impl ClientCertificateRequired {
+    pub fn new(code: i16) -> Option<Self> {
+        match code {
+            60 => 
+                Some(Self::ClientCertificateRequired(code)),
+            61 => 
+                Some(Self::TransientCertificateRequired),
+            62 => 
+                Some(Self::AuthorizedCertificateRequired),
+            63 => 
+                Some(Self::CertificateNotAccepted),
+            64 => 
+                Some(Self::FutureCertificateRejected),          
+            65 => 
+                Some(Self::ExpiredCertificateRejected),          
+            66..=69 => 
+                Some(Self::ClientCertificateRequired(code)),
+            _  => 
+                None,
+        }
+    }
+}
 #[derive(Debug, Clone)]
 pub enum Status {
-    // 10
     InputExpected(Input, String),
-    // 20
     Success(Success, String),
-    // 30
     Redirect(Redirect, String),
-    // 40
     TemporaryFailure(TemporaryFailure, String),
-    // 50
     PermanentFailure(PermanentFailure, String),
-    // 60
     ClientCertificateRequired(ClientCertificateRequired, String),
-    // _
-    Unknown(String),
 }
 impl Status {
-    // create status from integer
-    pub fn new(code: i16, meta: String) -> Self {
-        match code {
-            10 => Status::InputExpected(Input::Input, meta),
-            11 => Status::InputExpected(Input::Sensitive, meta),
-
-            20 => Status::Success(Success::Success, meta),
-
-            30 => Status::Redirect(Redirect::Temporary, meta),
-            31 => Status::Redirect(Redirect::Permanent, meta),
-
-            40 => Status::TemporaryFailure
-                (TemporaryFailure::TemporaryFailure, meta),
-            41 => Status::TemporaryFailure
-                (TemporaryFailure::ServerUnavailable, meta),
-            42 => Status::TemporaryFailure
-                (TemporaryFailure::CGIError, meta),
-            43 => Status::TemporaryFailure
-                (TemporaryFailure::ProxyError, meta),
-            44 => Status::TemporaryFailure
-                (TemporaryFailure::SlowDown, meta),
-
-            50 => Status::PermanentFailure
-                (PermanentFailure::PermanentFailure, meta),
-            51 => Status::PermanentFailure
-                (PermanentFailure::NotFound, meta),
-            52 => Status::PermanentFailure
-                (PermanentFailure::Gone, meta),
-            53 => Status::PermanentFailure
-                (PermanentFailure::ProxyRequestRefused, meta),
-            59 => Status::PermanentFailure
-                (PermanentFailure::BadRequest, meta),
-
-            60 => Status::ClientCertificateRequired
-                (ClientCertificateRequired::ClientCertificateRequired, meta),
-            61 => Status::ClientCertificateRequired
-                (ClientCertificateRequired::TransientCertificateRequired, meta),
-            62 => Status::ClientCertificateRequired
-                (ClientCertificateRequired::AuthorizedCertificateRequired, meta),
-            63 => Status::ClientCertificateRequired
-                (ClientCertificateRequired::CertificateNotAccepted, meta),
-            64 => Status::ClientCertificateRequired
-                (ClientCertificateRequired::FutureCertificateRejected, meta),
-            65 => Status::ClientCertificateRequired
-                (ClientCertificateRequired::ExpiredCertificateRejected, meta),
-
-            _ => Status::Unknown(meta),
+    pub fn new(code: i16, meta: String) -> Result<Self, String> {
+        if let Some(status) = Input::new(code) {
+            return Ok(Status::InputExpected(status, meta))
+        } 
+        else if let Some(status) = Success::new(code) {
+            return Ok(Status::Success(status, meta))
+        } 
+        else if let Some(status) = Redirect::new(code) {
+            return Ok(Status::Redirect(status, meta))
         }
+        else if let Some(status) = TemporaryFailure::new(code) {
+            return Ok(Status::TemporaryFailure(status, meta))
+        }
+        if let Some(status) = PermanentFailure::new(code) {
+            return Ok(Status::PermanentFailure(status, meta))
+        }
+        else if let Some(status) = ClientCertificateRequired::new(code) {
+            return Ok(Status::ClientCertificateRequired(status, meta))
+        }
+        Err(format!("this =>>> ({}) ? ... is not meth", code))
     }
 } 
 impl FromStr for Status {
-    type Err = ParseError;
+    type Err = String;
     fn from_str(line: &str) -> Result<Status, Self::Err> {
         // get regex
         let Ok(regex) = Regex::new(constants::STATUS_REGEX)
-            else {return Err(ParseError)};
+            else {return Err("".to_string())};
         // get captures
         let Some(captures) = regex.captures(&line) 
-            else {return Err(ParseError)};
+            else {return Err("".to_string())};
         // get code from captures
         let Ok(code) = captures
             .get(1)
             .map_or("", |m| m.as_str())
             .parse()
-            else {return Err(ParseError)};
+            else {return Err("".to_string())};
         // get meta from captures
         let meta = captures
             .get(2)
             .map_or("", |m| m.as_str())
             .to_string();
         // return Result
-        Ok(Status::new(code, meta))
+        let status = Status::new(code, meta)
+            .or_else(|e| Err(e))?;
+        Ok(status)
     }
 }

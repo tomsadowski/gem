@@ -39,7 +39,6 @@ fn main() -> io::Result<()> {
     // TODO: init with fun stuff
     let url = Url::parse(constants::INIT_LINK).ok();
     let mut model = model::Model::init(&url);
-//    println!("{:#?}", model);
 
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 

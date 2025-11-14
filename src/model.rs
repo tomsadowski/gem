@@ -21,7 +21,7 @@ use crossterm::{
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum Message {
-    Code(char), 
+    Code(char),
     Enter,
     Escape,
     Stop,
@@ -37,11 +37,26 @@ pub enum View {
     AddressBar(Vec<u8>), 
     Prompt(String),
     Message(String),
-    Text(i8, i8),
+    Text,
+}
+#[derive(Clone, Debug)]
+pub struct TextView {
+    pub text: GemTextDoc,
+    pub x: usize,
+    pub y: usize,
+}
+impl TextView {
+    pub fn new(str: String) -> Self {
+        Self {
+            text: GemTextDoc::new(str),
+            x: 0,
+            y: 0,
+        }
+    }
 }
 #[derive(Clone, Debug)]
 pub struct Model {
-    pub text: Option<GemTextDoc>,
+    pub text: Option<TextView>,
     pub current: Option<Url>,
     pub view: View,
     pub state: State,
@@ -81,13 +96,15 @@ impl Model {
             }
             Status::Success(variant, meta) => {
                 if meta.starts_with("text/") {
-                    (View::Text(0, 0), Some(GemTextDoc::new(content)))
+                    (View::Text, Some(TextView::new(content)))
                 } else {
-                    (View::Message(format!("Recieved nontext response: {}", meta)), None)
+                    (View::Message
+                     (format!("Recieved nontext response: {}", meta)), None)
                 }
             }
             Status::PermanentFailure(variant, meta) => {
-                (View::Message(format!("Permanent Failure {:?}: {:?}", variant, meta)), None)
+                (View::Message
+                 (format!("Permanent Failure {:?}: {:?}", variant, meta)), None)
             }
             Status::Redirect(variant, new_url) => {
                 (View::Prompt(format!("Redirect to {}?", new_url)), None)
@@ -110,8 +127,8 @@ impl Model {
 impl Widget for &Model {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let text = match &self.view {
-            View::Text(x, y) => {
-                format!("cursor at: ({}, {})\n{:#?}", x, y, self.text)
+            View::Text => {
+                format!("{:#?}", self.text)
             }
             View::Message(msg) => {
                 format!("Message: {}", msg)
@@ -139,12 +156,12 @@ pub fn update(model: Model, msg: Message) -> Model {
             m.view = View::Message("you pressed escape".to_string());
         }
         Message::Code(c) => {
-            if let View::Text(x, y) = m.view {
+            if let View::Text = m.view {
                 match c {
-                    constants::LEFT  => m.view = View::Text(x - 1, y),
-                    constants::RIGHT => m.view = View::Text(x + 1, y), 
-                    constants::UP    => m.view = View::Text(x, y - 1),
-                    constants::DOWN  => m.view = View::Text(x, y + 1),
+                    constants::LEFT  => {},
+                    constants::RIGHT => {}, 
+                    constants::UP    => {},
+                    constants::DOWN  => {},
                     _ => {}
                 }
             } else {
