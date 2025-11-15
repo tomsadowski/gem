@@ -11,52 +11,14 @@ pub enum Input {
     Input(i16),
     Sensitive,
 }
-impl Input {
-    pub fn new(code: i16) -> Option<Self> {
-        match code {
-            10 => 
-                Some(Self::Input(code)),
-            11 => 
-                Some(Self::Sensitive),
-            12..=19 => 
-                Some(Self::Input(code)),
-            _ => 
-                None,
-        }
-    }
-}
 #[derive(Debug, Clone)]
 pub enum Success {
     Success(i16),
-}
-impl Success {
-    pub fn new(code: i16) -> Option<Self> {
-        match code {
-            20..=29 => 
-                Some(Self::Success(code)),
-            _ => 
-                None,
-        }
-    }
 }
 #[derive(Debug, Clone)]
 pub enum Redirect {
     Temporary(i16),
     Permanent,
-}
-impl Redirect {
-    pub fn new(code: i16) -> Option<Self> {
-        match code {
-            30 => 
-                Some(Self::Temporary(code)),
-            31 => 
-                Some(Self::Permanent),
-            32..=39 => 
-                Some(Self::Temporary(code)),
-            _ => 
-                None,
-        }
-    }
 }
 #[derive(Debug, Clone)]
 pub enum TemporaryFailure {
@@ -66,26 +28,6 @@ pub enum TemporaryFailure {
     ProxyError,
     SlowDown,
 }
-impl TemporaryFailure {
-    pub fn new(code: i16) -> Option<Self> {
-        match code {
-            40 => 
-                Some(Self::TemporaryFailure(code)),
-            41 => 
-                Some(Self::ServerUnavailable),
-            42 => 
-                Some(Self::CGIError),
-            43 => 
-                Some(Self::ProxyError),
-            44 => 
-                Some(Self::SlowDown),          
-            45..=49 => 
-                Some(Self::TemporaryFailure(code)),
-            _ => 
-                None,
-        }
-    }
-}
 #[derive(Debug, Clone)]
 pub enum PermanentFailure {
     PermanentFailure(i16),
@@ -93,26 +35,6 @@ pub enum PermanentFailure {
     Gone,                 
     ProxyRequestRefused,  
     BadRequest,           
-}
-impl PermanentFailure {
-    pub fn new(code: i16) -> Option<Self> {
-        match code {
-            50 => 
-                Some(Self::PermanentFailure(code)),
-            51 => 
-                Some(Self::NotFound),
-            52 => 
-                Some(Self::Gone),
-            53 => 
-                Some(Self::ProxyRequestRefused),
-            54..=58 => 
-                Some(Self::PermanentFailure(code)),
-            59 => 
-                Some(Self::BadRequest),          
-            _ => 
-                None,
-        }
-    }
 }
 #[derive(Debug, Clone)]
 pub enum ClientCertificateRequired {
@@ -123,28 +45,6 @@ pub enum ClientCertificateRequired {
     FutureCertificateRejected,      
     ExpiredCertificateRejected,     
 } 
-impl ClientCertificateRequired {
-    pub fn new(code: i16) -> Option<Self> {
-        match code {
-            60 => 
-                Some(Self::ClientCertificateRequired(code)),
-            61 => 
-                Some(Self::TransientCertificateRequired),
-            62 => 
-                Some(Self::AuthorizedCertificateRequired),
-            63 => 
-                Some(Self::CertificateNotAccepted),
-            64 => 
-                Some(Self::FutureCertificateRejected),          
-            65 => 
-                Some(Self::ExpiredCertificateRejected),          
-            66..=69 => 
-                Some(Self::ClientCertificateRequired(code)),
-            _  => 
-                None,
-        }
-    }
-}
 #[derive(Debug, Clone)]
 pub enum Status {
     InputExpected(Input, String),
@@ -153,6 +53,75 @@ pub enum Status {
     TemporaryFailure(TemporaryFailure, String),
     PermanentFailure(PermanentFailure, String),
     ClientCertificateRequired(ClientCertificateRequired, String),
+}
+
+impl Input {
+    pub fn new(code: i16) -> Option<Self> {
+        match code {
+            10      => Some(Self::Input(code)),
+            11      => Some(Self::Sensitive),
+            12..=19 => Some(Self::Input(code)),
+            _       => None,
+        }
+    }
+}
+impl Success {
+    pub fn new(code: i16) -> Option<Self> {
+        match code {
+            20..=29 => Some(Self::Success(code)),
+            _       => None,
+        }
+    }
+}
+impl Redirect {
+    pub fn new(code: i16) -> Option<Self> {
+        match code {
+            30      => Some(Self::Temporary(code)),
+            31      => Some(Self::Permanent),
+            32..=39 => Some(Self::Temporary(code)),
+            _       => None,
+        }
+    }
+}
+impl TemporaryFailure {
+    pub fn new(code: i16) -> Option<Self> {
+        match code {
+            40      => Some(Self::TemporaryFailure(code)),
+            41      => Some(Self::ServerUnavailable),
+            42      => Some(Self::CGIError),
+            43      => Some(Self::ProxyError),
+            44      => Some(Self::SlowDown),          
+            45..=49 => Some(Self::TemporaryFailure(code)),
+            _       => None,
+        }
+    }
+}
+impl PermanentFailure {
+    pub fn new(code: i16) -> Option<Self> {
+        match code {
+            50      => Some(Self::PermanentFailure(code)),
+            51      => Some(Self::NotFound),
+            52      => Some(Self::Gone),
+            53      => Some(Self::ProxyRequestRefused),
+            54..=58 => Some(Self::PermanentFailure(code)),
+            59      => Some(Self::BadRequest),          
+            _       => None,
+        }
+    }
+}
+impl ClientCertificateRequired {
+    pub fn new(code: i16) -> Option<Self> {
+        match code {
+            60      => Some(Self::ClientCertificateRequired(code)),
+            61      => Some(Self::TransientCertificateRequired),
+            62      => Some(Self::AuthorizedCertificateRequired),
+            63      => Some(Self::CertificateNotAccepted),
+            64      => Some(Self::FutureCertificateRejected),          
+            65      => Some(Self::ExpiredCertificateRejected),          
+            66..=69 => Some(Self::ClientCertificateRequired(code)),
+            _       => None,
+        }
+    }
 }
 impl Status {
     pub fn new(code: i16, meta: String) -> Result<Self, String> {

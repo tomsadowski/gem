@@ -43,7 +43,7 @@ fn main() -> io::Result<()> {
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
     // main loop
-    while model.state != model::State::Stopped {
+    while !model.quit {
         // display model
         terminal.draw(|f| f.render_widget(&model, f.area()))?;
 

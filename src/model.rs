@@ -27,119 +27,151 @@ pub enum Message {
     Stop,
 }
 #[derive(Clone, PartialEq, Debug)]
-pub enum State {
-    Repair, 
-    Running, 
-    Stopped,
-}
-#[derive(Clone, PartialEq, Debug)]
-pub enum View {
+pub enum Dialog {
     AddressBar(Vec<u8>), 
-    Prompt(String),
+    Prompt(String, Vec<u8>),
     Message(String),
-    Text,
 }
 #[derive(Clone, Debug)]
-pub struct TextView {
-    pub text: GemTextDoc,
-    pub x: usize,
-    pub y: usize,
+pub enum Address {
+    Url(Url), 
+    String(String),
 }
-impl TextView {
-    pub fn new(str: String) -> Self {
-        Self {
-            text: GemTextDoc::new(str),
-            x: 0,
-            y: 0,
-        }
-    }
+#[derive(Clone, Debug)]
+pub enum Text {
+    GemText(GemTextDoc), 
+    String(String),
 }
 #[derive(Clone, Debug)]
 pub struct Model {
-    pub text: Option<TextView>,
-    pub current: Option<Url>,
-    pub view: View,
-    pub state: State,
+    pub dialog: Option<Dialog>,
+    pub address: Address,
+    pub text: Text,
+    pub quit: bool,
+    pub x: usize,
+    pub y: usize,
 } 
+impl Dialog {
+    pub fn init_from_response(status: Status) -> Option<Self> {
+        match status {
+            Status::InputExpected(variant, msg) => {
+                Some(
+                    Self::Prompt(
+                        format!("input: {}", msg), 
+                        vec![]
+                    )
+                )
+            }
+            Status::Success(variant, meta) => {
+                if meta.starts_with("text/") {
+                    None
+                } else {
+                    Some(
+                        Self::Prompt(
+                            format!("Download nontext type: {}?", meta), 
+                            vec![]
+                        )
+                    )
+                }
+            }
+            Status::TemporaryFailure(variant, meta) => {
+                None
+            }
+            Status::PermanentFailure(variant, meta) => {
+                None
+            }
+            Status::Redirect(variant, new_url) => {
+                Some(
+                    Self::Prompt(
+                        format!("Redirect to: {}?", new_url), 
+                        vec![]
+                    )
+                )
+            }
+            Status::ClientCertificateRequired(variant, meta) => {
+                Some(
+                    Self::Prompt(
+                        format!("Certificate required: {}", meta),
+                        vec![]
+                    )
+                )
+            }
+        }
+    }
+}
+impl Text {
+    pub fn init_from_response(status: Status, content: String) -> Self {
+        match status {
+            Status::InputExpected(variant, msg) => {
+                Self::String(content)
+            }
+            Status::Success(variant, meta) => {
+                if meta.starts_with("text/") {
+                    Self::GemText(GemTextDoc::new(content))
+                } else {
+                    Self::String(String::from("no text"))
+                }
+            }
+            Status::TemporaryFailure(variant, meta) => {
+                Self::String(format!("Temporary Failure {:?}: {:?}", variant, meta))
+            }
+            Status::PermanentFailure(variant, meta) => {
+                Self::String(format!("Permanent Failure {:?}: {:?}", variant, meta))
+            }
+            Status::Redirect(variant, new_url) => {
+                Self::String(format!("Redirect to: {}?", new_url))
+            }
+            Status::ClientCertificateRequired(variant, meta) => {
+                Self::String(format!("Certificate required: {}", meta))
+            }
+        }
+    }
+}
 impl Model {
     pub fn init(_url: &Option<Url>) -> Self {
         let Some(url) = _url else {
             return Self {
-                current: None,
-                text: None,
-                state: State::Running,
-                view: View::Message("nothing to display".to_string()),
+                address: Address::String(String::from("")),
+                text: Text::String(String::from("welcome")),
+                dialog: None,
+                quit: false,
+                x: 0,
+                y: 0,
             }
         };
-        Self::from_url(url)
-    }
-    fn from_url(url: &Url) -> Self {
-        let Ok((response, content)) = util::get_data(&url) else {
+        let Ok((header, content)) = util::get_data(&url) else {
             return Self {
-                current: None,
-                text: None,
-                state: State::Repair,
-                view: View::Message("could not get data".to_string()),
+                address: Address::Url(url.clone()),
+                text: Text::String(String::from("no get data")),
+                dialog: None,
+                quit: false,
+                x: 0,
+                y: 0,
             }
         };
-        let Ok(status) = Status::from_str(&response) else {
+        let Ok(status) = Status::from_str(&header) else {
             return Self {
-                current: None,
-                text: None,
-                state: State::Repair,
-                view: View::Message("could not parse status".to_string()),
-            }
-        };
-        let (view, text) = match status {
-            Status::InputExpected(variant, msg) => {
-                (View::Message(format!("input: {}", msg)), None)
-            }
-            Status::Success(variant, meta) => {
-                if meta.starts_with("text/") {
-                    (View::Text, Some(TextView::new(content)))
-                } else {
-                    (View::Message
-                     (format!("Recieved nontext response: {}", meta)), None)
-                }
-            }
-            Status::PermanentFailure(variant, meta) => {
-                (View::Message
-                 (format!("Permanent Failure {:?}: {:?}", variant, meta)), None)
-            }
-            Status::Redirect(variant, new_url) => {
-                (View::Prompt(format!("Redirect to {}?", new_url)), None)
-            }
-            Status::ClientCertificateRequired(variant, meta) => {
-                (View::Prompt(format!("Certificate required: {}", meta)), None)
-            }
-            _ => {
-                (View::Message(format!("status type not handled")), None)
+                address: Address::Url(url.clone()),
+                text: Text::String(String::from("could not parse status")),
+                dialog: None,
+                quit: false,
+                x: 0,
+                y: 0,
             }
         };
         Self {
-            view: view,
-            text: text,
-            state: State::Running,
-            current: Some(url.clone()),
+            address: Address::Url(url.clone()),
+            text: Text::init_from_response(status.clone(), content),
+            dialog: Dialog::init_from_response(status),
+            quit: false,
+            x: 0,
+            y: 0,
         }
     }
 } 
 impl Widget for &Model {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let text = match &self.view {
-            View::Text => {
-                format!("{:#?}", self.text)
-            }
-            View::Message(msg) => {
-                format!("Message: {}", msg)
-            }
-            View::Prompt(msg) => {
-                format!("Prompt: {}", msg)
-            }
-            View::AddressBar(v) => {
-                format!("Address Bar: {}", String::from_utf8_lossy(v))
-            }
-        };
+        let text = format!("{:#?}", self);
         buf.set_string(area.x, area.y, text, Style::default());
     }
 }
@@ -147,16 +179,16 @@ pub fn update(model: Model, msg: Message) -> Model {
     let mut m = model.clone();
     match msg {
         Message::Stop => { 
-            m.state = State::Stopped;
+            m.quit = true;
         }
         Message::Enter => {
-            m.view = View::Message("you pressed enter".to_string());
+            m.dialog = None;
         }
         Message::Escape => { 
-            m.view = View::Message("you pressed escape".to_string());
+            m.dialog = None;
         }
         Message::Code(c) => {
-            if let View::Text = m.view {
+            if let None = m.dialog {
                 match c {
                     constants::LEFT  => {},
                     constants::RIGHT => {}, 
@@ -165,7 +197,7 @@ pub fn update(model: Model, msg: Message) -> Model {
                     _ => {}
                 }
             } else {
-                m.view = View::Message(format!("you pressed {}", c)); 
+                m.dialog = Some(Dialog::Message(format!("you pressed {}", c))); 
             }
         }
     }
