@@ -32,38 +32,96 @@ use ratatui::{
 
 #[derive(Clone, Debug)]
 pub struct LineStyles {
-    pub heading3: Style,
-    pub heading2: Style,
-    pub heading1: Style,
+    pub heading_one: Style,
+    pub heading_two: Style,
+    pub heading_three: Style,
     pub link: Style,
+    pub list_item: Style,
     pub quote: Style,
     pub preformat: Style,
     pub text: Style,
+    pub plaintext: Style,
 }
 
 // Implements Widget by parsing ModelText onto a Vec of Spans
 #[derive(Clone, Debug)]
-pub struct DisplayModelText<'a> {
-    pub source:  ModelText,
-    pub text:    Vec<Span<'a>>,
+pub struct GemTextSpan<'a> {
+    pub source: GemTextLine,
+    pub span:   Span<'a>,
 }
-impl<'a> DisplayModelText<'a> {
-    fn parse_gemtext(text: &Vec<GemTextLine>, styles: LineStyles) -> Vec<Span<'a>> {
-        vec![]
-    }
-    fn parse_text(text: &str, styles: LineStyles) -> Vec<Span<'a>> {
-        vec![]
-    }
-    pub fn new(text: ModelText, styles: LineStyles) -> Self {
-        let spans = match text {
-            ModelText::GemText(ref lines) => 
-                Self::parse_gemtext(lines, styles),
-            ModelText::String(ref line)   => 
-                Self::parse_text(line, styles),
+impl<'a> GemTextSpan<'a> {
+    fn new(text: &GemTextLine, styles: &LineStyles) -> Self {
+        let span = match text.clone() {
+            GemTextLine::Text(s) => {
+                Span::from(s).style(styles.text)
+            }
+            GemTextLine::HeadingOne(s) => {
+                Span::from(s).style(styles.heading_one)
+            }
+            GemTextLine::HeadingTwo(s) => {
+                Span::from(s).style(styles.heading_two)
+            }
+            GemTextLine::HeadingThree(s) => {
+                Span::from(s).style(styles.heading_three)
+            }
+            GemTextLine::Link(link) => {
+                Span::from(link.get_text()).style(styles.link)
+            }
+            GemTextLine::Quote(s) => {
+                Span::from(s).style(styles.quote)
+            }
+            GemTextLine::ListItem(s) => {
+                Span::from(s).style(styles.list_item)
+            }
+            GemTextLine::PreFormat(s) => {
+                Span::from(s).style(styles.preformat)
+            }
         };
         Self {
-            source:  text,
-            text:    spans,
+            source: text.clone(),
+            span:   span,
+        }
+    }
+}
+
+// Implements Widget by parsing ModelText onto a Vec of Spans
+#[derive(Clone, Debug)]
+pub struct PlainTextSpan<'a> {
+    pub source: String,
+    pub span:   Span<'a>,
+}
+impl<'a> PlainTextSpan<'a> {
+    fn new(text: &'a str, styles: &LineStyles) -> Self {
+        Self {
+            source: String::from(text),
+            span:   Span::from(text).style(styles.plaintext),
+        }
+    }
+}
+
+// Implements Widget by parsing ModelText onto a Vec of Spans
+#[derive(Clone, Debug)]
+pub enum DisplayModelText<'a> {
+    GemText(Vec<GemTextSpan<'a>>),
+    PlainText(Vec<PlainTextSpan<'a>>),
+}
+impl<'a> DisplayModelText<'a> {
+    pub fn new(text: &'a ModelText, styles: LineStyles) -> Self {
+        match text {
+            ModelText::GemText(lines) => 
+                Self::GemText(
+                    lines
+                        .iter()
+                        .map(|line| GemTextSpan::new(line, &styles))
+                        .collect()
+                ),
+            ModelText::PlainText(lines)  => 
+                Self::PlainText(
+                    lines
+                        .iter()
+                        .map(|line| PlainTextSpan::new(line, &styles))
+                        .collect()
+                ),
         }
     }
 }
@@ -71,14 +129,14 @@ impl<'a> DisplayModelText<'a> {
 // Implements Widget by projecting Model onto Widgets
 #[derive(Clone, Debug)]
 pub struct DisplayModel<'a> {
-    pub source:  Model,
-    pub text:    DisplayModelText<'a>,
+    pub source: Model,
+    pub text:   DisplayModelText<'a>,
 }
 impl<'a> DisplayModel<'a> {
-    pub fn new(model: Model, styles: LineStyles) -> Self {
+    pub fn new(model: &'a Model, styles: LineStyles) -> Self {
         Self {
             source: model.clone(),
-            text: DisplayModelText::new(model.text, styles),
+            text:   DisplayModelText::new(&model.text, styles),
         }
     }
 }

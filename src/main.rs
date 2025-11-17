@@ -54,18 +54,24 @@ fn main() -> io::Result<()> {
     stdout().execute(EnterAlternateScreen)?;
 
     // data init
-    let url          = Url::parse(constants::INIT_LINK).ok();
-    let line_styles  = display::LineStyles {
-        heading3:  Style::default(),
-        heading2:  Style::default(),
-        heading1:  Style::default(),
-        link:      Style::default(),
-        quote:     Style::default(),
-        preformat: Style::default(),
-        text:      Style::default(),
+    let url         = Url::parse(constants::INIT_LINK).ok();
+
+    let line_styles = display::LineStyles {
+        heading_three: Style::default(),
+        heading_two:   Style::default(),
+        heading_one:   Style::default(),
+        link:          Style::default(),
+        list_item:     Style::default(),
+        quote:         Style::default(),
+        preformat:     Style::default(),
+        plaintext:     Style::default(),
+        text:          Style::default(),
     };
+
+    let model = model::Model::init(&url);
     let mut display  = 
-        display::DisplayModel::new(model::Model::init(&url), line_styles);
+        display::DisplayModel::new(&model, line_styles);
+
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
     // main loop

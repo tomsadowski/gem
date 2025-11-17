@@ -12,19 +12,23 @@ use crate::{
 
 
 #[derive(Clone, PartialEq, Debug)]
-pub enum Heading { 
-    One(String), 
-    Two(String),
-    Three(String),
-}
-
-#[derive(Clone, PartialEq, Debug)]
 pub enum Link {
     Gemini(Url, String),
     Gopher(Url, String),
     Http(Url, String),
     Relative(String, String),
     Unknown(Url, String),
+}
+impl Link {
+    pub fn get_text(self) -> String {
+        match self {
+            Self::Gemini(url, text)      => text,
+            Self::Gopher(url, text)      => text,
+            Self::Http(url, text)        => text,
+            Self::Relative(text1, text2) => text2,
+            Self::Unknown(url, text)     => text,
+        }
+    }
 }
 impl FromStr for Link {
 
@@ -89,69 +93,69 @@ impl FromStr for Link {
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum GemTextLine {
+    HeadingOne(String),
+    HeadingTwo(String),
+    HeadingThree(String),
     Text(String), 
+    PreFormat(String),
     Link(Link),
-    Heading(Heading),
     ListItem(String),
     Quote(String),
-    Toggle,
 } 
+
 impl GemTextLine {
 
-    pub fn parse_doc(lines: Vec<&str>) -> Result<Vec<GemTextLine>, String> {
+    pub fn parse_doc(lines: Vec<&str>) -> Result<Vec<Self>, String> {
 
         let mut vec = vec![];
-        let mut preformat_flag = false;
         let mut lines_iter = lines.iter();
 
-        let Some(first_string) = lines_iter.next() 
+        // return empty output if empty input
+        let Some(first_line) = lines_iter.next() 
             else {return Ok(vec)};
 
-        let mut formatted = Self::get_formatted(first_string)
-            .or_else(|e| Err(format!("{}", e)))?;
+        let mut preformat_flag = Self::is_toggle(first_line);
 
-        if formatted == Self::Toggle {
-            preformat_flag = true;
-        } 
-        else {
+        if !preformat_flag {
+            // return error if cannot parse formatted line
+            let formatted = Self::parse_formatted(first_line)
+                .or_else(|e| Err(format!("{}", e)))?;
             vec.push(formatted);
         }
 
-        for l in lines_iter {
-
-            formatted = Self::get_formatted(l)
-                .or_else(|e| Err(format!("{}", e)))?;
-
-            if !preformat_flag {
-                match formatted {
-                    Self::Toggle => 
-                        preformat_flag = true,
-                    f => 
-                        vec.push(f),
-                }
+        // parse remaining lines
+        for line in lines_iter {
+            if Self::is_toggle(line) {
+                preformat_flag = !preformat_flag;
             } 
+            else if preformat_flag {
+                vec.push(Self::PreFormat(line.to_string()));
+            }
             else {
-                match formatted {
-                    Self::Toggle => 
-                        preformat_flag = false,
-                    f => 
-                        vec.push(Self::Text(l.to_string())),
-                }
+                let formatted = Self::parse_formatted(line)
+                    .or_else(|e| Err(format!("{}", e)))?;
+                vec.push(formatted);
             }
         }
 
         Ok(vec)
     }
 
-    fn get_formatted(line: &str) -> Result<GemTextLine, String> {
+    fn is_toggle(line: &str) -> bool {
+        if let Some((symbol, text)) = line.split_at_checked(3) {
+            if symbol == constants::TOGGLE_SYMBOL {
+                return true
+            }
+        }
+        return false
+    }
+
+    fn parse_formatted(line: &str) -> Result<GemTextLine, String> {
 
         // look for 3 character symbols
         if let Some((symbol, text)) = line.split_at_checked(3) {
-            if symbol == constants::TOGGLE_SYMBOL {
-                return Ok(GemTextLine::Toggle)
-            }
             if symbol == constants::HEADING_3_SYMBOL {
-                return Ok(GemTextLine::Heading(Heading::Three(text.to_string())))
+                return Ok(GemTextLine::HeadingThree(text.to_string()))
             }
         }
 
@@ -163,7 +167,7 @@ impl GemTextLine {
                 return Ok(GemTextLine::Link(link))
             }
             if symbol == constants::HEADING_2_SYMBOL {
-                return Ok(GemTextLine::Heading(Heading::Two(text.to_string())))
+                return Ok(GemTextLine::HeadingTwo(text.to_string()))
             }
         }
 
@@ -176,7 +180,7 @@ impl GemTextLine {
                 return Ok(GemTextLine::ListItem(text.to_string()))
             }
             if symbol == constants::HEADING_1_SYMBOL {
-                return Ok(GemTextLine::Heading(Heading::One(text.to_string())))
+                return Ok(GemTextLine::HeadingOne(text.to_string()))
             }
         }
 

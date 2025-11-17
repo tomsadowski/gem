@@ -96,13 +96,21 @@ impl Dialog {
 #[derive(Clone, Debug)]
 pub enum ModelText {
     GemText(Vec<GemTextLine>), 
-    String(String),
+    PlainText(Vec<String>),
 }
 impl ModelText {
+    pub fn plain_text(content: String) -> Self {
+        Self::PlainText(
+            content
+                .lines()
+                .map(|s| String::from(s))
+                .collect()
+        )
+    }
     pub fn init_from_response(status: Status, content: String) -> Self {
         match status {
             Status::InputExpected(variant, msg) => {
-                Self::String(content)
+                Self::plain_text(content)
             }
             Status::Success(variant, meta) => {
                 if meta.starts_with("text/") {
@@ -110,20 +118,20 @@ impl ModelText {
                             content.lines().collect()).unwrap())
                 } 
                 else {
-                    Self::String(String::from("no text"))
+                    Self::plain_text(String::from("no text"))
                 }
             }
             Status::TemporaryFailure(variant, meta) => {
-                Self::String(format!("Temporary Failure {:?}: {:?}", variant, meta))
+                Self::plain_text(format!("Temporary Failure {:?}: {:?}", variant, meta))
             }
             Status::PermanentFailure(variant, meta) => {
-                Self::String(format!("Permanent Failure {:?}: {:?}", variant, meta))
+                Self::plain_text(format!("Permanent Failure {:?}: {:?}", variant, meta))
             }
             Status::Redirect(variant, new_url) => {
-                Self::String(format!("Redirect to: {}?", new_url))
+                Self::plain_text(format!("Redirect to: {}?", new_url))
             }
             Status::ClientCertificateRequired(variant, meta) => {
-                Self::String(format!("Certificate required: {}", meta))
+                Self::plain_text(format!("Certificate required: {}", meta))
             }
         }
     }
@@ -140,36 +148,40 @@ pub struct Model {
 } 
 impl Model {
     pub fn init(_url: &Option<Url>) -> Self {
+        // return now if no url provided
         let Some(url) = _url else {
             return Self {
                 address: Address::String(String::from("")),
-                text:    ModelText::String(String::from("welcome")),
+                text:    ModelText::plain_text(String::from("welcome")),
                 dialog:  None,
                 quit:    false,
                 x:       0,
                 y:       0,
             }
         };
+        // return now if data retrieval fails
         let Ok((header, content)) = util::get_data(&url) else {
             return Self {
                 address: Address::Url(url.clone()),
-                text:    ModelText::String(String::from("no get data")),
+                text:    ModelText::plain_text(String::from("no get data")),
                 dialog:  None,
                 quit:    false,
                 x:       0,
                 y:       0,
             }
         };
+        // return now if status parsing fails
         let Ok(status) = Status::from_str(&header) else {
             return Self {
                 address: Address::Url(url.clone()),
-                text:    ModelText::String(String::from("could not parse status")),
+                text:    ModelText::plain_text(String::from("could not parse status")),
                 dialog:  None,
                 quit:    false,
                 x:       0,
                 y:       0,
             }
         };
+        // return model
         Self {
             address: Address::Url(url.clone()),
             text:    ModelText::init_from_response(status.clone(), content),

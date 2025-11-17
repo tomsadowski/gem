@@ -88,54 +88,73 @@ impl Status {
 
             // TemporaryFailure
             40      => 
-                Ok(Self::TemporaryFailure(TemporaryFailure::TemporaryFailure(code), meta)),
+                Ok(Self::TemporaryFailure(
+                    TemporaryFailure::TemporaryFailure(code), meta)),
             41      => 
-                Ok(Self::TemporaryFailure(TemporaryFailure::ServerUnavailable, meta)),
+                Ok(Self::TemporaryFailure(
+                    TemporaryFailure::ServerUnavailable, meta)),
             42      => 
-                Ok(Self::TemporaryFailure(TemporaryFailure::CGIError, meta)),
+                Ok(Self::TemporaryFailure(
+                    TemporaryFailure::CGIError, meta)),
             43      => 
-                Ok(Self::TemporaryFailure(TemporaryFailure::ProxyError, meta)),
+                Ok(Self::TemporaryFailure(
+                    TemporaryFailure::ProxyError, meta)),
             44      => 
-                Ok(Self::TemporaryFailure(TemporaryFailure::SlowDown, meta)),          
+                Ok(Self::TemporaryFailure(
+                    TemporaryFailure::SlowDown, meta)),          
             45..=49 => 
-                Ok(Self::TemporaryFailure(TemporaryFailure::TemporaryFailure(code), meta)),
+                Ok(Self::TemporaryFailure(
+                    TemporaryFailure::TemporaryFailure(code), meta)),
 
             // Permanent Failure
             50      => 
-                Ok(Self::PermanentFailure(PermanentFailure::PermanentFailure(code), meta)),
+                Ok(Self::PermanentFailure(
+                    PermanentFailure::PermanentFailure(code), meta)),
             51      => 
-                Ok(Self::PermanentFailure(PermanentFailure::NotFound, meta)),
+                Ok(Self::PermanentFailure(
+                    PermanentFailure::NotFound, meta)),
             52      => 
-                Ok(Self::PermanentFailure(PermanentFailure::Gone, meta)),
+                Ok(Self::PermanentFailure(
+                    PermanentFailure::Gone, meta)),
             53      => 
-                Ok(Self::PermanentFailure(PermanentFailure::ProxyRequestRefused, meta)),
+                Ok(Self::PermanentFailure(
+                    PermanentFailure::ProxyRequestRefused, meta)),
             54..=58 => 
-                Ok(Self::PermanentFailure(PermanentFailure::PermanentFailure(code), meta)),
+                Ok(Self::PermanentFailure(
+                    PermanentFailure::PermanentFailure(code), meta)),
             59      => 
-                Ok(Self::PermanentFailure(PermanentFailure::BadRequest, meta)),
+                Ok(Self::PermanentFailure(
+                    PermanentFailure::BadRequest, meta)),
 
             // Client Certificate Required
             60      => 
                 Ok(Self::ClientCertificateRequired(
-                    ClientCertificateRequired::ClientCertificateRequired(code), meta)),
+                    ClientCertificateRequired::ClientCertificateRequired(code), 
+                    meta)),
             61      => 
                 Ok(Self::ClientCertificateRequired(
-                    ClientCertificateRequired::TransientCertificateRequired, meta)),
+                    ClientCertificateRequired::TransientCertificateRequired, 
+                    meta)),
             62      => 
                 Ok(Self::ClientCertificateRequired(
-                    ClientCertificateRequired::AuthorizedCertificateRequired, meta)),
+                    ClientCertificateRequired::AuthorizedCertificateRequired, 
+                    meta)),
             63      => 
                 Ok(Self::ClientCertificateRequired(
-                    ClientCertificateRequired::CertificateNotAccepted, meta)),
+                    ClientCertificateRequired::CertificateNotAccepted, 
+                    meta)),
             64      => 
                 Ok(Self::ClientCertificateRequired(
-                    ClientCertificateRequired::FutureCertificateRejected, meta)),
+                    ClientCertificateRequired::FutureCertificateRejected, 
+                    meta)),
             65      => 
                 Ok(Self::ClientCertificateRequired(
-                    ClientCertificateRequired::ExpiredCertificateRejected, meta)),          
+                    ClientCertificateRequired::ExpiredCertificateRejected, 
+                    meta)),
             66..=69 => 
                 Ok(Self::ClientCertificateRequired(
-                    ClientCertificateRequired::ClientCertificateRequired(code), meta)),
+                    ClientCertificateRequired::ClientCertificateRequired(code), 
+                    meta)),
 
             _ => Err(format!("this =>>> ({}) ? ... is not meth", code)),
         }
