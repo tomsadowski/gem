@@ -2,6 +2,7 @@
 
 // *** BEGIN IMPORTS ***
 use crate::{
+    styles::LineStyles,
     model::{
         Model, 
         ModelText
@@ -15,7 +16,8 @@ use ratatui::{
     text::{
         Line,
         Span,
-        Text
+        Text,
+        ToLine,
     },
     style::{
         Color, 
@@ -29,19 +31,6 @@ use ratatui::{
 };
 // *** END IMPORTS ***
 
-
-#[derive(Clone, Debug)]
-pub struct LineStyles {
-    pub heading_one: Style,
-    pub heading_two: Style,
-    pub heading_three: Style,
-    pub link: Style,
-    pub list_item: Style,
-    pub quote: Style,
-    pub preformat: Style,
-    pub text: Style,
-    pub plaintext: Style,
-}
 
 // Implements Widget by parsing ModelText onto a Vec of Spans
 #[derive(Clone, Debug)]
@@ -115,7 +104,7 @@ impl<'a> DisplayModelText<'a> {
                         .map(|line| GemTextSpan::new(line, &styles))
                         .collect()
                 ),
-            ModelText::PlainText(lines)  => 
+            ModelText::PlainText(lines) => 
                 Self::PlainText(
                     lines
                         .iter()
@@ -123,6 +112,33 @@ impl<'a> DisplayModelText<'a> {
                         .collect()
                 ),
         }
+    }
+}
+impl<'a> Widget for &DisplayModelText<'a> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let lines: Vec<Line> = match self {
+            DisplayModelText::GemText(vec) => {
+                vec
+                    .iter()
+                    .map(|gemtext| 
+                        gemtext.span
+                            .to_line()
+                            .style(gemtext.span.style))
+                    .collect()
+            }
+            DisplayModelText::PlainText(vec) => {
+                vec
+                    .iter()
+                    .map(|plaintext| 
+                        plaintext.span
+                            .to_line()
+                            .style(plaintext.span.style))
+                    .collect()
+            }
+        };
+        Paragraph::new(lines)
+            .wrap(Wrap { trim: true })
+            .render(area, buf);
     }
 }
 
@@ -142,10 +158,11 @@ impl<'a> DisplayModel<'a> {
 }
 impl<'a> Widget for &DisplayModel<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let text = format!("{:#?}", self.text);
-        Paragraph::new(text)
-            .wrap(Wrap { trim: true })
-            .scroll((self.source.y, self.source.x))
-            .render(area, buf);
+        self.text.render(area, buf);
+     // let text = format!("{:#?}", self.text);
+     // Paragraph::new(text)
+     //     .wrap(Wrap { trim: true })
+     //     .scroll((self.source.y, self.source.x))
+     //     .render(area, buf);
     }
 }

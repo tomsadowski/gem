@@ -163,7 +163,7 @@ impl Model {
         let Ok((header, content)) = util::get_data(&url) else {
             return Self {
                 address: Address::Url(url.clone()),
-                text:    ModelText::plain_text(String::from("no get data")),
+                text:    ModelText::plain_text(String::from("data retrieval failed")),
                 dialog:  None,
                 quit:    false,
                 x:       0,
