@@ -8,20 +8,24 @@ use crate::{
 };
 // *** END IMPORTS ***
 
+
 #[derive(Debug, Clone)]
 pub enum Input {
     Input(i16),
     Sensitive,
 }
+
 #[derive(Debug, Clone)]
 pub enum Success {
     Success(i16),
 }
+
 #[derive(Debug, Clone)]
 pub enum Redirect {
     Temporary(i16),
     Permanent,
 }
+
 #[derive(Debug, Clone)]
 pub enum TemporaryFailure {
     TemporaryFailure(i16),
@@ -30,6 +34,7 @@ pub enum TemporaryFailure {
     ProxyError,
     SlowDown,
 }
+
 #[derive(Debug, Clone)]
 pub enum PermanentFailure {
     PermanentFailure(i16),
@@ -38,6 +43,7 @@ pub enum PermanentFailure {
     ProxyRequestRefused,  
     BadRequest,           
 }
+
 #[derive(Debug, Clone)]
 pub enum ClientCertificateRequired {
     ClientCertificateRequired(i16),
@@ -47,6 +53,7 @@ pub enum ClientCertificateRequired {
     FutureCertificateRejected,      
     ExpiredCertificateRejected,     
 } 
+
 #[derive(Debug, Clone)]
 pub enum Status {
     InputExpected(Input, String),
@@ -56,96 +63,82 @@ pub enum Status {
     PermanentFailure(PermanentFailure, String),
     ClientCertificateRequired(ClientCertificateRequired, String),
 }
-
-impl Input {
-    pub fn new(code: i16) -> Option<Self> {
-        match code {
-            10      => Some(Self::Input(code)),
-            11      => Some(Self::Sensitive),
-            12..=19 => Some(Self::Input(code)),
-            _       => None,
-        }
-    }
-}
-impl Success {
-    pub fn new(code: i16) -> Option<Self> {
-        match code {
-            20..=29 => Some(Self::Success(code)),
-            _       => None,
-        }
-    }
-}
-impl Redirect {
-    pub fn new(code: i16) -> Option<Self> {
-        match code {
-            30      => Some(Self::Temporary(code)),
-            31      => Some(Self::Permanent),
-            32..=39 => Some(Self::Temporary(code)),
-            _       => None,
-        }
-    }
-}
-impl TemporaryFailure {
-    pub fn new(code: i16) -> Option<Self> {
-        match code {
-            40      => Some(Self::TemporaryFailure(code)),
-            41      => Some(Self::ServerUnavailable),
-            42      => Some(Self::CGIError),
-            43      => Some(Self::ProxyError),
-            44      => Some(Self::SlowDown),          
-            45..=49 => Some(Self::TemporaryFailure(code)),
-            _       => None,
-        }
-    }
-}
-impl PermanentFailure {
-    pub fn new(code: i16) -> Option<Self> {
-        match code {
-            50      => Some(Self::PermanentFailure(code)),
-            51      => Some(Self::NotFound),
-            52      => Some(Self::Gone),
-            53      => Some(Self::ProxyRequestRefused),
-            54..=58 => Some(Self::PermanentFailure(code)),
-            59      => Some(Self::BadRequest),          
-            _       => None,
-        }
-    }
-}
-impl ClientCertificateRequired {
-    pub fn new(code: i16) -> Option<Self> {
-        match code {
-            60      => Some(Self::ClientCertificateRequired(code)),
-            61      => Some(Self::TransientCertificateRequired),
-            62      => Some(Self::AuthorizedCertificateRequired),
-            63      => Some(Self::CertificateNotAccepted),
-            64      => Some(Self::FutureCertificateRejected),          
-            65      => Some(Self::ExpiredCertificateRejected),          
-            66..=69 => Some(Self::ClientCertificateRequired(code)),
-            _       => None,
-        }
-    }
-}
 impl Status {
     pub fn new(code: i16, meta: String) -> Result<Self, String> {
-        if let Some(status) = Input::new(code) {
-            return Ok(Status::InputExpected(status, meta))
-        } 
-        else if let Some(status) = Success::new(code) {
-            return Ok(Status::Success(status, meta))
-        } 
-        else if let Some(status) = Redirect::new(code) {
-            return Ok(Status::Redirect(status, meta))
+
+        match code {
+
+            // Input Expected
+            10      => 
+                Ok(Self::InputExpected(Input::Input(code), meta)),
+            11      => 
+                Ok(Self::InputExpected(Input::Sensitive, meta)),
+            12..=19 => 
+                Ok(Self::InputExpected(Input::Input(code), meta)),
+
+            // Success
+            20..=29 => 
+                Ok(Self::Success(Success::Success(code), meta)),
+            30      => 
+                Ok(Self::Redirect(Redirect::Temporary(code), meta)),
+            31      => 
+                Ok(Self::Redirect(Redirect::Permanent, meta)),
+            32..=39 => 
+                Ok(Self::Redirect(Redirect::Temporary(code), meta)),
+
+            // TemporaryFailure
+            40      => 
+                Ok(Self::TemporaryFailure(TemporaryFailure::TemporaryFailure(code), meta)),
+            41      => 
+                Ok(Self::TemporaryFailure(TemporaryFailure::ServerUnavailable, meta)),
+            42      => 
+                Ok(Self::TemporaryFailure(TemporaryFailure::CGIError, meta)),
+            43      => 
+                Ok(Self::TemporaryFailure(TemporaryFailure::ProxyError, meta)),
+            44      => 
+                Ok(Self::TemporaryFailure(TemporaryFailure::SlowDown, meta)),          
+            45..=49 => 
+                Ok(Self::TemporaryFailure(TemporaryFailure::TemporaryFailure(code), meta)),
+
+            // Permanent Failure
+            50      => 
+                Ok(Self::PermanentFailure(PermanentFailure::PermanentFailure(code), meta)),
+            51      => 
+                Ok(Self::PermanentFailure(PermanentFailure::NotFound, meta)),
+            52      => 
+                Ok(Self::PermanentFailure(PermanentFailure::Gone, meta)),
+            53      => 
+                Ok(Self::PermanentFailure(PermanentFailure::ProxyRequestRefused, meta)),
+            54..=58 => 
+                Ok(Self::PermanentFailure(PermanentFailure::PermanentFailure(code), meta)),
+            59      => 
+                Ok(Self::PermanentFailure(PermanentFailure::BadRequest, meta)),
+
+            // Client Certificate Required
+            60      => 
+                Ok(Self::ClientCertificateRequired(
+                    ClientCertificateRequired::ClientCertificateRequired(code), meta)),
+            61      => 
+                Ok(Self::ClientCertificateRequired(
+                    ClientCertificateRequired::TransientCertificateRequired, meta)),
+            62      => 
+                Ok(Self::ClientCertificateRequired(
+                    ClientCertificateRequired::AuthorizedCertificateRequired, meta)),
+            63      => 
+                Ok(Self::ClientCertificateRequired(
+                    ClientCertificateRequired::CertificateNotAccepted, meta)),
+            64      => 
+                Ok(Self::ClientCertificateRequired(
+                    ClientCertificateRequired::FutureCertificateRejected, meta)),
+            65      => 
+                Ok(Self::ClientCertificateRequired(
+                    ClientCertificateRequired::ExpiredCertificateRejected, meta)),          
+            66..=69 => 
+                Ok(Self::ClientCertificateRequired(
+                    ClientCertificateRequired::ClientCertificateRequired(code), meta)),
+
+            _ => Err(format!("this =>>> ({}) ? ... is not meth", code)),
         }
-        else if let Some(status) = TemporaryFailure::new(code) {
-            return Ok(Status::TemporaryFailure(status, meta))
-        }
-        if let Some(status) = PermanentFailure::new(code) {
-            return Ok(Status::PermanentFailure(status, meta))
-        }
-        else if let Some(status) = ClientCertificateRequired::new(code) {
-            return Ok(Status::ClientCertificateRequired(status, meta))
-        }
-        Err(format!("this =>>> ({}) ? ... is not meth", code))
     }
 } 
 impl FromStr for Status {
@@ -174,8 +167,6 @@ impl FromStr for Status {
             .to_string();
 
         // return Result
-        let status = Status::new(code, meta)
-            .or_else(|e| Err(e))?;
-        Ok(status)
+        Status::new(code, meta)
     }
 }

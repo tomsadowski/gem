@@ -1,12 +1,19 @@
 // util
 
 // *** BEGIN IMPORTS ***
-use std::io::{Read, Write};
-use tempfile::NamedTempFile;
 use native_tls::TlsConnector;
-use std::net::{TcpStream, ToSocketAddrs};
 use std::time::Duration;
+use tempfile::NamedTempFile;
+use std::io::{
+    Read, 
+    Write
+};
+use std::net::{
+    TcpStream, 
+    ToSocketAddrs
+};
 // *** END IMPORTS ***
+
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ParseError;

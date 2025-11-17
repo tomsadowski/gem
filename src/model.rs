@@ -5,12 +5,15 @@ use url::Url;
 use std::str::FromStr;
 use crate::{
     util, 
-    gemtext::GemTextDoc,
+    gemtext::{
+        GemTextLine
+    },
     gemstatus::Status,
     constants,
 };
 use crossterm::{
-    event::{self, 
+    event::{
+        self, 
         KeyModifiers, 
         KeyEvent, 
         Event, 
@@ -20,38 +23,26 @@ use crossterm::{
 // *** END IMPORTS ***
 
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Debug)]
 pub enum Message {
     Code(char),
     Enter,
     Escape,
     Stop,
 }
-#[derive(Clone, PartialEq, Debug)]
-pub enum Dialog {
-    AddressBar(Vec<u8>), 
-    Prompt(String, Vec<u8>),
-    Message(String),
-}
+
 #[derive(Clone, Debug)]
 pub enum Address {
     Url(Url), 
     String(String),
 }
+
 #[derive(Clone, Debug)]
-pub enum Text {
-    GemText(GemTextDoc), 
-    String(String),
+pub enum Dialog {
+    AddressBar(Vec<u8>), 
+    Prompt(String, Vec<u8>),
+    Message(String),
 }
-#[derive(Clone, Debug)]
-pub struct Model {
-    pub dialog:  Option<Dialog>,
-    pub address: Address,
-    pub text:    Text,
-    pub quit:    bool,
-    pub x:       usize,
-    pub y:       usize,
-} 
 impl Dialog {
     pub fn init_from_response(status: Status) -> Option<Self> {
         match status {
@@ -66,7 +57,8 @@ impl Dialog {
             Status::Success(variant, meta) => {
                 if meta.starts_with("text/") {
                     None
-                } else {
+                } 
+                else {
                     Some(
                         Self::Prompt(
                             format!("Download nontext type: {}?", meta), 
@@ -100,7 +92,13 @@ impl Dialog {
         }
     }
 }
-impl Text {
+
+#[derive(Clone, Debug)]
+pub enum ModelText {
+    GemText(Vec<GemTextLine>), 
+    String(String),
+}
+impl ModelText {
     pub fn init_from_response(status: Status, content: String) -> Self {
         match status {
             Status::InputExpected(variant, msg) => {
@@ -108,8 +106,10 @@ impl Text {
             }
             Status::Success(variant, meta) => {
                 if meta.starts_with("text/") {
-                    Self::GemText(GemTextDoc::new(content))
-                } else {
+                    Self::GemText(GemTextLine::parse_doc(
+                            content.lines().collect()).unwrap())
+                } 
+                else {
                     Self::String(String::from("no text"))
                 }
             }
@@ -128,12 +128,22 @@ impl Text {
         }
     }
 }
+
+#[derive(Clone, Debug)]
+pub struct Model {
+    pub dialog:  Option<Dialog>,
+    pub address: Address,
+    pub text:    ModelText,
+    pub quit:    bool,
+    pub x:       u16,
+    pub y:       u16,
+} 
 impl Model {
     pub fn init(_url: &Option<Url>) -> Self {
         let Some(url) = _url else {
             return Self {
                 address: Address::String(String::from("")),
-                text:    Text::String(String::from("welcome")),
+                text:    ModelText::String(String::from("welcome")),
                 dialog:  None,
                 quit:    false,
                 x:       0,
@@ -143,7 +153,7 @@ impl Model {
         let Ok((header, content)) = util::get_data(&url) else {
             return Self {
                 address: Address::Url(url.clone()),
-                text:    Text::String(String::from("no get data")),
+                text:    ModelText::String(String::from("no get data")),
                 dialog:  None,
                 quit:    false,
                 x:       0,
@@ -153,7 +163,7 @@ impl Model {
         let Ok(status) = Status::from_str(&header) else {
             return Self {
                 address: Address::Url(url.clone()),
-                text:    Text::String(String::from("could not parse status")),
+                text:    ModelText::String(String::from("could not parse status")),
                 dialog:  None,
                 quit:    false,
                 x:       0,
@@ -162,7 +172,7 @@ impl Model {
         };
         Self {
             address: Address::Url(url.clone()),
-            text:    Text::init_from_response(status.clone(), content),
+            text:    ModelText::init_from_response(status.clone(), content),
             dialog:  Dialog::init_from_response(status),
             quit:    false,
             x:       0,
@@ -170,6 +180,7 @@ impl Model {
         }
     }
 } 
+
 pub fn update(model: Model, msg: Message) -> Model {
     let mut m = model.clone();
     match msg {
@@ -185,19 +196,33 @@ pub fn update(model: Model, msg: Message) -> Model {
         Message::Code(c) => {
             if let None = m.dialog {
                 match c {
-                    constants::LEFT  => {},
-                    constants::RIGHT => {}, 
-                    constants::UP    => {},
-                    constants::DOWN  => {},
+                    constants::LEFT  => {
+                        if m.x > 0 { 
+                            m.x = m.x - 1;
+                        }
+                    }
+                    constants::UP    => {
+                        if m.y > 0 { 
+                            m.y = m.y - 1;
+                        }
+                    }
+                    constants::RIGHT => {
+                        m.x = m.x + 1;
+                    }
+                    constants::DOWN  => {
+                        m.y = m.y + 1;
+                    }
                     _ => {}
                 }
-            } else {
+            } 
+            else {
                 m.dialog = Some(Dialog::Message(format!("you pressed {}", c))); 
             }
         }
     }
     m
 }
+
 pub fn handle_event(event: event::Event) -> Option<Message> {
     let Event::Key(keyevent) = event 
         else {return None};

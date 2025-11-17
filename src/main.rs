@@ -1,8 +1,11 @@
+// main
+
 #![allow(unused_variables)]
+#![allow(unused_imports)]
 #![allow(dead_code)]
 
 mod model;
-mod widget;
+mod display;
 mod gemtext;
 mod gemstatus;
 mod constants;
@@ -16,6 +19,21 @@ use std::io::{
 };
 use crossterm::event;
 use ratatui::{
+    prelude::*, 
+    text::{
+        Line,
+        Span,
+        Text
+    },
+    style::{
+        Color, 
+        Style, 
+        Modifier,
+    },
+    widgets::{
+        Paragraph,
+        Wrap
+    },
     Terminal,
     backend::CrosstermBackend, 
     crossterm::{
@@ -28,6 +46,7 @@ use ratatui::{
 };
 // *** END IMPORTS ***
 
+
 fn main() -> io::Result<()> {
 
     // enter alternate screen
@@ -35,20 +54,29 @@ fn main() -> io::Result<()> {
     stdout().execute(EnterAlternateScreen)?;
 
     // data init
-    // TODO: init with fun stuff
-    let url = Url::parse(constants::INIT_LINK).ok();
-    let mut model = model::Model::init(&url);
-
+    let url          = Url::parse(constants::INIT_LINK).ok();
+    let line_styles  = display::LineStyles {
+        heading3:  Style::default(),
+        heading2:  Style::default(),
+        heading1:  Style::default(),
+        link:      Style::default(),
+        quote:     Style::default(),
+        preformat: Style::default(),
+        text:      Style::default(),
+    };
+    let mut display  = 
+        display::DisplayModel::new(model::Model::init(&url), line_styles);
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
     // main loop
-    while !model.quit {
+    while !display.source.quit {
+
         // display model
-        terminal.draw(|f| f.render_widget(&model, f.area()))?;
+        terminal.draw(|f| f.render_widget(&display, f.area()))?;
 
         // update model with event message
         if let Some(message) = model::handle_event(event::read()?) {
-            model = model::update(model, message);
+            display.source = model::update(display.source, message);
         }
     }
 
