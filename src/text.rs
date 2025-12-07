@@ -1,30 +1,26 @@
 // text
 
 use crate::{
-    gemini::status::Status,
-    gemini::gemtext::GemTextLine,
-    gemini::gemtext::GemTextData,
-    view::styles::LineStyles,
+    gemini::Status,
+    gemini::GemTextLine,
+    gemini::GemTextData,
+    view::LineStyles,
 };
 use crossterm::{
     style::Colors,
 };
 
 
-
 #[derive(Clone, Debug)]
-pub struct GemTextBlock
-{
+pub struct GemTextBlock {
     data:    GemTextData,
     text:    Vec<String>,
     style:   Colors,
     height:  usize,
     current: usize,
 }
-impl GemTextBlock
-{
-    fn new(line: &GemTextLine, styles: &LineStyles, size: (u16, u16)) -> Self 
-    {
+impl GemTextBlock {
+    fn new(line: &GemTextLine, styles: &LineStyles, size: (u16, u16)) -> Self {
         let style = styles.get_colors(line.data.clone());
         
         let width = usize::from(size.0);
@@ -46,8 +42,7 @@ impl GemTextBlock
         (self.data.clone(), self.text[self.current].clone())
     }
 
-    pub fn move_cursor_up(&mut self) -> bool
-    {
+    pub fn move_cursor_up(&mut self) -> bool {
         if self.current > 0 { 
             self.current -= 1;
             return true;
@@ -57,8 +52,7 @@ impl GemTextBlock
         }
     }
 
-    pub fn move_cursor_down(&mut self) -> bool
-    {
+    pub fn move_cursor_down(&mut self) -> bool {
         if self.current < self.text.len() - 1 {
             self.current += 1;
             return true;
@@ -71,17 +65,14 @@ impl GemTextBlock
 
 // the model's main viewport
 #[derive(Clone, Debug)]
-pub struct GemTextView
-{
+pub struct GemTextView {
     text:    Vec<GemTextBlock>,
     styles:  LineStyles,
     size:    (u16, u16),
     current: usize,
 }
-impl GemTextView 
-{
-    pub fn new(content: String, styles: &LineStyles, size: (u16, u16)) -> Self 
-    {
+impl GemTextView {
+    pub fn new(content: String, styles: &LineStyles, size: (u16, u16)) -> Self {
         let text = 
                 GemTextLine::parse_doc(
                     content
@@ -134,8 +125,7 @@ impl GemTextView
         self.text[self.current].get_text_under_cursor()
     }
 
-    pub fn move_cursor_up(&mut self) -> bool
-    {
+    pub fn move_cursor_up(&mut self) -> bool {
         if self.text[self.current].move_cursor_up() {
             return true;
         }
@@ -148,8 +138,7 @@ impl GemTextView
         }
     }
 
-    pub fn move_cursor_down(&mut self) -> bool
-    {
+    pub fn move_cursor_down(&mut self) -> bool {
         if self.text[self.current].move_cursor_down() {
             return true;
         }

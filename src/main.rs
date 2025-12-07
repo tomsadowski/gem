@@ -3,53 +3,58 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-mod view;
-mod gemini;
-mod constants;
 mod util;
-mod msg;
+mod gemini;
+mod text;
+mod textview;
+mod dialog;
+mod model;
 
+use crate::{
+    text::{
+        GemTextBlock,
+    },
+    model::{
+        Message, Model,
+    },
+};
 use url::Url;
 use crossterm::{
-    execute, 
-    event,
-    style::Print,
-    terminal::{ScrollUp, SetSize, size},
+    QueueableCommand, terminal, cursor, event
 };
 use std::io::{
-    self, 
-    stdout,
-};
-use crate::{
-    msg::Message,
-    view::update::update,
-    view::model::Model,
+    self, stdout, Write
 };
 
+// elm paradigm
+fn main() -> io::Result<()> {
+    // init
+    terminal::enable_raw_mode()?;
+    let     url    = Url::parse("gemini://geminiprotocol.net/").ok();
+    let mut model  = Model::new(&url, terminal::size()?);
+    let mut stdout = stdout();
 
+    stdout
+        .queue(terminal::EnterAlternateScreen)?
+        .queue(terminal::DisableLineWrap)?
+        .queue(cursor::Show)?;
+    stdout.flush()?;
 
-fn main() -> io::Result<()> 
-{
-    let (cols, rows) = size()?;
+    while !model.quit() {
+        // display model
+        model.view(&stdout)?;
 
-    let url       = Url::parse(constants::INIT_LINK).ok();
-    let mut model = Model::init(&url, (cols, rows));
-
-    while !model.quit {
-        // Resize terminal and scroll up.
-        execute!(
-            io::stdout(),
-            Print(format!("{:#?}", model)),
-        )?;
-
-        // update model with event message
-        if let Some(message) = Message::from_event(event::read()?) {
-            model = update(model, message);
+        // update model with event message.
+        // note that calling `event::read()` blocks until
+        // an event is encountered.
+        if let Some(msg) = Message::from_event(event::read()?) {
+            model.update(msg);
         }
     }
 
-    // Be a good citizen, cleanup
-    execute!(io::stdout(), SetSize(cols, rows))?;
+    // clean up
+    terminal::disable_raw_mode()?;
+    stdout.queue(terminal::LeaveAlternateScreen)?;
+    stdout.flush()?;
     Ok(())
 }
-

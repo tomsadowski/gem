@@ -2,20 +2,15 @@
 
 use std::{
     time::Duration,
-    io::Read, 
-    io::Write,
+    io::{Read, Write},
 };
 use std::net::{
-    TcpStream, 
-    ToSocketAddrs
+    TcpStream, ToSocketAddrs
 };
 use native_tls::TlsConnector;
 use tempfile::NamedTempFile;
 
-
-
-pub fn get_data(url: &url::Url) -> Result<(String, String), String> 
-{
+pub fn get_data(url: &url::Url) -> Result<(String, String), String> {
     let host = url.host_str().unwrap_or("");
     let urlf = format!("{}:1965", host);
 
@@ -84,26 +79,19 @@ pub fn get_data(url: &url::Url) -> Result<(String, String), String>
     Ok((response, content))
 }
 
-
-pub fn download(content: String) 
-{
+pub fn download(content: String) {
     let path = write_tmp_file(content.into_bytes());
     open::that(path).unwrap();
 }
 
-
-fn write_tmp_file(content: Vec<u8>) -> std::path::PathBuf 
-{
+fn write_tmp_file(content: Vec<u8>) -> std::path::PathBuf {
     let mut tmp_file = NamedTempFile::new().unwrap();
     tmp_file.write_all(&content).unwrap();
     let (_file, path) = tmp_file.keep().unwrap();
     path
 }
 
-
-fn find_clrf(data: &[u8]) -> Option<usize> 
-{
+fn find_clrf(data: &[u8]) -> Option<usize> {
     let clrf = b"\r\n";
     data.windows(clrf.len()).position(|window| window == clrf)
 }
-
