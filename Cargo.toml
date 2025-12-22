@@ -5,12 +5,8 @@ edition = "2024"
 
 [dependencies]
 crossterm = "0.29.0"
-rustls = { version = "0.23.32", default-features = false, features = ["ring", "std"] }
-ring = "0.17.8"
-rustls-pemfile = "2.2.0"
 regex = "1.12.1"
 url = "2.5.7"
 native-tls = "0.2.14"
-tempfile = "3.23.0"
-json = "0.12.4"
-open = "5.3.2"
+toml = "0.9.10"
+serde = "1.0.228"

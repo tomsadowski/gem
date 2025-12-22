@@ -2,6 +2,7 @@
 // joins backend and frontend
 
 use crate::{
+    config::{Config, Keys},
     gemini::{self, Scheme, GemTextData},
     widget::{Selector, Dialog, InputType, DialogMsg, GetColors, Rect},
 };
@@ -26,10 +27,10 @@ pub struct UI {
 } 
 impl UI {
     // default view is View::Tab
-    pub fn new(url: &str, w: u16, h: u16) -> Self {
+    pub fn new(url: &str, config: &Config, w: u16, h: u16) -> Self {
         let rect = Rect::new(0, 0, w, h);
         Self {
-            tabs: TabMgr::new(&rect, url),
+            tabs: TabMgr::new(&rect, config, url),
             rect: rect,
             view: View::Tab,
         }
@@ -125,6 +126,7 @@ impl GetColors for GemTextData {
 #[derive(Clone, Debug)]
 pub struct TabMgr {
     rect: Rect,
+    keys: Keys,
     tabs: Vec<Tab>,
     // index of current tab
     curindex: usize,
@@ -136,11 +138,12 @@ pub struct TabMgr {
     bannerlinecolor: Colors,
 }
 impl TabMgr {
-    pub fn new(rect: &Rect, p: &str) -> Self {
+    pub fn new(rect: &Rect, config: &Config, p: &str) -> Self {
         let rect = Rect::new(rect.x, rect.y + 2, rect.w, rect.h - 1);
         let url = Url::parse(p).unwrap();
         Self {
             rect: rect.clone(),
+            keys: config.keys.clone(),
             tabs: vec![Tab::new(&rect, &url)],
             curindex: 0,
             bannerstr: Self::bannerstr(0, 1, &url),
@@ -175,7 +178,7 @@ impl TabMgr {
     }
     // send keycode to current tab and process response
     pub fn update(&mut self, keycode: &KeyCode) -> bool {
-        match self.tabs[self.curindex].update(keycode) {
+        match self.tabs[self.curindex].update(&self.keys, keycode) {
             Some(msg) => {
                 match msg {
                     TabMsg::Msg(ViewMsg::Go(p)) => {
@@ -278,7 +281,9 @@ impl Tab {
             d.resize(&rect);
         }
     }
-    pub fn update(&mut self, keycode: &KeyCode) -> Option<TabMsg> {
+    pub fn update(&mut self, keys: &Keys, keycode: &KeyCode) 
+        -> Option<TabMsg> 
+    {
         // send keycode to dialog if there is a dialog
         if let Some(d) = self.dlgstack.last_mut() {
             match d.update(keycode) {
@@ -286,8 +291,10 @@ impl Tab {
                     let msg = match (&d.action, &d.input) {
                         (Action::Go(p), InputType::Choose((c, _))) => {
                             match c {
-                                'y' => Some(TabMsg::Msg(ViewMsg::Go(p.clone()))),
-                                _ => Some(TabMsg::Msg(ViewMsg::None)),
+                                'y' => 
+                                    Some(TabMsg::Msg(ViewMsg::Go(p.clone()))),
+                                _ => 
+                                    Some(TabMsg::Msg(ViewMsg::None)),
                             }
                         }
                         (Action::GoTo, InputType::Input(v)) => {
@@ -316,8 +323,8 @@ impl Tab {
             }
         }
         // there is no dialog, process keycode here
-        match keycode {
-            KeyCode::Char('v') => {
+        if let KeyCode::Char(c) = keycode {
+            if c == &keys.delete_current_tab {
                 let dialog = Dialog::new(
                     &self.rect,
                     Action::DeleteMe,
@@ -326,47 +333,47 @@ impl Tab {
                         ('n', String::from("no"))])),
                     "Delete current tab?");
                 self.dlgstack.push(dialog);
-                Some(TabMsg::Msg(ViewMsg::None))
+                return Some(TabMsg::Msg(ViewMsg::None))
             }
-            KeyCode::Char('p') => {
+            else if c == &keys.new_tab {
                 let dialog = Dialog::new(
                     &self.rect,
                     Action::GoTo,
                     InputType::Input(String::from("")),
                     "enter path: ");
                 self.dlgstack.push(dialog);
-                Some(TabMsg::Msg(ViewMsg::None))
+                return Some(TabMsg::Msg(ViewMsg::None))
             }
-            KeyCode::Char('i') => {
+            else if c == &keys.move_cursor_down {
                 self.page.cursor.movedown(1);
-                Some(TabMsg::Msg(ViewMsg::None))
+                return Some(TabMsg::Msg(ViewMsg::None))
             }
-            KeyCode::Char('o') => {
+            else if c == &keys.move_cursor_up {
                 self.page.cursor.moveup(1);
-                Some(TabMsg::Msg(ViewMsg::None))
+                return Some(TabMsg::Msg(ViewMsg::None))
             }
-            KeyCode::Char('e') => {
-                Some(TabMsg::CycleLeft)
+            else if c == &keys.cycle_to_left_tab {
+                return Some(TabMsg::CycleLeft)
             }
-            KeyCode::Char('n') => {
-                Some(TabMsg::CycleRight)
+            else if c == &keys.cycle_to_right_tab {
+                return Some(TabMsg::CycleRight)
             }
             // make a dialog
-            KeyCode::Enter => {
+            else if c == &keys.inspect_under_cursor {
                 let dialog = match self.page.selectundercursor() {
                     GemTextData::Link(Scheme::Relative(l)) => Dialog::new(
                         &self.rect,
                         Action::Go(self.path.join(l).unwrap().to_string()),
                         InputType::Choose(('n', vec![
-                            ('y', String::from("yes")), 
-                            ('n', String::from("no"))])),
+                            (keys.yes, String::from("yes")), 
+                            (keys.no, String::from("no"))])),
                         &format!("go to {}?", l)),
                     GemTextData::Link(Scheme::Gemini(l)) => Dialog::new(
                         &self.rect,
                         Action::Go(l.to_string()),
                         InputType::Choose(('n', vec![
-                            ('y', String::from("yes")), 
-                            ('n', String::from("no"))])),
+                            (keys.yes, String::from("yes")), 
+                            (keys.no, String::from("no"))])),
                         &format!("go to {}?", l)),
                     _ => Dialog::new(
                         &self.rect,
@@ -375,9 +382,9 @@ impl Tab {
                         "You've selected some text. "),
                 };
                 self.dlgstack.push(dialog);
-                Some(TabMsg::Msg(ViewMsg::None))
+                return Some(TabMsg::Msg(ViewMsg::None))
             }
-            _ => None,
-        }
+            return None
+        } else {return None}
     }
 }

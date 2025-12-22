@@ -1,22 +1,31 @@
 // gem/src/main
 
+#![allow(dead_code)]
+
 mod gemini; // frontend agnostic
 mod widget; // backend agnostic
 mod ui;     // joins backend and frontend
+mod config; // keybindings, visuals
 
 use crate::{
-    ui::{UI},
+    ui::UI,
+    config::Config,
 };
 use crossterm::{
     QueueableCommand, terminal, cursor, event
 };
 use std::{
     io::{self, stdout, Write},
+    fs
 };
 
 fn main() -> io::Result<()> {
+    let configtext = fs::read_to_string("gem.toml").unwrap();
+    let config: Config = toml::from_str(configtext.as_str()).unwrap();
+    
     let (w, h) = terminal::size()?;
-    let mut ui = UI::new("gemini://geminiprotocol.net/", w, h);
+
+    let mut ui = UI::new("gemini://geminiprotocol.net/", &config, w, h);
     let mut stdout = stdout();
 
     terminal::enable_raw_mode()?;

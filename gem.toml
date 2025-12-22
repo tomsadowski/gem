@@ -1,0 +1,25 @@
+[gemcolors]
+# (0123456789abcdef)x3
+heading1  = ["f","8","8"]
+heading2  = ["f","8","8"]
+heading3  = ["f","8","8"]
+text      = ["c","c","c"]
+link      = ["8","c","f"]
+quote     = ["c","c","6"]
+listitem  = ["c","6","c"]
+preformat = ["6","c","6"]
+
+[keys]
+# yes/no dialog
+yes                  = "y"
+no                   = "n"
+# navigation
+move_cursor_up       = "o"
+move_cursor_down     = "i"
+move_page_up         = "g"
+move_page_down       = "m"
+cycle_to_left_tab    = "e"
+cycle_to_right_tab   = "n"
+inspect_under_cursor = "w"
+delete_current_tab   = "v"
+new_tab              = "p"
