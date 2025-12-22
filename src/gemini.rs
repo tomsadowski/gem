@@ -1,36 +1,37 @@
 // gem/src/gemini
 // frontend agnostic
-
-use native_tls::{
-    TlsConnector
-};
 use std::{
     time::{Duration}, 
     io::{Read, Write},
-    net::{TcpStream, ToSocketAddrs},
-};
+    net::{TcpStream, ToSocketAddrs}};
 use url::{
-    Url, ParseError
-};
-use regex::{
-    Regex
-};
+    Url, ParseError};
+use native_tls::TlsConnector;
 
-const GOPHER_SCHEME: &str    = "gopher";
-const HTTPS_SCHEME: &str     = "https";
-const HTTP_SCHEME: &str      = "http";
-const LINK_SYMBOL: &str      = "=>";
-const TOGGLE_SYMBOL: &str    = "```";
-const QUOTE_SYMBOL: &str     = ">";
-const LIST_ITEM_SYMBOL: &str = "*";
-const HEADING_1_SYMBOL: &str = "#";
-const HEADING_2_SYMBOL: &str = "##";
-const HEADING_3_SYMBOL: &str = "###";
-const GEMINI_PORT: &str      = "1965";
-const GEMINI_SCHEME: &str    = "gemini";
-const LINK_REGEX: &str       = r"^\s*(\S*)\s*(.*)?$";
-const STATUS_REGEX: &str = r"^(\d{1,3})[ \t](.*)\r\n$";
-
+#[derive(Debug, Clone)]
+pub enum Status {
+    InputExpected,
+    InputExpectedSensitive,
+    Success,
+    RedirectTemporary,
+    RedirectPermanent,
+    FailTemporary,
+    FailServerUnavailable,
+    FailCGIError,
+    FailProxyError,
+    FailSlowDown,
+    FailPermanent,
+    FailNotFound,             
+    FailGone,                 
+    FailProxyRequestRefused,  
+    FailBadRequest,           
+    CertRequiredClient,
+    CertRequiredTransient,   
+    CertRequiredAuthorized,  
+    CertNotAccepted,         
+    FutureCertRejected,      
+    ExpiredCertRejected,     
+}
 #[derive(Clone, PartialEq, Debug)]
 pub enum Scheme {
     Gemini(Url),
@@ -50,47 +51,17 @@ pub enum GemTextData {
     ListItem,
     Quote,
 } 
-impl Scheme {
-    fn from_str(line: &str) -> Result<(Scheme, String), String> {
-        // get regex
-        let Ok(regex) = Regex::new(LINK_REGEX)
-            else {return Err(format!("regex: no parse"))};
-        // get captures
-        let Some(captures) = regex.captures(&line) 
-            else {return Err(format!("regex: no captures"))};
-        // get string
-        let url_str = captures
-            .get(1)
-            .map_or("", |m| m.as_str())
-            .to_string();
-        // get result
-        let url_result = Url::parse(&url_str);
-        // get label 
-        let label_str = captures
-            .get(2)
-            .map_or("", |m| m.as_str());
-        let label = 
-            if label_str.is_empty() {
-                url_str.clone()
-            } else {
-                label_str.to_string()
-            };
-        // return Result
-        if let Ok(url) = url_result {
-            let scheme = match url.scheme() {
-                GEMINI_SCHEME => Scheme::Gemini(url),
-                GOPHER_SCHEME => Scheme::Gopher(url),
-                HTTP_SCHEME   => Scheme::Http(url),
-                HTTPS_SCHEME  => Scheme::Http(url),
-                _             => Scheme::Unknown(url),
-            };
-            Ok((scheme, label))
-        } else if Err(ParseError::RelativeUrlWithoutBase) == url_result {
-            Ok((Scheme::Relative(url_str), label))
-        } else {
-            Err(format!("no parse url")) 
-        }
-    }
+pub fn parse_status(line: &str) -> Result<(Status, String), String> {
+    let (code, message) = 
+        match line.trim().split_once(' ') {
+            Some((c, msg)) => 
+                (c.trim(), msg.trim()),
+            None => 
+                (line.trim(), ""),
+    };
+    let status = getstatus(code.parse().unwrap()).unwrap();
+    // return Result
+    Ok((status, String::from(message)))
 }
 pub fn parse_doc(lines: Vec<&str>) 
     -> Result<Vec<(GemTextData, String)>, String> 
@@ -122,71 +93,66 @@ pub fn parse_doc(lines: Vec<&str>)
     Ok(vec)
 }
 fn is_toggle(line: &str) -> bool {
-    if let Some((symbol, _text)) = line.split_at_checked(3) {
-        if symbol == TOGGLE_SYMBOL {
-            return true
-        }
+    match line.split_at_checked(3) {
+        Some(("```", _)) => true,
+        _ => false,
     }
-    return false
 }
 fn parse_formatted(line: &str) -> Result<(GemTextData, String), String> {
     // look for 3 character symbols
     if let Some((symbol, text)) = line.split_at_checked(3) {
-        if symbol == HEADING_3_SYMBOL {
+        if symbol == "###" {
             return Ok((GemTextData::HeadingThree, text.to_string()))
         }
     }
     // look for 2 character symbols
     if let Some((symbol, text)) = line.split_at_checked(2) {
-        if symbol == LINK_SYMBOL {
-            let (url, text) = Scheme::from_str(text)
+        if symbol == "=>" {
+            let (url, text) = parse_scheme(text)
                 .or_else(
                     |e| Err(format!("could not parse link {:?}", e)))?;
             return Ok((GemTextData::Link(url), text))
         }
-        if symbol == HEADING_2_SYMBOL {
+        if symbol == "##" {
             return Ok((GemTextData::HeadingTwo, text.to_string()))
         }
     }
     // look for 1 character symbols
     if let Some((symbol, text)) = line.split_at_checked(1) {
-        if symbol == QUOTE_SYMBOL {
+        if symbol == ">" {
             return Ok((GemTextData::Quote, text.to_string()))
         }
-        if symbol == LIST_ITEM_SYMBOL {
+        if symbol == "*" {
             return Ok((GemTextData::ListItem, text.to_string()))
         }
-        if symbol == HEADING_1_SYMBOL {
+        if symbol == "#" {
             return Ok((GemTextData::HeadingOne, text.to_string()))
         }
     }
     return Ok((GemTextData::Text, line.to_string()))
 }
-#[derive(Debug, Clone)]
-pub enum Status {
-    InputExpected,
-    InputExpectedSensitive,
-    Success,
-    RedirectTemporary,
-    RedirectPermanent,
-    FailTemporary,
-    FailServerUnavailable,
-    FailCGIError,
-    FailProxyError,
-    FailSlowDown,
-    FailPermanent,
-    FailNotFound,             
-    FailGone,                 
-    FailProxyRequestRefused,  
-    FailBadRequest,           
-    CertRequiredClient,
-    CertRequiredTransient,   
-    CertRequiredAuthorized,  
-    CertNotAccepted,         
-    FutureCertRejected,      
-    ExpiredCertRejected,     
+fn parse_scheme(line: &str) -> Result<(Scheme, String), String> {
+    let (url_str, text) = match line.trim().split_once(' ') {
+        Some((link, txt)) => (link.trim(), txt.trim()),
+        None => (line.trim(), line.trim()),
+    };
+    let url_result = Url::parse(url_str);
+    if let Ok(url) = url_result {
+       let scheme = match url.scheme() {
+            "gemini" => Scheme::Gemini(url),
+            "gopher" => Scheme::Gopher(url),
+            "http"   => Scheme::Http(url),
+            "https"  => Scheme::Http(url),
+            _        => Scheme::Unknown(url),
+        };
+        Ok((scheme, String::from(text)))
+    } else if Err(ParseError::RelativeUrlWithoutBase) == url_result {
+        Ok((Scheme::Relative(String::from(url_str)), String::from(text)))
+    } else {
+        Err(format!("no parse url")) 
+    }
 }
-pub fn getstatus(code: i16) -> Result<Status, String> {
+fn getstatus(code: u8) -> Result<Status, String> {
     match code {
         10 | 12..=19 => Ok(Status::InputExpected),
         11 =>           Ok(Status::InputExpectedSensitive),
@@ -215,33 +181,10 @@ pub fn getstatus(code: i16) -> Result<Status, String> {
                 code)),
     }
 }
-pub fn getstatustuple(line: &str) -> Result<(Status, String), String> {
-    // get regex
-    let Ok(regex) = Regex::new(STATUS_REGEX)
-        else {return Err("".to_string())};
-    // get captures
-    let Some(captures) = regex.captures(&line) 
-        else {return Err("".to_string())};
-    // get code from captures
-    let Ok(code) = captures
-        .get(1)
-        .map_or("", |m| m.as_str())
-        .parse()
-        else {return Err("".to_string())};
-    // get meta from captures
-    let meta = captures
-        .get(2)
-        .map_or("", |m| m.as_str())
-        .to_string();
-
-    let status = getstatus(code).unwrap();
-    // return Result
-    Ok((status, meta))
-}
 // returns response and content
 pub fn get_data(url: &Url) -> Result<(String, String), String> {
     let host = url.host_str().unwrap_or("");
-    let urlf = format!("{}:{}", host, GEMINI_PORT);
+    let urlf = format!("{}:1965", host);
     let failmsg = "Could not connect to ";
 
     // get connector

@@ -4,7 +4,9 @@
 
 mod gemini; // frontend agnostic
 mod widget; // backend agnostic
+mod dialog; // backend agnostic
 mod ui;     // joins backend and frontend
+mod tabs;   // joins backend and frontend
 mod config; // keybindings, visuals
 
 use crate::{
@@ -25,7 +27,7 @@ fn main() -> io::Result<()> {
     
     let (w, h) = terminal::size()?;
 
-    let mut ui = UI::new("gemini://geminiprotocol.net/", &config, w, h);
+    let mut ui = UI::new(&config, w, h);
     let mut stdout = stdout();
 
     terminal::enable_raw_mode()?;

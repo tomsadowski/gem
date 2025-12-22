@@ -1,3 +1,7 @@
+
+
+init_url = "gemini://geminiprotocol.net/"
+
 [gemcolors]
 # (0123456789abcdef)x3
 heading1  = ["f","8","8"]
