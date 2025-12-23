@@ -2,21 +2,26 @@
 
 #![allow(dead_code)]
 
-mod gemini; // frontend agnostic
-mod widget; // backend agnostic
-mod dialog; // backend agnostic
-mod ui;     // joins backend and frontend
-mod tabs;   // joins backend and frontend
-mod config; // keybindings, visuals
+mod gemini;    // frontend agnostic
+mod util;      // frontend agnostic
+mod widget;    // backend agnostic
+mod dialog;    // backend agnostic
+mod ui;        // joins backend and frontend
+mod tabserver; // joins backend and frontend
+mod tab;       // joins backend and frontend
+mod config;    // keybindings, visuals
 
 use crate::{
     ui::UI,
-    config::Config};
+    config::Config,
+};
 use crossterm::{
-    QueueableCommand, terminal, cursor, event};
+    QueueableCommand, terminal, cursor, event,
+};
 use std::{
     io::{self, stdout, Write},
-    fs};
+    fs,
+};
 
 fn main() -> io::Result<()> {
     let configtext = fs::read_to_string("gem.toml").unwrap();

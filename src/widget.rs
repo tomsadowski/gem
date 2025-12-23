@@ -1,11 +1,14 @@
 // gem/src/widget
 // backend agnostic
+use crate::util;
 use crossterm::{
     QueueableCommand, cursor, style,
-    style::Colors};
+    style::Colors,
+};
 use std::{
     io::{self, Stdout},
-    cmp::min};
+    cmp::min,
+};
 
 // associates implementor with a color
 pub trait GetColors {
@@ -111,87 +114,6 @@ impl ScrollingCursor {
         usize::from(self.cursor - self.rect.y)
     }
 }
-// wrap text in terminal
-pub fn wrap(line: &str, screenwidth: u16) -> Vec<String> {
-    let width = usize::from(screenwidth);
-    let length = line.len();
-    let mut wrapped: Vec<String> = vec![];
-    // assume slice bounds
-    let mut start = 0;
-    let mut end = width;
-    while end < length {
-        start = line.ceil_char_boundary(start);
-        end = line.floor_char_boundary(end);
-        let longest = &line[start..end];
-        // try to break line at a space
-        match longest.rsplit_once(' ') {
-            // there is a space to break on
-            Some((a, b)) => {
-                let shortest = match a.len() {
-                    0 => b,
-                    _ => a,
-                };
-                wrapped.push(String::from(shortest));
-                start += shortest.len();
-                end = start + width;
-            }
-            // there is no space to break on
-            None => {
-                wrapped.push(String::from(longest));
-                start = end;
-                end += width;
-            }
-        }
-    }
-    // add the remaining text
-    if start < length {
-        wrapped.push(String::from(&line[start..length]));
-    }
-    wrapped
-}
-// cut text in terminal, adding "..." to indicate that it 
-// continues beyond the screen
-pub fn cut(line: &str, screenwidth: u16) -> String {
-    let mut width = usize::from(screenwidth);
-    if line.len() < width {
-        return String::from(line)
-    } else {
-        width -= 2;
-        let longest = &line[..width];
-        match longest.rsplit_once(' ') {
-            Some((a, b)) => {
-                let shortest = match a.len() {
-                    0 => b,
-                    _ => a,
-                };
-                return format!("{}..", shortest)
-            }
-            None => {
-                return format!("{}..", longest)
-            }
-        }
-
-    }
-}
-// call cut for each element in the list
-pub fn cutlist<T>(lines: &Vec<(T, String)>, w: u16) -> Vec<(usize, String)> {
-    let mut display: Vec<(usize, String)> = vec![];
-    for (i, (_, l)) in lines.iter().enumerate() {
-        display.push((i, cut(l, w)));
-    }
-    display
-}
-// call wrap for each element in the list
-pub fn wraplist<T>(lines: &Vec<(T, String)>, w: u16) -> Vec<(usize, String)> {
-    let mut display: Vec<(usize, String)> = vec![];
-    for (i, (_, l)) in lines.iter().enumerate() {
-        let v = wrap(l, w);
-        for s in v.iter() {
-            display.push((i, s.to_string()));
-        }
-    }
-    display
-}
 // enables the selection of metadata (T) behind formatted text.
 #[derive(Clone, Debug)]
 pub struct Selector<T> {
@@ -204,8 +126,8 @@ pub struct Selector<T> {
 impl<T: Clone + GetColors> Selector<T> {
     pub fn new(rect: &Rect, source: Vec<(T, String)>, wrap: bool) -> Self {
         let display = match wrap {
-            true => wraplist(&source, rect.w),
-            false => cutlist(&source, rect.w),
+            true => util::wraplist(&source, rect.w),
+            false => util::cutlist(&source, rect.w),
         };
         return Self {
             rect: rect.clone(),
@@ -218,8 +140,8 @@ impl<T: Clone + GetColors> Selector<T> {
     pub fn resize(&mut self, rect: &Rect) {
         self.rect = rect.clone();
         self.display = match self.wrap {
-            true => wraplist(&self.source, rect.w),
-            false => cutlist(&self.source, rect.w),
+            true => util::wraplist(&self.source, rect.w),
+            false => util::cutlist(&self.source, rect.w),
         };
         self.cursor.resize(self.display.len(), rect);
     }

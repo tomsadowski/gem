@@ -1,11 +1,14 @@
 // gem/src/dialog
 use crate::{
-    widget::{Rect}};
+    widget::Rect,
+};
 use crossterm::{
     QueueableCommand, cursor, style,
-    event::KeyCode};
+    event::KeyCode,
+};
 use std::{
-    io::{self, Stdout}};
+    io::{self, Stdout},
+};
 
 #[derive(Clone, Debug)]
 pub enum DialogMsg<T> {

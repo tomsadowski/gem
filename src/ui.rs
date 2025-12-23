@@ -4,12 +4,15 @@ use crate::{
     config::{Config},
     gemini::{GemTextData},
     widget::{GetColors, Rect},
-    tabs::TabMgr};
+    tabserver::TabServer,
+};
 use crossterm::{
     event::{Event, KeyEvent, KeyEventKind, KeyCode, KeyModifiers},
-    style::{Colors, Color}};
+    style::{Colors, Color},
+};
 use std::{
-    io::{self, Stdout, Write}};
+    io::{self, Stdout, Write},
+};
 
 // view currently in use
 #[derive(Debug)]
@@ -22,14 +25,14 @@ pub struct UI {
     rect: Rect,
     view: View,
     config: Config,
-    tabs: TabMgr,
+    tabs: TabServer,
 } 
 impl UI {
     // start with View::Tab
     pub fn new(config: &Config, w: u16, h: u16) -> Self {
         let rect = Rect::new(0, 0, w, h);
         Self {
-            tabs: TabMgr::new(&rect, config),
+            tabs: TabServer::new(&rect, config),
             rect: rect,
             config: config.clone(),
             view: View::Tab,

@@ -1,12 +1,7 @@
 // gem/src/gemini
 // frontend agnostic
-use std::{
-    time::{Duration}, 
-    io::{Read, Write},
-    net::{TcpStream, ToSocketAddrs}};
-use url::{
-    Url, ParseError};
-use native_tls::TlsConnector;
+use crate::util;
+use url::{Url, ParseError};
 
 #[derive(Debug, Clone)]
 pub enum Status {
@@ -52,13 +47,7 @@ pub enum GemTextData {
     Quote,
 } 
 pub fn parse_status(line: &str) -> Result<(Status, String), String> {
-    let (code, message) = 
-        match line.trim().split_once(' ') {
-            Some((c, msg)) => 
-                (c.trim(), msg.trim()),
-            None => 
-                (line.trim(), ""),
-    };
+    let (code, message) = util::split_whitespace_once(line);
     let status = getstatus(code.parse().unwrap()).unwrap();
     // return Result
     Ok((status, String::from(message)))
@@ -132,15 +121,7 @@ fn parse_formatted(line: &str) -> Result<(GemTextData, String), String> {
     return Ok((GemTextData::Text, line.to_string()))
 }
 fn parse_scheme(line: &str) -> Result<(Scheme, String), String> {
-    let (url_str, text) = {
-        if let Some(i) = line.find("\u{0009}") {
-            (line[..i].trim(), line[i..].trim())
-        } else if let Some(i) = line.find(" ") {
-            (line[..i].trim(), line[i..].trim())
-        } else {
-            (line, line)
-        }
-    };
+    let (url_str, text) = util::split_whitespace_once(line);
     let url_result = Url::parse(url_str);
     if let Ok(url) = url_result {
        let scheme = match url.scheme() {
@@ -185,61 +166,4 @@ fn getstatus(code: u8) -> Result<Status, String> {
                 "received status number {} which maps to nothing", 
                 code)),
     }
-}
-// returns response and content
-pub fn get_data(url: &Url) -> Result<(String, String), String> {
-    let host = url.host_str().unwrap_or("");
-    let urlf = format!("{}:1965", host);
-    let failmsg = "Could not connect to ";
-
-    // get connector
-    let connector = TlsConnector::builder()
-        .danger_accept_invalid_hostnames(true)
-        .danger_accept_invalid_certs(true)
-        .build()
-        .or_else(|e| Err(format!("{}{}\n{}", failmsg, urlf, e)))?;
-
-    // get socket address iterator
-    let mut addrs_iter = urlf.to_socket_addrs()
-        .or_else(|e| Err(format!("{}{}\n{}", failmsg, urlf, e)))?;
-
-    // get socket address from socket address iterator
-    let Some(socket_addr) = addrs_iter.next() 
-        else {return Err(format!("Could not connect to {}", urlf))};
-
-    // get tcp stream from socket address
-    let tcpstream = TcpStream::connect_timeout
-        (&socket_addr, Duration::new(10, 0))
-        .or_else(|e| Err(format!("Could not connect to {}\n{}", urlf, e)))?;
-
-    // get stream from tcp stream
-    let mut stream = connector.connect(&host, tcpstream) 
-        .or_else(|e| Err(format!("Could not connect to {}\n{}", urlf, e)))?;
-
-    // write url to stream
-    stream.write_all(format!("{}\r\n", url).as_bytes())
-        .or_else(|e| Err(format!("Could not write to {}\n{}", url, e)))?;
-
-    // initialize response vector
-    let mut response = vec![];
-
-    // load response vector from stream
-    stream.read_to_end(&mut response)
-        .or_else(|e| Err(format!("Could not read {}\n{}", url, e)))?;
-
-    // find clrf in response vector
-    let Some(clrf_idx) = find_clrf(&response) 
-        else {return Err("Could not find the clrf".to_string())};
-
-    // separate response from content
-    let content = response.split_off(clrf_idx + 2);
-
-    // convert to String
-    let content  = String::from_utf8_lossy(&content).to_string();
-    let response = String::from_utf8_lossy(&response).to_string();
-    Ok((response, content))
-}
-fn find_clrf(data: &[u8]) -> Option<usize> {
-    let clrf = b"\r\n";
-    data.windows(clrf.len()).position(|window| window == clrf)
 }
