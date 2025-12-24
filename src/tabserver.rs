@@ -15,8 +15,6 @@ use std::{
 };
 use url::{Url};
 
-// Serves config info to new tabs and 
-// oooooooOOOOOOOOOOOOOOO
 pub struct TabServer {
     rect: Rect,
     config: Config,
@@ -33,7 +31,6 @@ pub struct TabServer {
 impl TabServer {
     pub fn new(rect: &Rect, config: &Config) -> Self {
         let rect = Rect::new(rect.x, rect.y + 2, rect.w, rect.h - 1);
-        //TabMsg::GoRelative(self.url.join(l).unwrap().to_string()),
         // TODO produce dialog if failed url
         let url = Url::parse(&config.init_url).unwrap();
         let doc = GemDoc::new(&url);
@@ -79,7 +76,6 @@ impl TabServer {
                 match msg {
                     TabMsg::Go(url) => {
                         let doc = GemDoc::new(&url);
-                        // TODO produce dialog if url fail
                         self.tabs.push(Tab::new(&self.rect, doc, &self.config));
                         self.curindex = self.tabs.len() - 1;
                     }

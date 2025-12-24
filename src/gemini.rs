@@ -27,12 +27,12 @@ pub fn parse_scheme(url: &Url) -> Scheme {
 }
 pub fn join_if_relative(base: &Url, url_str: &str) -> Result<Url, String> {
     match Url::parse(url_str) {
-        Ok(url) => Ok(url),
         Err(ParseError::RelativeUrlWithoutBase) => 
             match base.join(url_str) {
                 Err(e) => Err(format!("{}", e)),
                 Ok(url) => Ok(url),
             }
+        Ok(url) => Ok(url),
         Err(e) => Err(format!("{}", e)),
     }
 }
@@ -76,15 +76,14 @@ pub fn parse_doc(text_str: &str, source: &Url) -> Vec<(GemType, String)> {
     for line in text_str.lines() {
         match line.split_at_checked(3) {
             Some(("```", _)) => preformat = !preformat,
-            _ => 
-                match preformat {
-                    true => 
-                        vec.push((GemType::PreFormat, line.to_string())),
-                    false => {
-                        let (gem, text) = parse_formatted(line, source);
-                        vec.push((gem, text.to_string()));
-                    }
+            _ => match preformat {
+                true => 
+                    vec.push((GemType::PreFormat, line.to_string())),
+                false => {
+                    let (gem, text) = parse_formatted(line, source);
+                    vec.push((gem, text.to_string()));
                 }
+            }
         }
     }
     vec

@@ -1,5 +1,16 @@
 // gem/src/util
 
+// call wrap for each element in the list
+pub fn wraplist<T>(lines: &Vec<(T, String)>, w: u16) -> Vec<(usize, String)> {
+    let mut display: Vec<(usize, String)> = vec![];
+    for (i, (_, l)) in lines.iter().enumerate() {
+        let v = wrap(l, w);
+        for s in v.iter() {
+            display.push((i, s.to_string()));
+        }
+    }
+    display
+}
 // wrap text in terminal
 pub fn wrap(line: &str, screenwidth: u16) -> Vec<String> {
     let width = usize::from(screenwidth);
@@ -38,6 +49,14 @@ pub fn wrap(line: &str, screenwidth: u16) -> Vec<String> {
     }
     wrapped
 }
+// call cut for each element in the list
+pub fn cutlist<T>(lines: &Vec<(T, String)>, w: u16) -> Vec<(usize, String)> {
+    let mut display: Vec<(usize, String)> = vec![];
+    for (i, (_, l)) in lines.iter().enumerate() {
+        display.push((i, cut(l, w)));
+    }
+    display
+}
 // cut text in terminal, adding "..." to indicate that it 
 // continues beyond the screen
 pub fn cut(line: &str, screenwidth: u16) -> String {
@@ -61,25 +80,6 @@ pub fn cut(line: &str, screenwidth: u16) -> String {
         }
 
     }
-}
-// call cut for each element in the list
-pub fn cutlist<T>(lines: &Vec<(T, String)>, w: u16) -> Vec<(usize, String)> {
-    let mut display: Vec<(usize, String)> = vec![];
-    for (i, (_, l)) in lines.iter().enumerate() {
-        display.push((i, cut(l, w)));
-    }
-    display
-}
-// call wrap for each element in the list
-pub fn wraplist<T>(lines: &Vec<(T, String)>, w: u16) -> Vec<(usize, String)> {
-    let mut display: Vec<(usize, String)> = vec![];
-    for (i, (_, l)) in lines.iter().enumerate() {
-        let v = wrap(l, w);
-        for s in v.iter() {
-            display.push((i, s.to_string()));
-        }
-    }
-    display
 }
 pub fn split_whitespace_once(line: &str) -> (&str, &str) {
     let (a, b) = {

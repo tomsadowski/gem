@@ -32,7 +32,6 @@ pub struct Tab {
 }
 impl Tab {
     pub fn new(rect: &Rect, gemdoc: GemDoc, config: &Config) -> Self {
-        // TODO display appropriate text when data retrieval fails
         Self {
             config: config.clone(),
             rect: rect.clone(),

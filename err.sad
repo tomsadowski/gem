@@ -1,7 +1,2 @@
-   Compiling gem v0.1.0 (/home/tsadowski/.local/source/gem)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.69s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.04s
      Running `target/debug/gem`
-
-thread 'main' panicked at src/widget.rs:122:28:
-byte index 203 is not a char boundary; it is inside '→' (bytes 202..205) of `Project Gemini was born and nurtured in Gopherspace, specifically in the "phlogosphere", that part of Gopherspace where people do what's called "blogging" on the web ("web log" → "blog", "gopher log" → "phlog").  A small but growing community of people`[...]
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
