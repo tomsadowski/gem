@@ -1,5 +1,6 @@
 // gem/src/tabserver
 use crate::{
+    gemini::{GemDoc},
     config::Config,
     widget::Rect,
     tab::{TabMsg, Tab},
@@ -12,7 +13,7 @@ use crossterm::{
 use std::{
     io::{self, Stdout},
 };
-use url::Url;
+use url::{Url};
 
 // Serves config info to new tabs and 
 // oooooooOOOOOOOOOOOOOOO
@@ -32,11 +33,14 @@ pub struct TabServer {
 impl TabServer {
     pub fn new(rect: &Rect, config: &Config) -> Self {
         let rect = Rect::new(rect.x, rect.y + 2, rect.w, rect.h - 1);
+        //TabMsg::GoRelative(self.url.join(l).unwrap().to_string()),
+        // TODO produce dialog if failed url
         let url = Url::parse(&config.init_url).unwrap();
+        let doc = GemDoc::new(&url);
         Self {
             rect: rect.clone(),
             config: config.clone(),
-            tabs: vec![Tab::new(&rect, &url, config)],
+            tabs: vec![Tab::new(&rect, doc, config)],
             curindex: 0,
             bannerstr: Self::bannerstr(0, 1, &url),
             bannerline: Self::bannerline(rect.w),
@@ -73,9 +77,10 @@ impl TabServer {
         match self.tabs[self.curindex].update(keycode) {
             Some(msg) => {
                 match msg {
-                    TabMsg::Go(p) => {
-                        let url = Url::parse(p.as_str()).unwrap();
-                        self.tabs.push(Tab::new(&self.rect, &url, &self.config));
+                    TabMsg::Go(url) => {
+                        let doc = GemDoc::new(&url);
+                        // TODO produce dialog if url fail
+                        self.tabs.push(Tab::new(&self.rect, doc, &self.config));
                         self.curindex = self.tabs.len() - 1;
                     }
                     TabMsg::DeleteMe => {
@@ -99,7 +104,7 @@ impl TabServer {
                     _ => {},
                 }
                 let len = self.tabs.len();
-                let url = &self.tabs[self.curindex].url;
+                let url = &self.tabs[self.curindex].doc.url;
                 self.bannerstr = Self::bannerstr(self.curindex, len, url);
                 self.bannerline = Self::bannerline(self.rect.w);
                 true

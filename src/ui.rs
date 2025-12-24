@@ -2,7 +2,7 @@
 // joins backend and frontend
 use crate::{
     config::{Config},
-    gemini::{GemTextData},
+    gemini::{GemType},
     widget::{GetColors, Rect},
     tabserver::TabServer,
 };
@@ -88,7 +88,7 @@ impl UI {
         }
     }
 } 
-impl GetColors for GemTextData {
+impl GetColors for GemType {
     fn getcolors(&self) -> Colors {
         match self {
             Self::HeadingOne => Colors::new(
@@ -119,8 +119,12 @@ impl GetColors for GemTextData {
                 Color::Rgb {r: 80 , g: 180, b: 80 },
                 Color::Rgb {r: 0, g: 0, b: 0},
             ),
-            Self::Link(_) => Colors::new(
+            Self::Link(_, _) => Colors::new(
                 Color::Rgb {r: 105, g: 180, b: 225},
+                Color::Rgb {r: 0, g: 0, b: 0},
+            ),
+            Self::BadLink(_) => Colors::new(
+                Color::Rgb {r: 105, g: 105, b: 205},
                 Color::Rgb {r: 0, g: 0, b: 0},
             ),
         } 

@@ -124,7 +124,7 @@ pub struct Selector<T> {
     display: Vec<(usize, String)>,
 } 
 impl<T: Clone + GetColors> Selector<T> {
-    pub fn new(rect: &Rect, source: Vec<(T, String)>, wrap: bool) -> Self {
+    pub fn new(rect: &Rect, source: &Vec<(T, String)>, wrap: bool) -> Self {
         let display = match wrap {
             true => util::wraplist(&source, rect.w),
             false => util::cutlist(&source, rect.w),
@@ -133,7 +133,7 @@ impl<T: Clone + GetColors> Selector<T> {
             rect: rect.clone(),
             wrap: wrap,
             cursor: ScrollingCursor::new(display.len(), &rect),
-            source: source,
+            source: source.clone(),
             display: display,
         }
     }

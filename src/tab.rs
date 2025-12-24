@@ -1,8 +1,7 @@
 // gem/src/tab
 use crate::{
-    util,
     config::{Config},
-    gemini::{self, Scheme, GemTextData, Status},
+    gemini::{GemType, GemDoc},
     widget::{Selector, Rect},
     dialog::{Dialog, InputType, DialogMsg},
 };
@@ -22,39 +21,24 @@ pub enum TabMsg {
     CycleRight,
     // requires dialog
     DeleteMe,
-    Go(String),
+    Go(Url),
 }
-#[derive(Clone, Debug)]
 pub struct Tab {
-    pub url: Url,
+    pub doc: GemDoc,
     rect: Rect,
     config: Config,
     dlgstack: Vec<Dialog<TabMsg>>,
-    page: Selector<GemTextData>,
+    page: Selector<GemType>,
 }
 impl Tab {
-    pub fn new(rect: &Rect, url: &Url, config: &Config) -> Self {
-        let (stat_str, text_str) = util::get_data(url).unwrap();
-        let gemtext = match gemini::parse_status(&stat_str) {
-            Ok((Status::Success, _)) => 
-                gemini::parse_doc(text_str.lines().collect()).unwrap(),
-            Ok((status, text)) => 
-                vec![(
-                    GemTextData::Text, 
-                    format!("status reply: {:?} {}", status, text)
-                )],
-            Err(s) => 
-                vec![(
-                    GemTextData::Text, 
-                    format!("{}", s)
-                )],
-        };
+    pub fn new(rect: &Rect, gemdoc: GemDoc, config: &Config) -> Self {
+        // TODO display appropriate text when data retrieval fails
         Self {
             config: config.clone(),
             rect: rect.clone(),
-            url: url.clone(),
             dlgstack: vec![],
-            page: Selector::new(rect, gemtext, true),
+            page: Selector::new(rect, &gemdoc.doc, true),
+            doc: gemdoc,
         }
     }
     // resize page and all dialogs
@@ -77,23 +61,16 @@ impl Tab {
         if let Some(d) = self.dlgstack.last_mut() {
             match d.update(keycode) {
                 Some(DialogMsg::Submit(a)) => {
-                    let msg = 
-                        match &d.input {
-                            InputType::Choose((c, _)) => {
-                                match c == &self.config.keys.yes {
-                                    true => Some(a),
-                                    false => Some(TabMsg::None),
-                                }
+                    let msg = match &d.input {
+                        InputType::Choose((c, _)) => {
+                            match c == &self.config.keys.yes {
+                                true => Some(a),
+                                false => Some(TabMsg::None),
                             }
-                            InputType::Input(v) => {
-                                match a {
-                                    TabMsg::Go(_) => 
-                                        Some(TabMsg::Go(v.to_string())),
-                                    _ => Some(TabMsg::None),
-                                }
-                            }
-                            _ => Some(TabMsg::None),
-                        };
+                        }
+                        InputType::Input(_) => Some(TabMsg::None),
+                        _ => Some(TabMsg::None),
+                    };
                     self.dlgstack.pop();
                     return msg
                 }
@@ -145,18 +122,18 @@ impl Tab {
                 let dialog = 
                     Dialog::new(
                         &self.rect,
-                        TabMsg::Go(String::from("")),
-                        InputType::Input(String::from("")),
+                        TabMsg::None,
+                        InputType::input(),
                         "enter path: ");
                 self.dlgstack.push(dialog);
                 return Some(TabMsg::None)
             }
             else if c == &self.config.keys.inspect_under_cursor {
                 let dialog = match self.page.selectundercursor() {
-                    GemTextData::Link(Scheme::Relative(l)) => 
+                    GemType::Link(_, url) => 
                         Dialog::new(
                             &self.rect,
-                            TabMsg::Go(self.url.join(l).unwrap().to_string()),
+                            TabMsg::Go(url.clone()),
                             InputType::Choose((
                                 'n', 
                                 vec![
@@ -165,20 +142,7 @@ impl Tab {
                                     (self.config.keys.no, 
                                      String::from("no"))
                                 ])),
-                            &format!("go to {}?", l)),
-                    GemTextData::Link(Scheme::Gemini(l)) => 
-                        Dialog::new(
-                            &self.rect,
-                            TabMsg::Go(l.to_string()),
-                            InputType::Choose((
-                                    'n', 
-                                    vec![
-                                        (self.config.keys.yes, 
-                                         String::from("yes")), 
-                                        (self.config.keys.no, 
-                                         String::from("no"))
-                                    ])),
-                            &format!("go to {}?", l)),
+                            &format!("go to {}?", url)),
                     gemtext => 
                         Dialog::new(
                             &self.rect,

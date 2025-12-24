@@ -22,6 +22,11 @@ pub enum InputType {
     Choose((char, Vec<(char, String)>)),
     Input(String),
 }
+impl InputType {
+    pub fn input() -> Self {
+        Self::Input(String::from(""))
+    }
+}
 #[derive(Clone, Debug)]
 pub struct Dialog<T> {
     rect: Rect,
