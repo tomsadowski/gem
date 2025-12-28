@@ -1,4 +1,5 @@
 // gem/src/tabserver
+
 use crate::{
     gemini::{GemDoc},
     config::Config,
@@ -13,7 +14,7 @@ use crossterm::{
 use std::{
     io::{self, Stdout},
 };
-use url::{Url};
+use url::Url;
 
 pub struct TabServer {
     rect: Rect,

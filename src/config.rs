@@ -1,4 +1,5 @@
 // gem/src/config
+
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug, Clone)]
@@ -28,9 +29,9 @@ pub struct Keys {
 }
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {
-    pub init_url:  String,
+    pub init_url: String,
     pub gemcolors: GemColors,
-    pub keys:      Keys,
+    pub keys: Keys,
 }
 impl Config {
     pub fn new(text: &str) -> Self {

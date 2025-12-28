@@ -1,7 +1,10 @@
 // gem/src/gemini
 // frontend agnostic
+
 use crate::util;
-use url::{Url, ParseError};
+use url::{
+    Url, ParseError
+};
 use std::{
     time::{Duration}, 
     io::{Read, Write},

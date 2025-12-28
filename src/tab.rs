@@ -1,9 +1,10 @@
 // gem/src/tab
+
 use crate::{
     config::{Config},
     gemini::{GemType, GemDoc},
     widget::{Selector, Rect},
-    dialog::{Dialog, InputType, DialogMsg},
+    dialog::{Dialog, DialogMsg, InputType, InputMsg},
 };
 use crossterm::{
     event::{KeyCode},
@@ -59,15 +60,15 @@ impl Tab {
         // send keycode to dialog if there is a dialog
         if let Some(d) = self.dlgstack.last_mut() {
             match d.update(keycode) {
-                Some(DialogMsg::Submit(a)) => {
-                    let msg = match &d.input {
-                        InputType::Choose((c, _)) => {
-                            match c == &self.config.keys.yes {
-                                true => Some(a),
+                Some(DialogMsg::Submit(action, submission)) => {
+                    let msg = match submission {
+                        InputMsg::Choose(c) => {
+                            match c == self.config.keys.yes {
+                                true => Some(action),
                                 false => Some(TabMsg::None),
                             }
                         }
-                        InputType::Input(_) => Some(TabMsg::None),
+                        InputMsg::Input(_) => Some(TabMsg::None),
                         _ => Some(TabMsg::None),
                     };
                     self.dlgstack.pop();
@@ -105,14 +106,13 @@ impl Tab {
                     Dialog::new(
                         &self.rect,
                         TabMsg::DeleteMe,
-                        InputType::Choose((
-                            'n', 
+                        InputType::Choose(
                             vec![
                                 (self.config.keys.yes, 
                                  String::from("yes")),
                                 (self.config.keys.no, 
                                  String::from("no"))
-                            ])),
+                            ]),
                         "Delete current tab?");
                 self.dlgstack.push(dialog);
                 return Some(TabMsg::None)
@@ -133,14 +133,13 @@ impl Tab {
                         Dialog::new(
                             &self.rect,
                             TabMsg::Go(url.clone()),
-                            InputType::Choose((
-                                'n', 
+                            InputType::Choose(
                                 vec![
                                     (self.config.keys.yes, 
                                      String::from("yes")), 
                                     (self.config.keys.no, 
                                      String::from("no"))
-                                ])),
+                                ]),
                             &format!("go to {}?", url)),
                     gemtext => 
                         Dialog::new(

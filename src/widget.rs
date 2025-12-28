@@ -1,5 +1,6 @@
 // gem/src/widget
 // backend agnostic
+
 use crate::util;
 use crossterm::{
     QueueableCommand, cursor, style,
@@ -37,7 +38,8 @@ impl ScrollingCursor {
     // sets limits given length of text and rect
     pub fn new(textlength: usize, rect: &Rect) -> Self {
         let len = match u16::try_from(textlength) {
-            Ok(t) => t, _ => u16::MAX,
+            Ok(t) => t, 
+            _ => u16::MAX,
         };
         match len < rect.h {
             // no scrolling allowed
@@ -59,7 +61,8 @@ impl ScrollingCursor {
     // like Self::new but tries to preserve scroll
     pub fn resize(&mut self, textlength: usize, rect: &Rect) {
         let len = match u16::try_from(textlength) {
-            Ok(t) => t, _ => u16::MAX,
+            Ok(t) => t, 
+            _ => u16::MAX,
         };
         match len < rect.h {
             // no scrolling allowed
