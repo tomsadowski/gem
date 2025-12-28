@@ -3,13 +3,11 @@
 
 use crate::{
     config::{Config},
-    gemini::{GemType},
-    widget::{GetColors, Rect},
+    widget::{Rect},
     tabserver::TabServer,
 };
 use crossterm::{
     event::{Event, KeyEvent, KeyEventKind, KeyCode, KeyModifiers},
-    style::{Colors, Color},
 };
 use std::{
     io::{self, Stdout, Write},
@@ -91,45 +89,3 @@ impl UI {
         }
     }
 } 
-impl GetColors for GemType {
-    fn getcolors(&self) -> Colors {
-        match self {
-            Self::HeadingOne => Colors::new(
-                Color::Rgb {r: 225, g: 180, b: 105},
-                Color::Rgb {r: 0, g: 0, b: 0},
-            ),
-            Self::HeadingTwo => Colors::new(
-                Color::Rgb {r: 225, g: 180, b: 105},
-                Color::Rgb {r: 0, g: 0, b: 0},
-            ),
-            Self::HeadingThree => Colors::new(
-                Color::Rgb {r: 225, g: 180, b: 105},
-                Color::Rgb {r: 0, g: 0, b: 0},
-            ),
-            Self::Text => Colors::new(
-                Color::Rgb {r: 180, g: 180, b: 180},
-                Color::Rgb {r: 0, g: 0, b: 0},
-            ),
-            Self::Quote => Colors::new(
-                Color::Rgb {r: 180, g: 180, b: 180},
-                Color::Rgb {r: 0, g: 0, b: 0},
-            ),
-            Self::ListItem => Colors::new(
-                Color::Rgb {r: 180, g: 180, b: 180},
-                Color::Rgb {r: 0, g: 0, b: 0},
-            ),
-            Self::PreFormat => Colors::new(
-                Color::Rgb {r: 80 , g: 180, b: 80 },
-                Color::Rgb {r: 0, g: 0, b: 0},
-            ),
-            Self::Link(_, _) => Colors::new(
-                Color::Rgb {r: 105, g: 180, b: 225},
-                Color::Rgb {r: 0, g: 0, b: 0},
-            ),
-            Self::BadLink(_) => Colors::new(
-                Color::Rgb {r: 105, g: 105, b: 205},
-                Color::Rgb {r: 0, g: 0, b: 0},
-            ),
-        } 
-    }
-}

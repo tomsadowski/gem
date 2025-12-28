@@ -3,15 +3,15 @@
 init_url = "gemini://geminiprotocol.net/"
 
 [gemcolors]
-# (0123456789abcdef)x3
-heading1  = ["f","8","8"]
-heading2  = ["f","8","8"]
-heading3  = ["f","8","8"]
-text      = ["c","c","c"]
-link      = ["8","c","f"]
-quote     = ["c","c","6"]
-listitem  = ["c","6","c"]
-preformat = ["6","c","6"]
+heading1  = [255, 128, 128]
+heading2  = [255, 128, 128]
+heading3  = [255, 128, 128]
+text      = [205, 205, 205]
+link      = [128, 205, 255]
+quote     = [205, 205, 205]
+listitem  = [205, 100, 205]
+preformat = [100, 205, 100]
+badlink   = [255,   1,   1]
 
 [keys]
 # yes/no dialog

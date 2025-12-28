@@ -25,7 +25,7 @@ use std::{
 
 fn main() -> io::Result<()> {
     let configtext = fs::read_to_string("gem.toml").unwrap();
-    let config: Config = toml::from_str(configtext.as_str()).unwrap();
+    let config = Config::new(configtext.as_str());
     
     let (w, h) = terminal::size()?;
 

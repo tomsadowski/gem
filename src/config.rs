@@ -4,14 +4,15 @@ use serde::Deserialize;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct GemColors {
-    pub heading1:  (char, char, char),
-    pub heading2:  (char, char, char),
-    pub heading3:  (char, char, char),
-    pub text:      (char, char, char),
-    pub link:      (char, char, char),
-    pub quote:     (char, char, char),
-    pub listitem:  (char, char, char),
-    pub preformat: (char, char, char),
+    pub heading1:  (u8, u8, u8),
+    pub heading2:  (u8, u8, u8),
+    pub heading3:  (u8, u8, u8),
+    pub text:      (u8, u8, u8),
+    pub link:      (u8, u8, u8),
+    pub badlink:   (u8, u8, u8),
+    pub quote:     (u8, u8, u8),
+    pub listitem:  (u8, u8, u8),
+    pub preformat: (u8, u8, u8),
 }
 #[derive(Deserialize, Debug, Clone)]
 pub struct Keys {

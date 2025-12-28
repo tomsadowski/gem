@@ -1,13 +1,14 @@
 // gem/src/tab
 
 use crate::{
-    config::{Config},
+    config::{Config, GemColors},
     gemini::{GemType, GemDoc},
-    widget::{Selector, Rect},
+    widget::{Selector, Rect, GetColors},
     dialog::{Dialog, DialogMsg, InputType, InputMsg},
 };
 use crossterm::{
     event::{KeyCode},
+    style::{Colors, Color},
 };
 use std::{
     io::{self, Stdout},
@@ -29,7 +30,7 @@ pub struct Tab {
     rect: Rect,
     config: Config,
     dlgstack: Vec<Dialog<TabMsg>>,
-    page: Selector<GemType>,
+    page: Selector<ColoredGem>,
 }
 impl Tab {
     pub fn new(rect: &Rect, gemdoc: GemDoc, config: &Config) -> Self {
@@ -37,7 +38,10 @@ impl Tab {
             config: config.clone(),
             rect: rect.clone(),
             dlgstack: vec![],
-            page: Selector::new(rect, &gemdoc.doc, true),
+            page: Selector::new(
+                rect, 
+                &ColoredGem::getvec(&gemdoc.doc, &config.gemcolors), 
+                true),
             doc: gemdoc,
         }
     }
@@ -128,7 +132,7 @@ impl Tab {
                 return Some(TabMsg::None)
             }
             else if c == &self.config.keys.inspect_under_cursor {
-                let dialog = match self.page.selectundercursor() {
+                let dialog = match &self.page.selectundercursor().gem {
                     GemType::Link(_, url) => 
                         Dialog::new(
                             &self.rect,
@@ -156,5 +160,78 @@ impl Tab {
         } else {
             return None
         }
+    }
+}
+#[derive(Clone, Debug)]
+pub struct ColoredGem {
+    pub gem: GemType,
+    pub colors: Colors,
+}
+impl ColoredGem {
+    pub fn getvec(vec: &Vec<(GemType, String)>, config: &GemColors) 
+        -> Vec<(Self, String)> 
+    {
+        vec
+            .iter()
+            .map(|(g, s)| (Self::new(g, config), s.clone()))
+            .collect()
+    }
+    pub fn new(gem: &GemType, config: &GemColors) -> Self {
+        let color = match gem {
+            GemType::HeadingOne => 
+                Color::Rgb {
+                    r: config.heading1.0, 
+                    g: config.heading1.1, 
+                    b: config.heading1.2},
+            GemType::HeadingTwo => 
+                Color::Rgb {
+                    r: config.heading2.0, 
+                    g: config.heading2.1, 
+                    b: config.heading2.2},
+            GemType::HeadingThree => 
+                Color::Rgb {
+                    r: config.heading3.0, 
+                    g: config.heading3.1, 
+                    b: config.heading3.2},
+            GemType::Text => 
+                Color::Rgb {
+                    r: config.text.0, 
+                    g: config.text.1, 
+                    b: config.text.2},
+            GemType::Quote => 
+                Color::Rgb {
+                    r: config.quote.0, 
+                    g: config.quote.1, 
+                    b: config.quote.2},
+            GemType::ListItem => 
+                Color::Rgb {
+                    r: config.listitem.0, 
+                    g: config.listitem.1, 
+                    b: config.listitem.2},
+            GemType::PreFormat => 
+                Color::Rgb {
+                    r: config.preformat.0, 
+                    g: config.preformat.1, 
+                    b: config.preformat.2},
+            GemType::Link(_, _) => 
+                Color::Rgb {
+                    r: config.link.0, 
+                    g: config.link.1, 
+                    b: config.link.2},
+            GemType::BadLink(_) => 
+                Color::Rgb {
+                    r: config.badlink.0, 
+                    g: config.badlink.1, 
+                    b: config.badlink.2},
+        };
+        Self {
+            gem: gem.clone(),
+            colors: Colors::new(color, Color::Rgb {r: 0, g: 0, b: 0}),
+        }
+    }
+}
+impl GetColors for ColoredGem {
+    fn getcolors(&self) -> Colors {
+        self.colors
     }
 }
