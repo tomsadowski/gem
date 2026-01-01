@@ -50,38 +50,6 @@ pub fn wrap(line: &str, screenwidth: u16) -> Vec<String> {
     }
     wrapped
 }
-// call cut for each element in the list
-pub fn cutlist<T>(lines: &Vec<(T, String)>, w: u16) -> Vec<(usize, String)> {
-    let mut display: Vec<(usize, String)> = vec![];
-    for (i, (_, l)) in lines.iter().enumerate() {
-        display.push((i, cut(l, w)));
-    }
-    display
-}
-// cut text in terminal, adding "..." to indicate that it 
-// continues beyond the screen
-pub fn cut(line: &str, screenwidth: u16) -> String {
-    let mut width = usize::from(screenwidth);
-    if line.len() < width {
-        return String::from(line)
-    } else {
-        width -= 2;
-        let longest = &line[..width];
-        match longest.rsplit_once(' ') {
-            Some((a, b)) => {
-                let shortest = match a.len() {
-                    0 => b,
-                    _ => a,
-                };
-                return format!("{}..", shortest)
-            }
-            None => {
-                return format!("{}..", longest)
-            }
-        }
-
-    }
-}
 pub fn split_whitespace_once(source: &str) -> (&str, &str) {
     let line = source.trim();
     let (a, b) = {

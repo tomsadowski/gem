@@ -40,8 +40,7 @@ impl Tab {
             dlgstack: vec![],
             page: Selector::new(
                 rect, 
-                &ColoredGem::getvec(&gemdoc.doc, &config.gemcolors), 
-                true),
+                &ColoredGem::getvec(&gemdoc.doc, &config.gemcolors)),
             doc: gemdoc,
         }
     }
@@ -110,13 +109,9 @@ impl Tab {
                     Dialog::new(
                         &self.rect,
                         TabMsg::DeleteMe,
-                        InputType::Choose(
-                            vec![
-                                (self.config.keys.yes, 
-                                 String::from("yes")),
-                                (self.config.keys.no, 
-                                 String::from("no"))
-                            ]),
+                        InputType::choose(vec![
+                            (self.config.keys.yes, "yes"),
+                            (self.config.keys.no, "no")]),
                         "Delete current tab?");
                 self.dlgstack.push(dialog);
                 return Some(TabMsg::None)
@@ -132,26 +127,23 @@ impl Tab {
                 return Some(TabMsg::None)
             }
             else if c == &self.config.keys.inspect_under_cursor {
-                let dialog = match &self.page.selectundercursor().gem {
-                    GemType::Link(_, url) => 
-                        Dialog::new(
-                            &self.rect,
-                            TabMsg::Go(url.clone()),
-                            InputType::Choose(
-                                vec![
-                                    (self.config.keys.yes, 
-                                     String::from("yes")), 
-                                    (self.config.keys.no, 
-                                     String::from("no"))
-                                ]),
-                            &format!("go to {}?", url)),
-                    gemtext => 
-                        Dialog::new(
-                            &self.rect,
-                            TabMsg::None,
-                            InputType::None,
-                            &format!("{:?}", gemtext)),
-                };
+                let dialog = 
+                    match &self.page.selectundercursor().gem {
+                        GemType::Link(_, url) => 
+                            Dialog::new(
+                                &self.rect,
+                                TabMsg::Go(url.clone()),
+                                InputType::choose(vec![
+                                    (self.config.keys.yes, "yes"), 
+                                    (self.config.keys.no, "no")]),
+                                &format!("go to {}?", url)),
+                        gemtext => 
+                            Dialog::new(
+                                &self.rect,
+                                TabMsg::None,
+                                InputType::None,
+                                &format!("{:?}", gemtext)),
+                    };
                 self.dlgstack.push(dialog);
                 return Some(TabMsg::None)
             } else {
@@ -168,8 +160,8 @@ pub struct ColoredGem {
     pub colors: Colors,
 }
 impl ColoredGem {
-    pub fn getvec(vec: &Vec<(GemType, String)>, config: &GemColors) 
-        -> Vec<(Self, String)> 
+    pub fn getvec(vec: &Vec<(GemType, String)>, 
+                  config: &GemColors) -> Vec<(Self, String)> 
     {
         vec
             .iter()

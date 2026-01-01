@@ -1,7 +1,7 @@
 // gem/src/dialog
 
 use crate::{
-    widget::Rect,
+    widget::{Rect, DefaultColor, Selector},
 };
 use crossterm::{
     QueueableCommand, cursor, style,
@@ -12,13 +12,6 @@ use std::{
 };
 
 #[derive(Clone, Debug)]
-pub enum InputMsg {
-    None,
-    Confirm,
-    Choose(char),
-    Input(String),
-}
-#[derive(Clone, Debug)]
 pub enum InputType {
     None,
     Choose(Vec<(char, String)>),
@@ -28,17 +21,24 @@ impl InputType {
     pub fn input() -> Self {
         Self::Input(String::from(""))
     }
+    pub fn choose(vec: Vec<(char, &str)>) -> Self {
+        Self::Choose(
+            vec
+            .iter()
+            .map(|(c, s)| (*c, s.to_string()))
+            .collect())
+    }
     pub fn update(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
         match (self, keycode) {
             // Pressing Enter in a choosebox means nothing
-            (InputType::Choose(_), KeyCode::Enter) => {
-                Some(InputMsg::None)
+            (InputType::None, KeyCode::Enter) => {
+                Some(InputMsg::Confirm)
             }
             (InputType::Input(s), KeyCode::Enter) => {
                 Some(InputMsg::Input(s.to_string()))
             }
-            (InputType::None, KeyCode::Enter) => {
-                Some(InputMsg::Confirm)
+            (_, KeyCode::Enter) => {
+                Some(InputMsg::None)
             }
             // Pressing Escape always cancels
             // Backspace works in inputbox
@@ -64,9 +64,6 @@ impl InputType {
             _ => None,
         }
     }
-//    pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
-//        Ok(())
-//    }
 }
 #[derive(Clone, Debug)]
 pub enum DialogMsg<T> {
@@ -75,19 +72,62 @@ pub enum DialogMsg<T> {
     Submit(T, InputMsg),
 }
 #[derive(Clone, Debug)]
+pub enum InputMsg {
+    None,
+    Confirm,
+    Choose(char),
+    Input(String),
+}
+#[derive(Clone, Debug)]
+pub struct InputBox {
+    pub selector: Selector<DefaultColor>,
+    pub inputtype: InputType,
+}
+impl InputBox {
+    pub fn new(rect: &Rect, inputtype: InputType) -> Self {
+        let selector = match &inputtype {
+            InputType::Choose(v) => {
+                let m = v
+                    .iter()
+                    .map(|(x, y)| format!("|{}|  {}", x, y))
+                    .collect();
+                Selector::default(rect, &m)
+            }
+            InputType::Input(s) => {
+                Selector::default(rect, &vec![s.clone()])
+            }
+            _ => Selector::default(rect, &vec![]),
+        };
+        Self {
+            selector: selector,
+            inputtype: inputtype,
+        }
+    }
+    pub fn view(&self, stdout: &Stdout) -> io::Result<()> {
+        self.selector.view(stdout)?;
+        Ok(())
+    }
+    pub fn update(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
+        self.inputtype.update(keycode)
+    }
+}
+#[derive(Clone, Debug)]
 pub struct Dialog<T> {
     rect: Rect,
     prompt: String,
     pub action: T,
-    pub input: InputType,
+    pub inputbox: InputBox,
 }
 impl<T: Clone + std::fmt::Debug> Dialog<T> {
-    pub fn new(rect: &Rect, action: T, input: InputType, prompt: &str) -> Self 
+    pub fn new(rect: &Rect, 
+               action: T, 
+               input: InputType, 
+               prompt: &str) -> Self 
     {
         Self {
             rect: rect.clone(),
             action: action,
-            input: input,
+            inputbox: InputBox::new(rect, input),
             prompt: String::from(prompt), 
         }
     }
@@ -95,8 +135,8 @@ impl<T: Clone + std::fmt::Debug> Dialog<T> {
         stdout
             .queue(cursor::MoveTo(self.rect.x + 2, self.rect.y + 2))?
             .queue(style::Print(self.prompt.as_str()))?
-            .queue(cursor::MoveTo(self.rect.x + 2, self.rect.y + 4))?
-            .queue(style::Print(format!("{:?}", self.input)))?;
+            .queue(cursor::MoveTo(self.rect.x + 2, self.rect.y + 4))?;
+        self.inputbox.view(stdout)?;
         Ok(())
     }
     // No wrapping yet, so resize is straightforward
@@ -109,11 +149,14 @@ impl<T: Clone + std::fmt::Debug> Dialog<T> {
         match keycode {
             KeyCode::Esc => 
                 Some(DialogMsg::Cancel),
-            _ => match self.input.update(keycode) {
-                None => None,
-                Some(InputMsg::None) => Some(DialogMsg::None),
-                Some(submit) => 
-                    Some(DialogMsg::Submit(self.action.clone(), submit)),
+            _ => 
+                match self.inputbox.update(keycode) {
+                    None => None,
+                    Some(InputMsg::None) =>
+                        Some(DialogMsg::None),
+                    Some(submit) => 
+                        Some(DialogMsg::Submit(
+                                self.action.clone(), submit)),
             }
         }
     }
