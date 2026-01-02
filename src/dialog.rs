@@ -1,11 +1,12 @@
-// gem/src/dialog
+// dialog
 
 use crate::{
-    widget::{Rect, DefaultColor, Selector},
+    geometry::{Rect},
+    widget::{Selector},
 };
 use crossterm::{
     QueueableCommand, cursor, style,
-    event::KeyCode,
+    event::{KeyCode},
 };
 use std::{
     io::{self, Stdout},
@@ -18,9 +19,11 @@ pub enum InputType {
     Input(String),
 }
 impl InputType {
+    // shortcut to create inputbox
     pub fn input() -> Self {
         Self::Input(String::from(""))
     }
+    // shortcut to create choosebox
     pub fn choose(vec: Vec<(char, &str)>) -> Self {
         Self::Choose(
             vec
@@ -66,12 +69,6 @@ impl InputType {
     }
 }
 #[derive(Clone, Debug)]
-pub enum DialogMsg<T> {
-    None,
-    Cancel,
-    Submit(T, InputMsg),
-}
-#[derive(Clone, Debug)]
 pub enum InputMsg {
     None,
     Confirm,
@@ -80,7 +77,7 @@ pub enum InputMsg {
 }
 #[derive(Clone, Debug)]
 pub struct InputBox {
-    pub selector: Selector<DefaultColor>,
+    pub selector: Selector,
     pub inputtype: InputType,
 }
 impl InputBox {
@@ -91,12 +88,12 @@ impl InputBox {
                     .iter()
                     .map(|(x, y)| format!("|{}|  {}", x, y))
                     .collect();
-                Selector::default(rect, &m)
+                Selector::white(rect, &m)
             }
             InputType::Input(s) => {
-                Selector::default(rect, &vec![s.clone()])
+                Selector::white(rect, &vec![s.clone()])
             }
-            _ => Selector::default(rect, &vec![]),
+            _ => Selector::white(rect, &vec![]),
         };
         Self {
             selector: selector,
@@ -110,6 +107,12 @@ impl InputBox {
     pub fn update(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
         self.inputtype.update(keycode)
     }
+}
+#[derive(Clone, Debug)]
+pub enum DialogMsg<T> {
+    None,
+    Cancel,
+    Submit(T, InputMsg),
 }
 #[derive(Clone, Debug)]
 pub struct Dialog<T> {

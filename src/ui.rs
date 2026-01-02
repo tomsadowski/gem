@@ -1,10 +1,10 @@
-// gem/src/ui
+// ui
 // joins backend and frontend
 
 use crate::{
     config::{Config},
-    widget::{Rect},
-    tabserver::TabServer,
+    geometry::{Rect},
+    tabserver::{TabServer},
 };
 use crossterm::{
     event::{Event, KeyEvent, KeyEventKind, KeyCode, KeyModifiers},

@@ -1,5 +1,4 @@
-// gem/src/gemini
-// frontend agnostic
+// gemini
 
 use crate::util;
 use url::{

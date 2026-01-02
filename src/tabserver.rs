@@ -1,15 +1,16 @@
-// gem/src/tabserver
+// tabserver
 
 use crate::{
     gemini::{GemDoc},
-    config::Config,
-    widget::Rect,
+    widget::{ColoredText},
+    config::{Config},
+    geometry::{Rect},
     tab::{TabMsg, Tab},
 };
 use crossterm::{
     QueueableCommand, cursor, terminal,
     event::{KeyCode},
-    style::{self, Colors, Color},
+    style::{self},
 };
 use std::{
     io::{self, Stdout},
@@ -22,12 +23,9 @@ pub struct TabServer {
     tabs: Vec<Tab>,
     // index of current tab
     curindex: usize,
-    // meta data to display at all times
-    bannerstr: String,
-    bannerstrcolor: Colors,
-    // separate banner from page
-    bannerline: String,
-    bannerlinecolor: Colors,
+    // header/banner
+    bannertext: ColoredText,
+    bannerline: ColoredText,
 }
 impl TabServer {
     pub fn new(rect: &Rect, config: &Config) -> Self {
@@ -40,14 +38,8 @@ impl TabServer {
             config: config.clone(),
             tabs: vec![Tab::new(&rect, doc, config)],
             curindex: 0,
-            bannerstr: Self::bannerstr(0, 1, &url),
+            bannertext: Self::bannertext(0, 1, &url),
             bannerline: Self::bannerline(rect.w),
-            bannerstrcolor: Colors::new(
-                Color::Rgb {r: 180, g: 180, b: 180},
-                Color::Rgb {r: 0, g: 0, b: 0}),
-            bannerlinecolor: Colors::new(
-                Color::Rgb {r: 180, g: 180, b: 180},
-                Color::Rgb {r: 0, g: 0, b: 0}),
         }
     }
     // adjust length of banner line, resize all tabs
@@ -63,11 +55,11 @@ impl TabServer {
         stdout
             .queue(terminal::Clear(terminal::ClearType::All))?
             .queue(cursor::MoveTo(0, 0))?
-            .queue(style::SetColors(self.bannerstrcolor))?
-            .queue(style::Print(self.bannerstr.as_str()))?
+            .queue(style::SetForegroundColor(self.bannertext.color))?
+            .queue(style::Print(&self.bannertext.text))?
             .queue(cursor::MoveTo(0, 1))?
-            .queue(style::SetColors(self.bannerlinecolor))?
-            .queue(style::Print(&self.bannerline))?;
+            .queue(style::SetForegroundColor(self.bannerline.color))?
+            .queue(style::Print(&self.bannerline.text))?;
         self.tabs[self.curindex].view(stdout)
     }
     // send keycode to current tab and process response
@@ -102,17 +94,17 @@ impl TabServer {
                 }
                 let len = self.tabs.len();
                 let url = &self.tabs[self.curindex].doc.url;
-                self.bannerstr = Self::bannerstr(self.curindex, len, url);
+                self.bannertext = Self::bannertext(self.curindex, len, url);
                 self.bannerline = Self::bannerline(self.rect.w);
                 true
             }
             None => false,
         }
     }
-    fn bannerstr(curindex: usize, totaltab: usize, url: &Url) -> String {
-        format!("{}/{}: {}", curindex + 1, totaltab, url)
+    fn bannertext(curindex: usize, totaltab: usize, url: &Url) -> ColoredText {
+        ColoredText::white(&format!("{}/{}: {}", curindex + 1, totaltab, url))
     }
-    fn bannerline(w: u16) -> String {
-        String::from("-").repeat(usize::from(w))
+    fn bannerline(w: u16) -> ColoredText {
+        ColoredText::white(&String::from("-").repeat(usize::from(w)))
     }
 }

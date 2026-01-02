@@ -1,4 +1,4 @@
-// gem/src/config
+// config
 
 use serde::Deserialize;
 
