@@ -31,10 +31,16 @@ pub struct Keys {
     pub new_tab: char,
 }
 #[derive(Deserialize, Debug, Clone)]
+pub struct Format {
+    pub margin: u8,
+    pub listbullet: String,
+}
+#[derive(Deserialize, Debug, Clone)]
 pub struct Config {
     pub init_url: String,
     pub colors: Colors,
     pub keys: Keys,
+    pub format: Format,
 }
 impl Config {
     pub fn new(text: &str) -> Self {

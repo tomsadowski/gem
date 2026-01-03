@@ -112,9 +112,9 @@ impl Selector {
             &source.iter().map(|ct| ct.text.clone()).collect(),
             rect.w);
         return Self {
-            rect: rect.clone(),
-            cursor: ScrollingCursor::new(display.len(), &rect),
-            source: source.clone(),
+            rect:    rect.clone(),
+            cursor:  ScrollingCursor::new(display.len(), &rect),
+            source:  source.clone(),
             display: display,
         }
     }

@@ -27,26 +27,34 @@ pub struct TabServer {
     bannerline: ColoredText,
 }
 impl TabServer {
-    pub fn new(rect: &Rect, config: &Config) -> Self {
-        let rect = Rect::new(rect.x + 1, rect.y + 2, rect.w - 1, rect.h - 1);
+    pub fn new(r: &Rect, config: &Config) -> Self {
+        let rect = Rect::new(
+            r.x + config.format.margin as u16, 
+            r.y + 2, 
+            r.w - (config.format.margin*2) as u16,
+            r.h - 2);
         // TODO produce dialog if failed url
         let url = Url::parse(&config.init_url).unwrap();
         let doc = GemDoc::new(&url);
         Self {
-            bgcolor: getbackground(&config.colors),
-            rect: rect.clone(),
-            config: config.clone(),
-            tabs: vec![Tab::new(&rect, doc, config)],
-            curindex: 0,
-            bannertext: Self::bannertext(0, 1, &url),
-            bannerline: Self::bannerline(rect.w),
+            bgcolor:    getbackground(&config.colors),
+            rect:       rect.clone(),
+            config:     config.clone(),
+            tabs:       vec![Tab::new(&rect, doc, config)],
+            curindex:   0,
+            bannertext: bannertext(0, 1, &url),
+            bannerline: bannerline(rect.w),
         }
     }
 
     // adjust length of banner line, resize all tabs
-    pub fn resize(&mut self, rect: &Rect) {
-        self.rect = Rect::new(rect.x + 1, rect.y + 2, rect.w - 1, rect.h - 1);
-        self.bannerline = Self::bannerline(rect.w);
+    pub fn resize(&mut self, r: &Rect) {
+        self.rect = Rect::new(
+            r.x + self.config.format.margin as u16, 
+            r.y + 2, 
+            r.w - (self.config.format.margin*2) as u16, 
+            r.h - 2);
+        self.bannerline = bannerline(self.rect.w);
         for d in self.tabs.iter_mut() {
             d.resize(&self.rect);
         }
@@ -55,11 +63,11 @@ impl TabServer {
     // display banner and page
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
         stdout
-            .queue(cursor::MoveTo(0, 0))?
+            .queue(cursor::MoveTo(self.rect.x, 0))?
             .queue(style::SetBackgroundColor(self.bgcolor))?
             .queue(style::SetForegroundColor(self.bannertext.color))?
             .queue(style::Print(&self.bannertext.text))?
-            .queue(cursor::MoveTo(0, 1))?
+            .queue(cursor::MoveTo(self.rect.x, 1))?
             .queue(style::SetForegroundColor(self.bannerline.color))?
             .queue(style::Print(&self.bannerline.text))?;
         self.tabs[self.curindex].view(stdout)
@@ -97,20 +105,12 @@ impl TabServer {
                 }
                 let len = self.tabs.len();
                 let url = &self.tabs[self.curindex].doc.url;
-                self.bannertext = Self::bannertext(self.curindex, len, url);
-                self.bannerline = Self::bannerline(self.rect.w);
+                self.bannertext = bannertext(self.curindex, len, url);
+                self.bannerline = bannerline(self.rect.w);
                 true
             }
             None => false,
         }
-    }
-
-    fn bannertext(curindex: usize, totaltab: usize, url: &Url) -> ColoredText {
-        ColoredText::white(&format!("{}/{}: {}", curindex + 1, totaltab, url))
-    }
-
-    fn bannerline(w: u16) -> ColoredText {
-        ColoredText::white(&String::from("-").repeat(usize::from(w)))
     }
 }
 
@@ -324,4 +324,12 @@ pub fn getcoloredgem(gem: &GemType,
                 b: config.badlink.2},
     };
     ColoredText::new(text, color)
+}
+
+pub fn bannertext(curindex: usize, totaltab: usize, url: &Url) -> ColoredText {
+    ColoredText::white(&format!("{}/{}: {}", curindex + 1, totaltab, url))
+}
+
+pub fn bannerline(w: u16) -> ColoredText {
+    ColoredText::white(&String::from("-").repeat(usize::from(w)))
 }

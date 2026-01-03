@@ -2,17 +2,21 @@
 init_url = "gemini://geminiprotocol.net/"
 
 [colors]
-background = [32, 32, 24]
-ui         = [205, 205, 128]
-text       = [205, 205, 128]
-heading1   = [205, 128, 205]
-heading2   = [205, 128, 205]
-heading3   = [205, 128, 205]
-link       = [ 64, 205, 205]
-quote      = [205, 205, 205]
-listitem   = [205, 205, 205]
-preformat  = [100, 205, 100]
-badlink    = [255,   1,   1]
+background = [24, 24, 24]
+ui         = [ 80, 180, 180]
+link       = [100, 200, 200]
+text       = [200, 200, 200]
+preformat  = [200, 200, 200]
+quote      = [200, 200, 200]
+heading1   = [240, 100, 120]
+heading2   = [240, 100, 120]
+heading3   = [240, 100, 120]
+listitem   = [100, 200, 100]
+badlink    = [ 60,  60, 200]
+
+[format]
+margin     = 8
+listbullet = " - "
 
 [keys]
 # yes/no dialog
