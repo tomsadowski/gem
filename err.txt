@@ -1,0 +1,3 @@
+   Compiling gem v0.1.0 (/home/tsadowski/.local/source/gem)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.28s
+     Running `target/debug/gem`

@@ -135,13 +135,14 @@ impl Tab {
         -> Self 
     {
         Self {
-            config: config.clone(),
-            rect: rect.clone(),
+            config:   config.clone(),
+            rect:     rect.clone(),
             dlgstack: vec![],
-            page: Selector::new(
-                rect, 
-                &config::getvec(&gemdoc.doc, &config.colors)),
-            doc: gemdoc,
+            page:     Selector::new(
+                        rect, 
+                        &config::getvec(&gemdoc.doc, &config.colors),
+                        config.scroll_at),
+            doc:      gemdoc,
         }
     }
     // resize page and all dialogs
@@ -190,12 +191,16 @@ impl Tab {
         // there is no dialog, process keycode here
         else if let KeyCode::Char(c) = keycode {
             if c == &self.config.keys.move_cursor_down {
-                self.page.cursor.move_down(1);
-                return Some(TabMsg::None)
+                match self.page.move_down(1) {
+                    true => return Some(TabMsg::None),
+                    false => return None,
+                }
             }
             else if c == &self.config.keys.move_cursor_up {
-                self.page.cursor.move_up(1);
-                return Some(TabMsg::None)
+                match self.page.move_up(1) {
+                    true => return Some(TabMsg::None),
+                    false => return None,
+                }
             }
             else if c == &self.config.keys.cycle_to_left_tab {
                 return Some(TabMsg::CycleLeft)

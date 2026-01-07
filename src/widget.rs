@@ -1,7 +1,7 @@
 // widget
 
 use crate::{
-    util::{self, Rect, Cursor, ScrollingCursor},
+    util::{self, Rect, ScrollingCursor},
 };
 use crossterm::{
     QueueableCommand, cursor,
@@ -38,10 +38,10 @@ impl ColoredText {
 // only scrolls vertically
 #[derive(Clone, Debug)]
 pub struct Selector {
-    rect:       Rect,
-    pub cursor: ScrollingCursor,
-    source:     Vec<ColoredText>,
-    display:    Vec<(usize, String)>,
+    rect:             Rect,
+    scrolling_cursor: ScrollingCursor,
+    source:           Vec<ColoredText>,
+    display:          Vec<(usize, String)>,
 } 
 impl Selector {
     pub fn white(rect: &Rect, source: &Vec<String>) -> Self {
@@ -49,35 +49,40 @@ impl Selector {
             .iter()
             .map(|s| ColoredText::white(s))
             .collect();
-        Self::new(rect, &white)
+        Self::new(rect, &white, 0)
     }
-    pub fn new(rect: &Rect, source: &Vec<ColoredText>) -> Self {
+    pub fn new(rect: &Rect, source: &Vec<ColoredText>, buf: u8) -> Self {
         let display = util::wrap_list(
             &source.iter().map(|ct| ct.text.clone()).collect(),
             rect.w);
         return Self {
             rect:    rect.clone(),
-            cursor:  ScrollingCursor::new(display.len(), &rect, 3),
+            scrolling_cursor:  
+                ScrollingCursor::new(
+                    display.len(), 
+                    &rect.verticle().unwrap(), 
+                    buf),
             source:  source.clone(),
             display: display,
         }
     }
     pub fn resize(&mut self, rect: &Rect) {
-        self.rect = rect.clone();
+        self.rect    = rect.clone();
         self.display = util::wrap_list(
             &self.source.iter().map(|ct| ct.text.clone()).collect(),
             rect.w);
-        self.cursor.resize(self.display.len(), rect);
+        self.scrolling_cursor.resize(
+            self.display.len(), 
+            &rect.verticle().unwrap());
     }
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
         stdout.queue(cursor::Hide)?;
-
-        let (a, b) = self.cursor.get_display_range();
+        let (a, b) = self.scrolling_cursor.get_display_range();
         for (j, (i, text)) in self.display[a..b].iter().enumerate() {
             stdout
                 .queue(cursor::MoveTo(
                         self.rect.x, 
-                        self.cursor.get_screen_start() + j as u16))?
+                        self.scrolling_cursor.get_screen_start() + j as u16))?
                 .queue(style::SetForegroundColor(
                         self.source[*i].color))?
                 .queue(style::Print(text.as_str()))?;
@@ -85,12 +90,18 @@ impl Selector {
         stdout
             .queue(cursor::MoveTo(
                 self.rect.x, 
-                self.cursor.get_cursor()))?
+                self.scrolling_cursor.get_cursor()))?
             .queue(cursor::Show)?
             .flush()
     }
+    pub fn move_up(&mut self, step: usize) -> bool {
+        self.scrolling_cursor.move_up(step)
+    }
+    pub fn move_down(&mut self, step: usize) -> bool {
+        self.scrolling_cursor.move_down(step)
+    }
     pub fn select_under_cursor(&self) -> (usize, &str) {
-        let index = self.display[self.cursor.get_index()].0;
+        let index = self.display[self.scrolling_cursor.get_index()].0;
         (index, &self.source[index].text)
     }
 } 

@@ -33,8 +33,6 @@ pub struct Keys {
     pub no: char,
     pub move_cursor_up: char,
     pub move_cursor_down: char,
-    pub move_page_up: char,
-    pub move_page_down: char,
     pub cycle_to_left_tab: char,
     pub cycle_to_right_tab: char,
     pub inspect_under_cursor: char,
@@ -43,15 +41,16 @@ pub struct Keys {
 }
 #[derive(Deserialize, Debug, Clone)]
 pub struct Format {
-    pub margin: u8,
+    pub margin:     u8,
     pub listbullet: String,
 }
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {
-    pub init_url: String,
-    pub colors: Colors,
-    pub keys: Keys,
-    pub format: Format,
+    pub init_url:  String,
+    pub scroll_at: u8,
+    pub colors:    Colors,
+    pub keys:      Keys,
+    pub format:    Format,
 }
 impl Config {
     pub fn new(text: &str) -> Self {

@@ -1,8 +1,9 @@
 
-init_url = "gemini://geminiprotocol.net/"
+init_url  = "gemini://geminiprotocol.net/"
+scroll_at = 3
 
 [colors]
-background = [24, 24, 24]
+background = [ 17,  17,  17]
 ui         = [ 80, 180, 180]
 link       = [100, 200, 200]
 text       = [200, 200, 200]
@@ -25,8 +26,6 @@ no                   = "n"
 # navigation
 move_cursor_up       = "o"
 move_cursor_down     = "i"
-move_page_up         = "g"
-move_page_down       = "m"
 cycle_to_left_tab    = "e"
 cycle_to_right_tab   = "n"
 inspect_under_cursor = "w"

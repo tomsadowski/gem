@@ -78,8 +78,8 @@ pub enum InputMsg {
 }
 #[derive(Clone, Debug)]
 pub struct InputBox {
-    pub selector:  Selector,
-    pub inputtype: InputType,
+    pub selector:   Selector,
+    pub input_type: InputType,
 }
 impl InputBox {
     pub fn new(rect: &Rect, inputtype: InputType) -> Self {
@@ -97,18 +97,16 @@ impl InputBox {
             _ => Selector::white(rect, &vec![]),
         };
         Self {
-            selector: selector,
-            inputtype: inputtype,
+            selector:   selector,
+            input_type: inputtype,
         }
     }
     pub fn view(&self, stdout: &Stdout) -> io::Result<()> {
         self.selector.view(stdout)?;
         Ok(())
     }
-    pub fn update(&mut self, keycode: &KeyCode) 
-        -> Option<InputMsg> 
-    {
-        self.inputtype.update(keycode)
+    pub fn update(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
+        self.input_type.update(keycode)
     }
 }
 #[derive(Clone, Debug)]

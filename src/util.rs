@@ -8,134 +8,174 @@ pub struct Rect {
     pub w: u16, 
     pub h: u16,
 }
-#[derive(Clone, Debug)]
-pub struct Cursor {
-    pub cur: u16,
-    pub min: u16,
-    pub max: u16,
+impl Rect {
+    pub fn verticle(&self) -> Result<Range, String> {
+        Range::new(usize::from(self.y), usize::from(self.y + self.h))
+    }
+    pub fn horizontal(&self) -> Result<Range, String> {
+        Range::new(usize::from(self.x), usize::from(self.x + self.w))
+    }
 }
-impl Cursor {
-    // sets limits given length of text and rect
-    pub fn new(len: usize, rect: &Rect) -> Self {
-        let len = match u16::try_from(len) {
-            Ok(t) => t, _ => u16::MAX,
-        };
-        Self {
-            min: rect.y,
-            cur: rect.y, 
-            max: std::cmp::min(len, rect.h),
+#[derive(Clone, Debug)]
+pub struct Range {
+    a: usize,
+    b: usize,
+}
+impl Range {
+    pub fn new(a: usize, b: usize) -> Result<Self, String> {
+        match a > b {
+            true => 
+                Err(format!("invalid range: (a: {}) > (b: {})", a, b)),
+            false => 
+                Ok(Self {a: a, b: b}),
         }
     }
-    pub fn resize(&mut self, len: usize, rect: &Rect) {
-        let len = match u16::try_from(len) {
-            Ok(t) => t, _ => u16::MAX,
-        };
-        self.min = rect.y;
-        self.max = std::cmp::min(len, rect.h);
-        self.cur = (self.min + self.max - 1) / 2;
+    pub fn len(&self) -> usize {
+        self.b - self.a
     }
-    pub fn move_up(&mut self, step: u16) -> bool {
-        if (self.min + step) <= self.cur {
-            self.cur -= step; 
-            true
-        } else { false }
+    pub fn start(&self) -> usize {
+        self.a
     }
-    pub fn move_down(&mut self, step: u16) -> bool {
-        if (self.cur + step) <= (self.min + self.max - 1) {
-            self.cur += step; 
-            true 
-        } else { false }
-    }
-    // index of cursor within its rect
-    pub fn get_index(&self) -> usize {
-        usize::from(self.cur - self.min)
+    pub fn end(&self) -> usize {
+        self.b
     }
 }
-// scroll over data when cursor position is at a limit
-// defined by rect
 #[derive(Clone, Debug)]
 pub struct ScrollingCursor {
-    buf:              u16,
-    pub inner_cursor: Cursor,
-    pub outer_cursor: Cursor,
-    pub scroll:       usize,
-    pub maxscroll:    usize,
+    inner:     Range,
+    outer:     Range,
+    buf:       usize,
+    cursor:    usize,
+    scroll:    usize,
+    maxscroll: usize,
 }
 impl ScrollingCursor {
-    // sets limits given length of text and rect
-    pub fn new(len: usize, rect: &Rect, buf: u16) -> Self {
-        let outer_cursor = Cursor::new(len, rect);
-        let inner_cursor = Cursor::new(len, 
-                &Rect {
-                    x: rect.x, 
-                    y: rect.y + buf, 
-                    w: rect.w, 
-                    h: rect.h - buf});
+    // private helper returning (outer, inner) ranges
+    fn get_ranges(len: usize, r: &Range, buf: usize) -> (Range, Range) {
+        if len < r.len() {
+            let range = Range::new(r.start(), r.start() + len).unwrap();
+            return (range.clone(), range)
+        } else {
+            // if buf is too big return input
+            let inner = 
+                match Range::new(r.start() + buf, r.end() - (buf + 1)) {
+                    Ok(range) => range,
+                    _         => r.clone(),
+                };
+            return (r.clone(), inner)
+        }
+    }
+    pub fn new(len: usize, r: &Range, buf: u8) -> Self {
+        let buf = usize::from(buf);
+        let (outer, inner) = Self::get_ranges(len, r, buf);
         Self {
-            buf:          buf,
-            scroll:       0, 
-            maxscroll:    len - usize::from(outer_cursor.max),
-            outer_cursor: outer_cursor,
-            inner_cursor: inner_cursor,
+            buf:       buf,
+            scroll:    0, 
+            maxscroll: len - outer.len(),
+            cursor:    (outer.start() + outer.end() - 1) / 2, 
+            outer:     outer,
+            inner:     inner,
         }
     }
-    // like Self::new but tries to preserve scroll
-    pub fn resize(&mut self, len: usize, rect: &Rect) {
-        self.outer_cursor.resize(len, rect);
-        self.inner_cursor.resize(len, 
-            &Rect {
-                x: rect.x, 
-                y: rect.y + self.buf, 
-                w: rect.w, 
-                h: rect.h - self.buf});
-        self.maxscroll = len - usize::from(self.outer_cursor.max);
+    pub fn resize(&mut self, len: usize, r: &Range) {
+        let (outer, inner) = Self::get_ranges(len, r, self.buf);
+        self.outer     = outer;
+        self.inner     = inner;
+        self.maxscroll = len - self.outer.len();
         self.scroll    = std::cmp::min(self.scroll, self.maxscroll);
+        self.cursor    = (self.outer.start() + self.outer.end() - 1) / 2;
     }
-    // scroll up when cursor is at highest position
-    pub fn move_up(&mut self, step: u16) -> bool {
-        let scrollstep = usize::from(step);
-        if self.inner_cursor.move_up(step) {
-            self.outer_cursor.move_up(step);
-            true
-        } else if usize::MIN + scrollstep <= self.scroll {
-            self.scroll -= scrollstep; 
-            true
-        } else if self.outer_cursor.move_up(step) {
-            true
-        } else { false }
-    }
-    // scroll down when cursor is at lowest position
-    pub fn move_down(&mut self, step: u16) -> bool {
-        let scrollstep = usize::from(step);
-        if self.inner_cursor.move_down(step) {
-            self.outer_cursor.move_down(step);
-            true 
-        } else if (self.scroll + scrollstep) <= self.maxscroll {
-            self.scroll += scrollstep; 
-            true
-        } else if self.outer_cursor.move_down(step) {
-            true
+    pub fn move_up(&mut self, mut step: usize) -> bool {
+        // cursor is bounded only by outer_rng
+        if self.scroll == usize::MIN {
+            if self.cursor == self.outer.start() {
+                return false
+            } else if self.outer.start() + step <= self.cursor {
+                self.cursor -= step; 
+            } else {
+                self.cursor = self.outer.start();
+            }
+        // cursor is bounded by inner_rng
+        } else if (self.inner.start() + step) <= self.cursor {
+            self.cursor -= step; 
+        // cursor must move, then scroll, then maybe move again
+        } else {
+            // lower step by the amount to move cursor
+            step -= self.inner.start() - self.cursor;
+            // move cursor
+            self.cursor = self.inner.start();
+            // the rest of step is accomplished with scroll alone
+            if step <= self.scroll {
+                self.scroll -= step;
+            // must move cursor again
+            } else {
+                step -= self.scroll;
+                self.scroll = usize::MIN;
+                // if this fails, step was too large from the start
+                if self.outer.start() + step <= self.cursor {
+                    self.cursor -= step; 
+                } else {
+                    self.cursor = self.outer.start();
+                }
+            }
         }
-        else { false }
+        return true
     }
-    // index of cursor within its rect
-    pub fn get_cursor(&self) -> u16 {
-        self.outer_cursor.cur
+    pub fn move_down(&mut self, mut step: usize) -> bool {
+        // cursor is bounded only by outer_rng
+        if self.scroll == self.maxscroll {
+            if self.cursor == self.outer.end() - 1 {
+                return false
+            } else if self.cursor + step <= self.outer.end() - 1 {
+                self.cursor += step;
+            } else {
+                self.cursor = self.outer.end() - 1;
+            }
+        // cursor is bounded by inner_rng
+        } else if (self.cursor + step) <= self.inner.end() {
+            self.cursor += step;
+        // cursor must move, then scroll, then it maybe move again
+        } else {
+            // lower step by the amount to move cursor
+            step -= self.inner.end() - self.cursor;
+            // move cursor
+            self.cursor = self.inner.end();
+            // the rest of step is accomplished with scroll alone
+            if self.scroll + step <= self.maxscroll {
+                self.scroll += step;
+            // must move cursor again
+            } else {
+                step -= self.maxscroll - self.scroll;
+                self.scroll = self.maxscroll;
+                // if this fails, step was too large from the start
+                if self.cursor + step <= self.outer.end() - 1 {
+                    self.cursor += step;
+                } else {
+                    self.cursor = self.outer.end() - 1;
+                }
+            }
+        }
+        return true
     }
-    // index of cursor within its rect
+    // return scroll
     pub fn get_scroll(&self) -> usize {
         self.scroll
     }
-    pub fn get_screen_start(&self) -> u16 {
-        self.outer_cursor.min
-    }
-    // index of cursor within its rect
+    // index of cursor within its range
     pub fn get_index(&self) -> usize {
-        self.scroll + self.outer_cursor.get_index()
+        self.scroll + (self.cursor - self.outer.start())
+    }
+    // return u16 for cursor
+    pub fn get_cursor(&self) -> u16 {
+        u16::try_from(self.cursor).unwrap()
+    }
+    // return u16 for outer.start
+    pub fn get_screen_start(&self) -> u16 {
+        u16::try_from(self.outer.start()).unwrap()
     }
     // returns the start and end of displayable text
     pub fn get_display_range(&self) -> (usize, usize) {
-        (self.scroll, self.scroll + usize::from(self.outer_cursor.max))
+        (self.scroll, self.scroll + self.outer.len())
     }
 }
 // call wrap for each element in the list
