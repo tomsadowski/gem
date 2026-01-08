@@ -5,7 +5,7 @@ use crate::{
     gemini::{GemType, GemDoc},
     util::{Rect},
     widget::{Selector, ColoredText},
-    dialog::{Dialog, DialogMsg, InputType, InputMsg},
+    dialog::{Dialog, InputType, InputMsg},
 };
 use crossterm::{
     QueueableCommand, cursor, terminal,

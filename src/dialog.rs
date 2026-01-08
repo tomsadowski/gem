@@ -2,7 +2,7 @@
 
 use crate::{
     util::{Rect},
-    widget::{Selector},
+    widget::{Selector, CursorText},
 };
 use crossterm::{
     QueueableCommand, cursor, style,
@@ -13,53 +13,36 @@ use std::{
 };
 
 #[derive(Clone, Debug)]
+pub struct ChooseBox {
+    pub src: Vec<(char, String)>,
+    pub wid: Selector,
+}
+#[derive(Clone, Debug)]
 pub enum InputType {
-    None,
-    Choose(Vec<(char, String)>),
-    Input(String),
+    Choose(ChooseBox),
+    Text(CursorText),
 }
 impl InputType {
-    // shortcut to create inputbox
-    pub fn input() -> Self {
-        Self::Input(String::from(""))
-    }
-    // shortcut to create choosebox
-    pub fn choose(vec: Vec<(char, &str)>) -> Self {
-        Self::Choose(
-            vec
-            .iter()
-            .map(|(c, s)| (*c, s.to_string()))
-            .collect())
-    }
-    pub fn update(&mut self, keycode: &KeyCode) 
-        -> Option<InputMsg> 
-    {
+    pub fn update(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
         match (self, keycode) {
-            // Pressing Enter in a choosebox means nothing
-            (InputType::None, KeyCode::Enter) => {
-                Some(InputMsg::Confirm)
+            (InputType::Text(cursortext), KeyCode::Enter) => {
+                Some(InputMsg::Text(cursortext.get_text()))
             }
-            (InputType::Input(s), KeyCode::Enter) => {
-                Some(InputMsg::Input(s.to_string()))
-            }
-            (_, KeyCode::Enter) => {
+            (InputType::Text(cursortext), KeyCode::Char(c)) => {
+                cursortext.insert(*c);
                 Some(InputMsg::None)
             }
-            // Pressing Escape always cancels
-            // Backspace works in inputbox
-            (InputType::Input(v), KeyCode::Backspace) => {
-                v.pop();
-                Some(InputMsg::None)
+            (InputType::Text(cursortext), 
+             KeyCode::Delete | KeyCode::Backspace) => 
+            {
+                match cursortext.delete() {
+                    true => Some(InputMsg::None),
+                    false => None,
+                }
             }
-            // Typing works in inputbox
-            (InputType::Input(v), KeyCode::Char(c)) => {
-                v.push(*c);
-                Some(InputMsg::None)
-            }
-            // Check for meaning in choosebox
             (InputType::Choose(t), KeyCode::Char(c)) => {
                 let chars: Vec<char> = 
-                    t.iter().map(|e| e.0).collect();
+                    t.src.iter().map(|e| e.0).collect();
                 match chars.contains(&c) {
                     true => Some(InputMsg::Choose(*c)),
                     false => None,
@@ -72,76 +55,52 @@ impl InputType {
 #[derive(Clone, Debug)]
 pub enum InputMsg {
     None,
-    Confirm,
+    Cancel,
     Choose(char),
-    Input(String),
+    Text(String),
 }
 #[derive(Clone, Debug)]
-pub struct InputBox {
-    pub selector:   Selector,
-    pub input_type: InputType,
+pub struct Dialog {
+    rect:       Rect,
+    prompt:     String,
+    input_type: InputType,
 }
-impl InputBox {
-    pub fn new(rect: &Rect, inputtype: InputType) -> Self {
-        let selector = match &inputtype {
-            InputType::Choose(v) => {
-                let m = v
-                    .iter()
-                    .map(|(x, y)| format!("|{}|  {}", x, y))
-                    .collect();
-                Selector::white(rect, &m)
-            }
-            InputType::Input(s) => {
-                Selector::white(rect, &vec![s.clone()])
-            }
-            _ => Selector::white(rect, &vec![]),
-        };
+impl Dialog {
+    pub fn text(rect: &Rect, prompt: &str) -> Self {
         Self {
-            selector:   selector,
-            input_type: inputtype,
+            rect:       rect.clone(),
+            prompt:     String::from(prompt), 
+            input_type: InputType::Text(CursorText::new(&rect, "")),
         }
     }
-    pub fn view(&self, stdout: &Stdout) -> io::Result<()> {
-        self.selector.view(stdout)?;
-        Ok(())
-    }
-    pub fn update(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
-        self.input_type.update(keycode)
-    }
-}
-#[derive(Clone, Debug)]
-pub enum DialogMsg<T> {
-    None,
-    Cancel,
-    Submit(T, InputMsg),
-}
-#[derive(Clone, Debug)]
-pub struct Dialog<T> {
-    rect:         Rect,
-    prompt:       String,
-    pub action:   T,
-    pub inputbox: InputBox,
-}
-impl<T: Clone + std::fmt::Debug> Dialog<T> {
-    pub fn new(rect: &Rect, 
-               action: T, 
-               input: InputType, 
-               prompt: &str) -> Self 
+    pub fn choose(rect: &Rect, prompt: &str, choose: Vec<(char, &str)>) 
+        -> Self
     {
+        let choose_vec = choose.iter()
+                .map(|(c, s)| (*c, s.to_string()))
+                .collect();
+        let selector_vec = choose.iter()
+                .map(|(x, y)| format!("|{}|  {}", x, y))
+                .collect();
+        let selector = Selector::white(rect, &selector_vec);
+        let choose_box = ChooseBox {src: choose_vec, wid: selector};
         Self {
-            rect: rect.clone(),
-            action: action,
-            inputbox: InputBox::new(rect, input),
-            prompt: String::from(prompt), 
+            rect:       rect.clone(),
+            prompt:     String::from(prompt), 
+            input_type: InputType::Choose(choose_box),
         }
     }
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
-        self.inputbox.view(stdout)?;
         stdout
-            .queue(cursor::MoveTo(self.rect.x + 2, 
-                    self.rect.y + 8))?
-            .queue(style::Print(self.prompt.as_str()))?
-            .flush()
+            .queue(cursor::MoveTo(self.rect.x, self.rect.y + 4))?
+            .queue(style::Print(self.prompt.as_str()))?;
+        match self.input_type {
+            InputType::Choose(_) => {
+            }
+            InputType::Text(_) => {
+            }
+        }
+        stdout.flush()
     }
     // No wrapping yet, so resize is straightforward
     pub fn resize(&mut self, rect: &Rect) {
@@ -149,21 +108,10 @@ impl<T: Clone + std::fmt::Debug> Dialog<T> {
     }
     // Keycode has various meanings depending on the InputType.
     // The match statement might be moved to impl InputType
-    pub fn update(&mut self, keycode: &KeyCode) 
-        -> Option<DialogMsg<T>> 
-    {
+    pub fn update(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
         match keycode {
-            KeyCode::Esc => 
-                Some(DialogMsg::Cancel),
-            _ => 
-                match self.inputbox.update(keycode) {
-                    None => None,
-                    Some(InputMsg::None) =>
-                        Some(DialogMsg::None),
-                    Some(submit) => 
-                        Some(DialogMsg::Submit(
-                                self.action.clone(), submit)),
-            }
+            KeyCode::Esc => Some(InputMsg::Cancel),
+            _ => self.input_type.update(keycode)
         }
     }
 }

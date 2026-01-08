@@ -50,13 +50,15 @@ pub struct ScrollingCursor {
     maxscroll: usize,
 }
 impl ScrollingCursor {
+
     // private helper returning (outer, inner) ranges
     fn get_ranges(len: usize, r: &Range, buf: usize) -> (Range, Range) {
         if len < r.len() {
             let range = Range::new(r.start(), r.start() + len).unwrap();
             return (range.clone(), range)
         } else {
-            // if buf is too big return input
+
+            // if buf is too big then return input
             let inner = 
                 match Range::new(r.start() + buf, r.end() - (buf + 1)) {
                     Ok(range) => range,
@@ -77,41 +79,56 @@ impl ScrollingCursor {
             inner:     inner,
         }
     }
+    pub fn update_len(&mut self, len: usize) {
+        let range = self.outer.clone();
+        self.resize(len, &range);
+    }
     pub fn resize(&mut self, len: usize, r: &Range) {
         let (outer, inner) = Self::get_ranges(len, r, self.buf);
         self.outer     = outer;
         self.inner     = inner;
         self.maxscroll = len - self.outer.len();
         self.scroll    = std::cmp::min(self.scroll, self.maxscroll);
-        self.cursor    = (self.outer.start() + self.outer.end() - 1) / 2;
+        self.cursor    = 
+            std::cmp::min(self.cursor, self.outer.end());
     }
     pub fn move_up(&mut self, mut step: usize) -> bool {
-        // cursor is bounded only by outer
+
+        // no scroll change
         if self.scroll == usize::MIN {
+
+            // no cursor change. return false
             if self.cursor == self.outer.start() {
                 return false
+
+            // some cursor change
             } else if self.outer.start() + step <= self.cursor {
                 self.cursor -= step; 
             } else {
                 self.cursor = self.outer.start();
             }
-        // cursor is bounded by inner
+
+        // change cursor only
         } else if (self.inner.start() + step) <= self.cursor {
             self.cursor -= step; 
-        // cursor must move, then scroll, then maybe move again
+
+        // change scroll and possibly cursor
         } else {
-            // lower step by the amount to move cursor
+
+            // subtract from step the distance between cursor and innerstart
             step -= self.cursor - self.inner.start();
-            // move cursor
+
+            // move cursor to innerstart
             self.cursor = self.inner.start();
-            // the rest of step is accomplished with scroll alone
+
+            // change scroll only
             if step <= self.scroll {
                 self.scroll -= step;
-            // must move cursor again
+
+            // change scroll and cursor
             } else {
                 step -= self.scroll;
                 self.scroll = usize::MIN;
-                // if this fails, step was too large from the start
                 if self.outer.start() + step <= self.cursor {
                     self.cursor -= step; 
                 } else {
@@ -122,32 +139,42 @@ impl ScrollingCursor {
         return true
     }
     pub fn move_down(&mut self, mut step: usize) -> bool {
-        // cursor is bounded only by outer
+
+        // no scroll change
         if self.scroll == self.maxscroll {
+
+            // no cursor change. return false
             if self.cursor == self.outer.end() - 1 {
                 return false
+
+            // some cursor change
             } else if self.cursor + step <= self.outer.end() - 1 {
                 self.cursor += step;
             } else {
                 self.cursor = self.outer.end() - 1;
             }
-        // cursor is bounded by inner
+
+        // change cursor only
         } else if (self.cursor + step) <= self.inner.end() {
             self.cursor += step;
-        // cursor must move, then scroll, then it maybe move again
+
+        // change scroll and possibly cursor
         } else {
-            // lower step by the amount to move cursor
+
+            // subtract from step the distance between cursor and innerend
             step -= self.inner.end() - self.cursor;
-            // move cursor
+
+            // move cursor to innerend
             self.cursor = self.inner.end();
-            // the rest of step is accomplished with scroll alone
+
+            // change scroll only
             if self.scroll + step <= self.maxscroll {
                 self.scroll += step;
-            // must move cursor again
+
+            // change scroll and cursor
             } else {
                 step -= self.maxscroll - self.scroll;
                 self.scroll = self.maxscroll;
-                // if this fails, step was too large from the start
                 if self.cursor + step <= self.outer.end() - 1 {
                     self.cursor += step;
                 } else {
@@ -157,13 +184,21 @@ impl ScrollingCursor {
         }
         return true
     }
+    pub fn is_start(&self) -> bool {
+        self.scroll == usize::MIN &&
+        self.cursor == self.outer.start() 
+    }
+    pub fn is_end(&self) -> bool {
+        self.scroll == self.maxscroll &&
+        self.cursor == self.outer.end() 
+    }
     // return scroll
     pub fn get_scroll(&self) -> usize {
         self.scroll
     }
     // index of cursor within its range
     pub fn get_index(&self) -> usize {
-        self.scroll + (self.cursor - self.outer.start())
+        self.scroll + self.cursor - self.outer.start()
     }
     // return u16 for cursor
     pub fn get_cursor(&self) -> u16 {

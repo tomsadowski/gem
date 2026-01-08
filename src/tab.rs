@@ -20,11 +20,10 @@ use url::Url;
 pub struct TabServer {
     rect:       Rect,
     config:     Config,
-    tabs:       Vec<Tab>,
-    curindex:   usize,
-    bgcolor:    Color,
     bannertext: ColoredText,
     bannerline: ColoredText,
+    tabs:       Vec<Tab>,
+    curindex:   usize,
 }
 impl TabServer {
     pub fn new(r: &Rect, config: &Config) -> Self {
@@ -37,7 +36,6 @@ impl TabServer {
         let url = Url::parse(&config.init_url).unwrap();
         let doc = GemDoc::new(&url);
         Self {
-            bgcolor:    config::getbackground(&config.colors),
             rect:       rect.clone(),
             config:     config.clone(),
             tabs:       vec![Tab::new(&rect, doc, config)],
@@ -63,7 +61,6 @@ impl TabServer {
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
         stdout
             .queue(cursor::MoveTo(self.rect.x, 0))?
-            .queue(style::SetBackgroundColor(self.bgcolor))?
             .queue(style::SetForegroundColor(self.bannertext.color))?
             .queue(style::Print(&self.bannertext.text))?
             .queue(cursor::MoveTo(self.rect.x, 1))?
@@ -104,7 +101,7 @@ impl TabServer {
                     _ => {},
                 }
                 let len = self.tabs.len();
-                let url = &self.tabs[self.curindex].doc.url;
+                let url = self.tabs[self.curindex].get_url();
                 self.bannertext = 
                     bannertext(self.curindex, len, url);
                 self.bannerline = bannerline(self.rect.w);
@@ -121,16 +118,20 @@ pub enum TabMsg {
     CycleLeft,
     CycleRight,
     DeleteMe,
+    Acknowledge,
     Go(Url),
 }
 pub struct Tab {
-    pub doc:  GemDoc,
+    doc:      GemDoc,
     rect:     Rect,
     config:   Config,
-    dlgstack: Vec<Dialog<TabMsg>>,
+    dlgstack: Vec<(TabMsg, Dialog)>,
     page:     Selector,
 }
 impl Tab {
+    pub fn get_url(&self) -> &Url {
+        &self.doc.url
+    }
     pub fn new(rect: &Rect, gemdoc: GemDoc, config: &Config) 
         -> Self 
     {
@@ -149,36 +150,34 @@ impl Tab {
     pub fn resize(&mut self, rect: &Rect) {
         self.rect = rect.clone();
         self.page.resize(&rect);
-        for d in self.dlgstack.iter_mut() {
+        for (_, d) in self.dlgstack.iter_mut() {
             d.resize(&rect);
         }
     }
     // show dialog if there's a dialog, otherwise show page
     pub fn view(&self, stdout: &Stdout) -> io::Result<()> {
         match self.dlgstack.last() {
-            Some(d) => d.view(stdout),
+            Some((_, d)) => d.view(stdout),
             _ => self.page.view(stdout),
         }
     }
     pub fn update(&mut self, keycode: &KeyCode) -> Option<TabMsg> {
         // send keycode to dialog if there is a dialog
-        if let Some(d) = self.dlgstack.last_mut() {
+        if let Some((m, d)) = self.dlgstack.last_mut() {
             match d.update(keycode) {
-                Some(DialogMsg::Submit(action, submission)) => {
-                    let msg = match submission {
-                        InputMsg::Choose(c) => {
-                            match c == self.config.keys.yes {
-                                true => Some(action),
-                                false => Some(TabMsg::None),
-                            }
-                        }
-                        InputMsg::Input(_) => Some(TabMsg::None),
-                        _ => Some(TabMsg::None),
+                Some(InputMsg::Choose(c)) => {
+                    let msg = match c == self.config.keys.yes {
+                        false => Some(TabMsg::None),
+                        true =>  Some(m.clone()),
                     };
                     self.dlgstack.pop();
                     return msg
                 }
-                Some(DialogMsg::Cancel) => {
+                Some(InputMsg::Text(_)) => {
+                    self.dlgstack.pop();
+                    return Some(TabMsg::None)
+                }
+                Some(InputMsg::Cancel) => {
                     self.dlgstack.pop();
                     return Some(TabMsg::None)
                 }
@@ -211,47 +210,49 @@ impl Tab {
             // make a dialog
             else if c == &self.config.keys.delete_current_tab {
                 let dialog = 
-                    Dialog::new(
+                    Dialog::choose(
                         &self.rect,
-                        TabMsg::DeleteMe,
-                        InputType::choose(vec![
-                            (self.config.keys.yes, "yes"),
-                            (self.config.keys.no, "no")]),
-                        "Delete current tab?");
-                self.dlgstack.push(dialog);
+                        "Delete current tab?",
+                        vec![(self.config.keys.yes, "yes"),
+                             (self.config.keys.no, "no")]
+                        );
+                self.dlgstack.push((TabMsg::DeleteMe, dialog));
                 return Some(TabMsg::None)
             }
             else if c == &self.config.keys.new_tab {
                 let dialog = 
-                    Dialog::new(
+                    Dialog::choose(
                         &self.rect,
-                        TabMsg::None,
-                        InputType::input(),
-                        "enter path: ");
-                self.dlgstack.push(dialog);
+                        "enter path: ",
+                        vec![(self.config.keys.yes, "acknowledge")]
+                        );
+                self.dlgstack.push((TabMsg::Acknowledge, dialog));
                 return Some(TabMsg::None)
             }
             else if c == &self.config.keys.inspect_under_cursor {
-                let dialog = 
+                let dialog_tuple = 
                     match &self.doc
                         .doc[self.page.select_under_cursor().0].0 
                     {
-                        GemType::Link(_, url) => 
-                            Dialog::new(
+                        GemType::Link(_, url) => {
+                            let dialog = Dialog::choose(
                                 &self.rect,
-                                TabMsg::Go(url.clone()),
-                                InputType::choose(vec![
-                                    (self.config.keys.yes, "yes"), 
-                                    (self.config.keys.no, "no")]),
-                                &format!("go to {}?", url)),
-                        gemtext => 
-                            Dialog::new(
+                                &format!("go to {}?", url),
+                                vec![(self.config.keys.yes, "yes"), 
+                                     (self.config.keys.no, "no")]
+                                );
+                            (TabMsg::Go(url.clone()), dialog)
+                        }
+                        gemtext => {
+                            let dialog = Dialog::choose(
                                 &self.rect,
-                                TabMsg::None,
-                                InputType::None,
-                                &format!("{:?}", gemtext)),
+                                &format!("you've selected {:?}", gemtext),
+                                vec![(self.config.keys.yes, "acknowledge")],
+                                );
+                            (TabMsg::Acknowledge, dialog)
+                        }
                     };
-                self.dlgstack.push(dialog);
+                self.dlgstack.push(dialog_tuple);
                 return Some(TabMsg::None)
             } else {
                 return None
