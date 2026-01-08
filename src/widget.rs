@@ -38,6 +38,7 @@ impl ColoredText {
 pub struct CursorText {
     cursor: ScrollingCursor,
     text:   String,
+    range:  Range,
 }
 impl CursorText {
     pub fn new(rect: &Rect, source: &str) -> Self {
@@ -45,11 +46,13 @@ impl CursorText {
         Self {
             cursor: ScrollingCursor::new(source.len(), &range, 0),
             text:   String::from(source),
+            range:  range,
         }
     }
     pub fn resize(&mut self, rect: &Rect) {
         let range = rect.horizontal().unwrap();
         self.cursor.resize(self.text.len(), &range);
+        self.range = range;
     }
     pub fn view(&self, y: u16, mut stdout: &Stdout) -> io::Result<()> {
         stdout.queue(cursor::Hide)?;
@@ -73,17 +76,27 @@ impl CursorText {
         self.cursor.move_down(step)
     }
     pub fn delete(&mut self) -> bool {
-        if self.text.is_empty() {
+        if self.cursor.is_end() {
             false
         } else {
             self.text.remove(self.cursor.get_index());
-            self.cursor.update_len(self.text.len());
+            self.cursor.resize(self.text.len(), &self.range);
+            true
+        }
+    }
+    pub fn backspace(&mut self) -> bool {
+        if !self.cursor.move_up(1) {
+            false
+        } else {
+            self.text.remove(self.cursor.get_index());
+            self.cursor.resize(self.text.len(), &self.range);
             true
         }
     }
     pub fn insert(&mut self, c: char) -> bool {
         self.text.insert(self.cursor.get_index(), c);
-        self.cursor.update_len(self.text.len());
+        self.cursor.resize(self.text.len(), &self.range);
+        self.cursor.move_down(1);
         true
     }
 }

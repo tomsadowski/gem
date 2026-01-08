@@ -5,7 +5,7 @@ use crate::{
     gemini::{GemType, GemDoc},
     util::{Rect},
     widget::{Selector, ColoredText},
-    dialog::{Dialog, DialogMsg, InputType, InputMsg},
+    dialog::{Dialog, InputType, InputMsg},
 };
 use crossterm::{
     QueueableCommand, cursor, terminal,
@@ -221,11 +221,7 @@ impl Tab {
             }
             else if c == &self.config.keys.new_tab {
                 let dialog = 
-                    Dialog::choose(
-                        &self.rect,
-                        "enter path: ",
-                        vec![(self.config.keys.yes, "acknowledge")]
-                        );
+                    Dialog::text(&self.rect, "enter path: ");
                 self.dlgstack.push((TabMsg::Acknowledge, dialog));
                 return Some(TabMsg::None)
             }

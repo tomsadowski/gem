@@ -74,7 +74,7 @@ impl ScrollingCursor {
             buf:       buf,
             scroll:    0, 
             maxscroll: len - outer.len(),
-            cursor:    (outer.start() + outer.end() - 1) / 2, 
+            cursor:    outer.start(), 
             outer:     outer,
             inner:     inner,
         }
@@ -89,8 +89,7 @@ impl ScrollingCursor {
         self.inner     = inner;
         self.maxscroll = len - self.outer.len();
         self.scroll    = std::cmp::min(self.scroll, self.maxscroll);
-        self.cursor    = 
-            std::cmp::min(self.cursor, self.outer.end());
+        self.cursor    = std::cmp::min(self.cursor, self.outer.end());
     }
     pub fn move_up(&mut self, mut step: usize) -> bool {
 

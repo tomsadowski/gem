@@ -32,10 +32,26 @@ impl InputType {
                 cursortext.insert(*c);
                 Some(InputMsg::None)
             }
-            (InputType::Text(cursortext), 
-             KeyCode::Delete | KeyCode::Backspace) => 
-            {
+            (InputType::Text(cursortext), KeyCode::Left) => {
+                match cursortext.move_left(1) {
+                    true => Some(InputMsg::None),
+                    false => None,
+                }
+            }
+            (InputType::Text(cursortext), KeyCode::Right) => {
+                match cursortext.move_right(1) {
+                    true => Some(InputMsg::None),
+                    false => None,
+                }
+            }
+            (InputType::Text(cursortext), KeyCode::Delete) => {
                 match cursortext.delete() {
+                    true => Some(InputMsg::None),
+                    false => None,
+                }
+            }
+            (InputType::Text(cursortext), KeyCode::Backspace) => {
+                match cursortext.backspace() {
                     true => Some(InputMsg::None),
                     false => None,
                 }
@@ -70,7 +86,7 @@ impl Dialog {
         Self {
             rect:       rect.clone(),
             prompt:     String::from(prompt), 
-            input_type: InputType::Text(CursorText::new(&rect, "")),
+            input_type: InputType::Text(CursorText::new(rect, "tet")),
         }
     }
     pub fn choose(rect: &Rect, prompt: &str, choose: Vec<(char, &str)>) 
@@ -82,7 +98,9 @@ impl Dialog {
         let selector_vec = choose.iter()
                 .map(|(x, y)| format!("|{}|  {}", x, y))
                 .collect();
-        let selector = Selector::white(rect, &selector_vec);
+        let selector_rect = 
+            Rect {x: rect.x, y: rect.y + 8, w: rect.w, h: rect.h - 8};
+        let selector = Selector::white(&selector_rect, &selector_vec);
         let choose_box = ChooseBox {src: choose_vec, wid: selector};
         Self {
             rect:       rect.clone(),
@@ -94,17 +112,26 @@ impl Dialog {
         stdout
             .queue(cursor::MoveTo(self.rect.x, self.rect.y + 4))?
             .queue(style::Print(self.prompt.as_str()))?;
-        match self.input_type {
-            InputType::Choose(_) => {
+        match &self.input_type {
+            InputType::Choose(choosebox) => {
+                choosebox.wid.view(stdout)
             }
-            InputType::Text(_) => {
+            InputType::Text(cursortext) => {
+                cursortext.view(self.rect.y + 8, stdout)
             }
         }
-        stdout.flush()
     }
     // No wrapping yet, so resize is straightforward
     pub fn resize(&mut self, rect: &Rect) {
         self.rect = rect.clone();
+        match &mut self.input_type {
+            InputType::Choose(choosebox) => {
+                choosebox.wid.resize(&self.rect)
+            }
+            InputType::Text(cursortext) => {
+                cursortext.resize(&self.rect)
+            }
+        }
     }
     // Keycode has various meanings depending on the InputType.
     // The match statement might be moved to impl InputType
