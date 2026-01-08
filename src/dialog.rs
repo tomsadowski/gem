@@ -2,7 +2,7 @@
 
 use crate::{
     util::{Rect},
-    widget::{Selector, CursorText},
+    widget::{Pager, CursorText},
 };
 use crossterm::{
     QueueableCommand, cursor, style,
@@ -14,55 +14,61 @@ use std::{
 
 #[derive(Clone, Debug)]
 pub enum InputType {
-    Choose {
-        src: Vec<(char, String)>,
-        sel: Selector,
-    },
+    Choose {keys: Vec<char>, view: Pager},
     Text(CursorText),
 }
 impl InputType {
     pub fn update(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
-        match (self, keycode) {
-            (InputType::Text(cursortext), KeyCode::Enter) => {
-                Some(InputMsg::Text(cursortext.get_text()))
-            }
-            (InputType::Text(cursortext), KeyCode::Left) => {
-                match cursortext.move_left(1) {
-                    true => Some(InputMsg::None),
-                    false => None,
+        match self {
+            InputType::Text(cursortext) => {
+                match keycode {
+                    KeyCode::Enter => {
+                        Some(InputMsg::Text(cursortext.get_text()))
+                    }
+                    KeyCode::Left => {
+                        match cursortext.move_left(1) {
+                            true => Some(InputMsg::None),
+                            false => None,
+                        }
+                    }
+                    KeyCode::Right => {
+                        match cursortext.move_right(1) {
+                            true => Some(InputMsg::None),
+                            false => None,
+                        }
+                    }
+                    KeyCode::Delete => {
+                        match cursortext.delete() {
+                            true => Some(InputMsg::None),
+                            false => None,
+                        }
+                    }
+                    KeyCode::Backspace => {
+                        match cursortext.backspace() {
+                            true => Some(InputMsg::None),
+                            false => None,
+                        }
+                    }
+                    KeyCode::Char(c) => {
+                        cursortext.insert(*c);
+                        Some(InputMsg::None)
+                    }
+                    _ => { 
+                        None
+                    }
                 }
             }
-            (InputType::Text(cursortext), KeyCode::Right) => {
-                match cursortext.move_right(1) {
-                    true => Some(InputMsg::None),
-                    false => None,
+            InputType::Choose {keys, ..} => {
+                match keycode {
+                    KeyCode::Char(c) => {
+                        match keys.contains(&c) {
+                            true => Some(InputMsg::Choose(*c)),
+                            false => None,
+                        }
+                    }
+                    _ => None,
                 }
             }
-            (InputType::Text(cursortext), KeyCode::Delete) => {
-                match cursortext.delete() {
-                    true => Some(InputMsg::None),
-                    false => None,
-                }
-            }
-            (InputType::Text(cursortext), KeyCode::Backspace) => {
-                match cursortext.backspace() {
-                    true => Some(InputMsg::None),
-                    false => None,
-                }
-            }
-            (InputType::Text(cursortext), KeyCode::Char(c)) => {
-                cursortext.insert(*c);
-                Some(InputMsg::None)
-            }
-            (InputType::Choose {src, ..}, KeyCode::Char(c)) => {
-                let chars: Vec<char> = 
-                    src.iter().map(|e| e.0).collect();
-                match chars.contains(&c) {
-                    true => Some(InputMsg::Choose(*c)),
-                    false => None,
-                }
-            }
-            _ => None,
         }
     }
 }
@@ -90,20 +96,19 @@ impl Dialog {
     pub fn choose(rect: &Rect, prompt: &str, choose: Vec<(char, &str)>) 
         -> Self
     {
-        let choose_vec = choose.iter()
-                .map(|(c, s)| (*c, s.to_string())).collect();
-        let selector_vec = choose.iter()
+        let view_rect = Rect {  x: rect.x, 
+                                y: rect.y + 8, 
+                                w: rect.w, 
+                                h: rect.h - 8   };
+        let keys_vec = choose.iter().map(|(c, _)| *c).collect();
+        let view_vec = choose.iter()
                 .map(|(x, y)| format!("|{}|  {}", x, y)).collect();
-        let selector_rect = Rect {  x: rect.x, 
-                                    y: rect.y + 8, 
-                                    w: rect.w, 
-                                    h: rect.h - 8   };
-        let selector = Selector::white(&selector_rect, &selector_vec);
+        let pager    = Pager::white(&view_rect, &view_vec);
         Self {
             rect:       rect.clone(),
             prompt:     String::from(prompt), 
-            input_type: InputType::Choose { src: choose_vec, 
-                                            sel: selector   },
+            input_type: InputType::Choose { keys: keys_vec, 
+                                            view: pager   },
         }
     }
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
@@ -111,8 +116,8 @@ impl Dialog {
             .queue(cursor::MoveTo(self.rect.x, self.rect.y + 4))?
             .queue(style::Print(self.prompt.as_str()))?;
         match &self.input_type {
-            InputType::Choose {sel, ..} => {
-                sel.view(stdout)
+            InputType::Choose {view, ..} => {
+                view.view(stdout)
             }
             InputType::Text(cursortext) => {
                 cursortext.view(self.rect.y + 8, stdout)
@@ -123,8 +128,8 @@ impl Dialog {
     pub fn resize(&mut self, rect: &Rect) {
         self.rect = rect.clone();
         match &mut self.input_type {
-            InputType::Choose {sel, ..} => {
-                sel.resize(&self.rect)
+            InputType::Choose {view, ..} => {
+                view.resize(&self.rect)
             }
             InputType::Text(cursortext) => {
                 cursortext.resize(&self.rect)

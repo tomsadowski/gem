@@ -4,8 +4,7 @@ use serde::Deserialize;
 use crate::{
     gemini::{GemType, GemDoc},
     util::{Rect},
-    widget::{Selector, ColoredText},
-    dialog::{Dialog, InputType, InputMsg},
+    widget::{ColoredText},
 };
 use crossterm::{
     QueueableCommand, cursor, terminal,

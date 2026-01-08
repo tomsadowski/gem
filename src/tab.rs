@@ -4,7 +4,7 @@ use crate::{
     config::{self, Config},
     gemini::{GemType, GemDoc},
     util::{Rect},
-    widget::{Selector, ColoredText},
+    widget::{Pager, ColoredText},
     dialog::{Dialog, InputType, InputMsg},
 };
 use crossterm::{
@@ -18,12 +18,12 @@ use std::{
 use url::Url;
 
 pub struct TabServer {
-    rect:       Rect,
-    config:     Config,
-    bannertext: ColoredText,
-    bannerline: ColoredText,
-    tabs:       Vec<Tab>,
-    curindex:   usize,
+    rect:        Rect,
+    config:      Config,
+    banner_text: ColoredText,
+    banner_line: ColoredText,
+    tabs:        Vec<Tab>,
+    cur_index:   usize,
 }
 impl TabServer {
     pub fn new(r: &Rect, config: &Config) -> Self {
@@ -36,12 +36,12 @@ impl TabServer {
         let url = Url::parse(&config.init_url).unwrap();
         let doc = GemDoc::new(&url);
         Self {
-            rect:       rect.clone(),
-            config:     config.clone(),
-            tabs:       vec![Tab::new(&rect, doc, config)],
-            curindex:   0,
-            bannertext: bannertext(0, 1, &url),
-            bannerline: bannerline(rect.w),
+            rect:        rect.clone(),
+            config:      config.clone(),
+            tabs:        vec![Tab::new(&rect, doc, config)],
+            cur_index:   0,
+            banner_text: get_banner_text(0, 1, &url),
+            banner_line: get_banner_line(rect.w),
         }
     }
     // adjust length of banner line, resize all tabs
@@ -52,7 +52,7 @@ impl TabServer {
             w: r.w - (self.config.format.margin * 2) as u16, 
             h: r.h - 2
         };
-        self.bannerline = bannerline(self.rect.w);
+        self.banner_line = get_banner_line(self.rect.w);
         for d in self.tabs.iter_mut() {
             d.resize(&self.rect);
         }
@@ -61,57 +61,57 @@ impl TabServer {
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
         stdout
             .queue(cursor::MoveTo(self.rect.x, 0))?
-            .queue(style::SetForegroundColor(self.bannertext.color))?
-            .queue(style::Print(&self.bannertext.text))?
+            .queue(style::SetForegroundColor(self.banner_text.color))?
+            .queue(style::Print(&self.banner_text.text))?
             .queue(cursor::MoveTo(self.rect.x, 1))?
-            .queue(style::SetForegroundColor(self.bannerline.color))?
-            .queue(style::Print(&self.bannerline.text))?;
-        self.tabs[self.curindex].view(stdout)
+            .queue(style::SetForegroundColor(self.banner_line.color))?
+            .queue(style::Print(&self.banner_line.text))?;
+        self.tabs[self.cur_index].view(stdout)
     }
     // send keycode to current tab and process response
     pub fn update(&mut self, keycode: &KeyCode) -> bool {
-        match self.tabs[self.curindex].update(keycode) {
+        match self.tabs[self.cur_index].update(keycode) {
             Some(msg) => {
                 match msg {
                     TabMsg::Go(url) => {
                         let doc = GemDoc::new(&url);
                         self.tabs.push(
                             Tab::new(&self.rect, doc, &self.config));
-                        self.curindex = self.tabs.len() - 1;
+                        self.cur_index = self.tabs.len() - 1;
                     }
                     TabMsg::Open(text) => {
                         let url = Url::parse(&text).unwrap();
                         let doc = GemDoc::new(&url);
                         self.tabs.push(
                             Tab::new(&self.rect, doc, &self.config));
-                        self.curindex = self.tabs.len() - 1;
+                        self.cur_index = self.tabs.len() - 1;
                     }
                     TabMsg::DeleteMe => {
                         if self.tabs.len() > 1 {
-                            self.tabs.remove(self.curindex);
-                            self.curindex = self.tabs.len() - 1;
+                            self.tabs.remove(self.cur_index);
+                            self.cur_index = self.tabs.len() - 1;
                         }
                     }
                     TabMsg::CycleLeft => {
-                        match self.curindex == 0 {
+                        match self.cur_index == 0 {
                             true => 
-                                self.curindex = self.tabs.len() - 1,
-                            false => self.curindex -= 1,
+                                self.cur_index = self.tabs.len() - 1,
+                            false => self.cur_index -= 1,
                         }
                     }
                     TabMsg::CycleRight => {
-                        match self.curindex == self.tabs.len() - 1 {
-                            true => self.curindex = 0,
-                            false => self.curindex += 1,
+                        match self.cur_index == self.tabs.len() - 1 {
+                            true => self.cur_index = 0,
+                            false => self.cur_index += 1,
                         }
                     }
                     _ => {},
                 }
                 let len = self.tabs.len();
-                let url = self.tabs[self.curindex].get_url();
-                self.bannertext = 
-                    bannertext(self.curindex, len, url);
-                self.bannerline = bannerline(self.rect.w);
+                let url = self.tabs[self.cur_index].get_url();
+                self.banner_text = 
+                    get_banner_text(self.cur_index, len, url);
+                self.banner_line = get_banner_line(self.rect.w);
                 true
             }
             None => false,
@@ -135,7 +135,7 @@ pub struct Tab {
     rect:     Rect,
     config:   Config,
     dlgstack: Vec<(TabMsg, Dialog)>,
-    page:     Selector,
+    page:     Pager,
 }
 impl Tab {
     pub fn get_url(&self) -> &Url {
@@ -148,7 +148,7 @@ impl Tab {
             config:   config.clone(),
             rect:     rect.clone(),
             dlgstack: vec![],
-            page:     Selector::new(
+            page:     Pager::new(
                         rect, 
                         &config::getvec(&gemdoc.doc, &config.colors),
                         config.scroll_at),
@@ -228,14 +228,12 @@ impl Tab {
                         &self.rect,
                         "Delete current tab?",
                         vec![(self.config.keys.yes, "yes"),
-                             (self.config.keys.no, "no")]
-                        );
+                             (self.config.keys.no, "no")]);
                 self.dlgstack.push((TabMsg::DeleteMe, dialog));
                 return Some(TabMsg::None)
             }
             else if c == &self.config.keys.new_tab {
-                let dialog = 
-                    Dialog::text(&self.rect, "enter path: ");
+                let dialog = Dialog::text(&self.rect, "enter path: ");
                 self.dlgstack.push((TabMsg::NewTab, dialog));
                 return Some(TabMsg::None)
             }
@@ -249,16 +247,14 @@ impl Tab {
                                 &self.rect,
                                 &format!("go to {}?", url),
                                 vec![(self.config.keys.yes, "yes"), 
-                                     (self.config.keys.no, "no")]
-                                );
+                                     (self.config.keys.no, "no")]);
                             (TabMsg::Go(url.clone()), dialog)
                         }
                         gemtext => {
                             let dialog = Dialog::choose(
                                 &self.rect,
                                 &format!("you've selected {:?}", gemtext),
-                                vec![(self.config.keys.yes, "acknowledge")],
-                                );
+                                vec![(self.config.keys.yes, "acknowledge")]);
                             (TabMsg::Acknowledge, dialog)
                         }
                     };
@@ -272,12 +268,12 @@ impl Tab {
         }
     }
 }
-pub fn bannertext(curindex: usize, totaltab: usize, url: &Url) 
+fn get_banner_text(cur_index: usize, total_tab: usize, url: &Url) 
     -> ColoredText 
 {
     ColoredText::white(
-        &format!("{}/{}: {}", curindex + 1, totaltab, url))
+        &format!("{}/{}: {}", cur_index + 1, total_tab, url))
 }
-pub fn bannerline(w: u16) -> ColoredText {
+fn get_banner_line(w: u16) -> ColoredText {
     ColoredText::white(&String::from("-").repeat(usize::from(w)))
 }

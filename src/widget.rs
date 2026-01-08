@@ -1,7 +1,7 @@
 // widget
 
 use crate::{
-    util::{self, Rect, Range, ScrollingCursor},
+    util::{self, Rect, Range, Cursor},
 };
 use crossterm::{
     QueueableCommand, cursor,
@@ -36,7 +36,7 @@ impl ColoredText {
 }
 #[derive(Clone, Debug)]
 pub struct CursorText {
-    cursor: ScrollingCursor,
+    cursor: Cursor,
     text:   String,
     range:  Range,
 }
@@ -44,7 +44,7 @@ impl CursorText {
     pub fn new(rect: &Rect, source: &str) -> Self {
         let range = rect.horizontal().unwrap();
         Self {
-            cursor: ScrollingCursor::new(source.len(), &range, 0),
+            cursor: Cursor::new(source.len(), &range, 0),
             text:   String::from(source),
             range:  range,
         }
@@ -70,10 +70,10 @@ impl CursorText {
         self.text.clone()
     }
     pub fn move_left(&mut self, step: usize) -> bool {
-        self.cursor.move_up(step)
+        self.cursor.backward(step)
     }
     pub fn move_right(&mut self, step: usize) -> bool {
-        self.cursor.move_down(step)
+        self.cursor.forward(step)
     }
     pub fn delete(&mut self) -> bool {
         if self.cursor.is_end() {
@@ -85,7 +85,7 @@ impl CursorText {
         }
     }
     pub fn backspace(&mut self) -> bool {
-        if !self.cursor.move_up(1) {
+        if !self.cursor.backward(1) {
             false
         } else {
             self.text.remove(self.cursor.get_index());
@@ -100,18 +100,18 @@ impl CursorText {
             self.text.insert(self.cursor.get_index(), c);
         }
         self.cursor.resize(self.text.len(), &self.range);
-        self.cursor.move_down(1);
+        self.cursor.forward(1);
         true
     }
 }
 #[derive(Clone, Debug)]
-pub struct Selector {
+pub struct Pager {
     rect:    Rect,
-    cursor:  ScrollingCursor,
+    cursor:  Cursor,
     source:  Vec<ColoredText>,
     display: Vec<(usize, String)>,
 } 
-impl Selector {
+impl Pager {
     pub fn white(rect: &Rect, source: &Vec<String>) -> Self {
         let white: Vec<ColoredText> = source
             .iter()
@@ -126,7 +126,7 @@ impl Selector {
         return Self {
             rect:    rect.clone(),
             cursor:  
-                ScrollingCursor::new(
+                Cursor::new(
                     display.len(), 
                     &rect.verticle().unwrap(), 
                     buf),
@@ -163,10 +163,10 @@ impl Selector {
             .flush()
     }
     pub fn move_up(&mut self, step: usize) -> bool {
-        self.cursor.move_up(step)
+        self.cursor.backward(step)
     }
     pub fn move_down(&mut self, step: usize) -> bool {
-        self.cursor.move_down(step)
+        self.cursor.forward(step)
     }
     pub fn select_under_cursor(&self) -> (usize, &str) {
         let index = self.display[self.cursor.get_index()].0;
