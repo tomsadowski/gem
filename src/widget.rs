@@ -44,7 +44,7 @@ impl CursorText {
     pub fn new(rect: &Rect, source: &str) -> Self {
         let range = rect.horizontal().unwrap();
         Self {
-            cursor: Cursor::new(source.len(), &range, 0),
+            cursor: Cursor::text(source.len(), &range),
             text:   String::from(source),
             range:  range,
         }
@@ -76,22 +76,27 @@ impl CursorText {
         self.cursor.forward(step)
     }
     pub fn delete(&mut self) -> bool {
-        if self.cursor.is_end() {
-            false
-        } else {
-            self.text.remove(self.cursor.get_index());
-            self.cursor.resize(self.text.len(), &self.range);
-            true
+        if self.cursor.get_index() == self.text.len() {
+            return false
         }
+        self.text.remove(self.cursor.get_index());
+        self.cursor.resize(self.text.len(), &self.range);
+        if usize::from(self.cursor.get_cursor()) + 1 != self.range.end() {
+            self.cursor.forward(1);
+        }
+        true
     }
     pub fn backspace(&mut self) -> bool {
-        if !self.cursor.backward(1) {
-            false
-        } else {
-            self.text.remove(self.cursor.get_index());
-            self.cursor.resize(self.text.len(), &self.range);
-            true
+        if self.cursor.is_start() {
+            return false
+        } 
+        self.cursor.backward(1);
+        self.text.remove(self.cursor.get_index());
+        self.cursor.resize(self.text.len(), &self.range);
+        if usize::from(self.cursor.get_cursor()) + 1 != self.range.end() {
+            self.cursor.forward(1);
         }
+        true
     }
     pub fn insert(&mut self, c: char) -> bool {
         if self.cursor.get_index() + 1 == self.text.len() {

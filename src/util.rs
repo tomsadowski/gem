@@ -42,6 +42,7 @@ impl Range {
 }
 #[derive(Clone, Debug)]
 pub struct Cursor {
+    tip:       usize,
     inner:     Range,
     outer:     Range,
     buf:       usize,
@@ -67,8 +68,26 @@ impl Cursor {
     }
     pub fn new(len: usize, r: &Range, buf: u8) -> Self {
         let buf = usize::from(buf);
+        let tip = 0;
+        let len = len + tip;
         let (outer, inner) = Self::get_ranges(len, r, buf);
         Self {
+            tip:       tip,
+            buf:       buf,
+            scroll:    0, 
+            maxscroll: len - outer.len(),
+            cursor:    outer.start(), 
+            outer:     outer,
+            inner:     inner,
+        }
+    }
+    pub fn text(len: usize, r: &Range) -> Self {
+        let buf = 0;
+        let tip = 1;
+        let len = len + tip;
+        let (outer, inner) = Self::get_ranges(len, r, buf);
+        Self {
+            tip:       tip,
             buf:       buf,
             scroll:    0, 
             maxscroll: len - outer.len(),
@@ -78,12 +97,13 @@ impl Cursor {
         }
     }
     pub fn resize(&mut self, len: usize, r: &Range) {
+        let len = len + self.tip;
         let (outer, inner) = Self::get_ranges(len, r, self.buf);
         self.outer     = outer;
         self.inner     = inner;
         self.maxscroll = len - self.outer.len();
         self.scroll    = std::cmp::min(self.scroll, self.maxscroll);
-        self.cursor    = std::cmp::min(self.cursor, self.outer.end());
+        self.cursor    = std::cmp::min(self.cursor, self.inner.end());
     }
     pub fn backward(&mut self, mut step: usize) -> bool {
         // no scroll change
@@ -185,7 +205,7 @@ impl Cursor {
     }
     // returns the start and end of displayable text
     pub fn get_display_range(&self) -> (usize, usize) {
-        (self.scroll, self.scroll + self.outer.len())
+        (self.scroll, self.scroll + self.outer.len() - self.tip)
     }
 }
 // call wrap for each element in the list

@@ -49,6 +49,7 @@ impl UI {
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
         stdout
             .queue(terminal::Clear(terminal::ClearType::All))?
+//            .queue(cursor::SetCursorStyle::SteadyBar)?
             .queue(style::SetBackgroundColor(self.bgcolor))?;
         match &self.view {
             View::Tab => self.tabs.view(stdout),

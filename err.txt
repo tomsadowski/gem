@@ -1,7 +1,7 @@
    Compiling gem v0.1.0 (/home/tsadowski/.local/source/gem)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.33s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.29s
      Running `target/debug/gem`
 
-thread 'main' (14429) panicked at src/tab.rs:83:53:
+thread 'main' (12366) panicked at src/tab.rs:83:53:
 called `Result::unwrap()` on an `Err` value: RelativeUrlWithoutBase
 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
