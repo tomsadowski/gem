@@ -1,6 +1,7 @@
 // ui
 
 use crate::{
+    config::{self, Config, Colors},
     gemini::{GemType, GemDoc, Scheme},
     widget::{Rect, Pager, CursorText, ColoredText},
 };
@@ -12,120 +13,8 @@ use crossterm::{
 use std::{
     io::{self, Stdout, Write},
 };
-use serde::Deserialize;
 use url::Url;
 
-#[derive(Deserialize, Debug, Clone)]
-pub struct Colors {
-    pub background: (u8, u8, u8),
-    pub ui:         (u8, u8, u8),
-    pub text:       (u8, u8, u8),
-    pub heading1:   (u8, u8, u8),
-    pub heading2:   (u8, u8, u8),
-    pub heading3:   (u8, u8, u8),
-    pub link:       (u8, u8, u8),
-    pub badlink:    (u8, u8, u8),
-    pub quote:      (u8, u8, u8),
-    pub listitem:   (u8, u8, u8),
-    pub preformat:  (u8, u8, u8),
-}
-#[derive(Deserialize, Debug, Clone)]
-pub struct Keys {
-    pub yes: char,
-    pub no: char,
-    pub move_cursor_up: char,
-    pub move_cursor_down: char,
-    pub cycle_to_left_tab: char,
-    pub cycle_to_right_tab: char,
-    pub inspect_under_cursor: char,
-    pub delete_current_tab: char,
-    pub new_tab: char,
-}
-#[derive(Deserialize, Debug, Clone)]
-pub struct Format {
-    pub margin:     u8,
-    pub listbullet: String,
-}
-#[derive(Deserialize, Debug, Clone)]
-pub struct Config {
-    pub init_url:  String,
-    pub scroll_at: u8,
-    pub colors:    Colors,
-    pub keys:      Keys,
-    pub format:    Format,
-}
-impl Config {
-    pub fn new(text: &str) -> Self {
-        toml::from_str(text).unwrap()
-    }
-}
-pub fn getbackground(config: &Colors) -> Color {
-    Color::Rgb {
-        r: config.background.0,
-        g: config.background.1,
-        b: config.background.2,
-    }
-}
-pub fn getvec(vec: &Vec<(GemType, String)>, config: &Colors) 
-    -> Vec<ColoredText>
-{
-    vec
-        .iter()
-        .map(|(g, s)| getcoloredgem(g, &s, config))
-        .collect()
-}
-pub fn getcoloredgem(gem: &GemType, 
-                     text: &str, 
-                     config: &Colors) -> ColoredText {
-    let color = match gem {
-        GemType::HeadingOne => 
-            Color::Rgb {
-                r: config.heading1.0, 
-                g: config.heading1.1, 
-                b: config.heading1.2},
-        GemType::HeadingTwo => 
-            Color::Rgb {
-                r: config.heading2.0, 
-                g: config.heading2.1, 
-                b: config.heading2.2},
-        GemType::HeadingThree => 
-            Color::Rgb {
-                r: config.heading3.0, 
-                g: config.heading3.1, 
-                b: config.heading3.2},
-        GemType::Text => 
-            Color::Rgb {
-                r: config.text.0, 
-                g: config.text.1, 
-                b: config.text.2},
-        GemType::Quote => 
-            Color::Rgb {
-                r: config.quote.0, 
-                g: config.quote.1, 
-                b: config.quote.2},
-        GemType::ListItem => 
-            Color::Rgb {
-                r: config.listitem.0, 
-                g: config.listitem.1, 
-                b: config.listitem.2},
-        GemType::PreFormat => 
-            Color::Rgb {
-                r: config.preformat.0, 
-                g: config.preformat.1, 
-                b: config.preformat.2},
-        GemType::Link(_, _) => 
-            Color::Rgb {
-                r: config.link.0, 
-                g: config.link.1, 
-                b: config.link.2},
-        GemType::BadLink(_) => 
-            Color::Rgb {
-                r: config.badlink.0, 
-                g: config.badlink.1, 
-                b: config.badlink.2},
-    };
-    ColoredText::new(text, color)
-}
 // view currently in use
 #[derive(Debug)]
 pub enum View {
@@ -135,9 +24,9 @@ pub enum View {
 // coordinates activities between views
 pub struct UI {
     rect:    Rect,
+    config:  Config,
     bgcolor: Color,
     view:    View,
-    config:  Config,
     tabs:    TabServer,
 } 
 impl UI {
@@ -149,7 +38,7 @@ impl UI {
             rect:    rect,
             config:  config.clone(),
             view:    View::Tab,
-            bgcolor: getbackground(&config.colors),
+            bgcolor: config.colors.get_background(),
         }
     }
     // resize all views, maybe do this in parallel?
@@ -224,8 +113,8 @@ impl TabServer {
             config:      config.clone(),
             tabs:        vec![Tab::new(&rect, &config.init_url, config)],
             cur_index:   0,
-            banner_text: get_banner_text(0, 1, &config.init_url),
-            banner_line: get_banner_line(rect.w),
+            banner_text: Self::get_banner_text(0, 1, &config.init_url),
+            banner_line: Self::get_banner_line(rect.w),
         }
     }
     // adjust length of banner line, resize all tabs
@@ -236,7 +125,7 @@ impl TabServer {
             w: r.w - (self.config.format.margin * 2) as u16, 
             h: r.h - 2
         };
-        self.banner_line = get_banner_line(self.rect.w);
+        self.banner_line = Self::get_banner_line(self.rect.w);
         for d in self.tabs.iter_mut() {
             d.resize(&self.rect);
         }
@@ -291,25 +180,22 @@ impl TabServer {
                 let len = self.tabs.len();
                 let url = self.tabs[self.cur_index].get_url();
                 self.banner_text = 
-                    get_banner_text(self.cur_index, len, url);
-                self.banner_line = get_banner_line(self.rect.w);
+                    Self::get_banner_text(self.cur_index, len, url);
+                self.banner_line = Self::get_banner_line(self.rect.w);
                 true
             }
             None => false,
         }
     }
-}
-#[derive(Clone, Debug)]
-pub enum TabMsg {
-    Quit,
-    None,
-    CycleLeft,
-    CycleRight,
-    DeleteMe,
-    Acknowledge,
-    NewTab,
-    Open(String),
-    Go(String),
+    fn get_banner_text(cur_index: usize, total_tab: usize, url: &str) 
+        -> ColoredText 
+    {
+        ColoredText::white(
+            &format!("{}/{}: {}", cur_index + 1, total_tab, url))
+    }
+    fn get_banner_line(w: u16) -> ColoredText {
+        ColoredText::white(&String::from("-").repeat(usize::from(w)))
+    }
 }
 pub struct Tab {
     rect:   Rect,
@@ -334,12 +220,18 @@ impl Tab {
             Some(gemdoc) => 
                 Pager::new(
                         rect, 
-                        &getvec(&gemdoc.doc, &config.colors),
+                        &config.colors.from_gem_doc(&gemdoc),
                         config.scroll_at),
-            None => 
-                Pager::white(
+            None => {
+                let colored_text = config.colors
+                    .from_gem_type(
+                        &GemType::Text, 
+                        "Nothing to display");
+                Pager::new(
                         rect, 
-                        &vec![format!("nothing to display")]),
+                        &vec![colored_text],
+                        config.scroll_at)
+            }
         };
         Self {
             url:    String::from(url_str),
@@ -473,15 +365,6 @@ impl Tab {
         }
     }
 }
-fn get_banner_text(cur_index: usize, total_tab: usize, url: &str) 
-    -> ColoredText 
-{
-    ColoredText::white(
-        &format!("{}/{}: {}", cur_index + 1, total_tab, url))
-}
-fn get_banner_line(w: u16) -> ColoredText {
-    ColoredText::white(&String::from("-").repeat(usize::from(w)))
-}
 #[derive(Clone, Debug)]
 pub enum InputType {
     Choose {keys: Vec<char>, view: Pager},
@@ -541,13 +424,6 @@ impl InputType {
             }
         }
     }
-}
-#[derive(Clone, Debug)]
-pub enum InputMsg {
-    None,
-    Cancel,
-    Choose(char),
-    Text(String),
 }
 #[derive(Clone, Debug)]
 pub struct Dialog {
@@ -614,4 +490,23 @@ impl Dialog {
             _ => self.input_type.update(keycode)
         }
     }
+}
+#[derive(Clone, Debug)]
+pub enum TabMsg {
+    Quit,
+    None,
+    CycleLeft,
+    CycleRight,
+    DeleteMe,
+    Acknowledge,
+    NewTab,
+    Open(String),
+    Go(String),
+}
+#[derive(Clone, Debug)]
+pub enum InputMsg {
+    None,
+    Cancel,
+    Choose(char),
+    Text(String),
 }

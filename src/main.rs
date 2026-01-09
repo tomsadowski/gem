@@ -7,6 +7,7 @@ mod gemini;     // backend
 mod widget;     // frontend
 mod common;     // used by backend and frontend
 mod ui;         // uses backend and frontend
+mod config;     // uses backend and frontend
 
 use crossterm::{
     QueueableCommand, terminal, cursor, event,
@@ -18,7 +19,7 @@ use std::{
 
 fn main() -> io::Result<()> {
     let configtext = fs::read_to_string("gem.toml").unwrap();
-    let config = ui::Config::new(configtext.as_str());
+    let config = config::Config::new(configtext.as_str());
     let (w, h) = terminal::size()?;
     let mut ui = ui::UI::new(&config, w, h);
     let mut stdout = stdout();
@@ -27,7 +28,6 @@ fn main() -> io::Result<()> {
         .queue(terminal::EnterAlternateScreen)?
         .queue(terminal::DisableLineWrap)?
         .queue(cursor::Show)?;
-    stdout.flush()?;
     ui.view(&stdout)?;
     // main loop
     while !ui.quit() {

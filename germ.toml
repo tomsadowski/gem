@@ -1,0 +1,33 @@
+
+init_url  = "gemini://geminiprotocol.net/"
+scroll_at = 3
+
+[colors]
+background = [ 17,  17,  17]
+ui         = [ 80, 180, 180]
+link       = [100, 200, 200]
+text       = [200, 200, 200]
+preformat  = [200, 200, 200]
+quote      = [200, 200, 200]
+heading1   = [240, 100, 120]
+heading2   = [240, 100, 120]
+heading3   = [240, 100, 120]
+listitem   = [100, 200, 100]
+badlink    = [ 60,  60, 200]
+
+[format]
+margin     = 2
+listbullet = " - "
+
+[keys]
+# yes/no dialog
+yes                  = "y"
+no                   = "n"
+# navigation
+move_cursor_up       = "o"
+move_cursor_down     = "i"
+cycle_to_left_tab    = "e"
+cycle_to_right_tab   = "n"
+inspect_under_cursor = "w"
+delete_current_tab   = "v"
+new_tab              = "p"
