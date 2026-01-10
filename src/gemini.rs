@@ -27,13 +27,11 @@ pub fn parse_scheme(url: &Url) -> Scheme {
         _        => Scheme::Unknown,
     }
 }
-pub fn join_if_relative(base: &Url, url_str: &str) 
-    -> Result<Url, String> 
-{
+pub fn join_if_relative(base: &Url, url_str: &str) -> Result<Url, String> {
     match Url::parse(url_str) {
         Err(ParseError::RelativeUrlWithoutBase) => 
             match base.join(url_str) {
-                Err(e) => Err(format!("{}", e)),
+                Err(e)  => Err(format!("{}", e)),
                 Ok(url) => Ok(url),
             }
         Ok(url) => Ok(url),
@@ -47,9 +45,11 @@ pub struct GemDoc {
     pub doc:    Vec<(GemType, String)>,
 }
 impl GemDoc {
-    pub fn new(url: &Url) -> Self {
-        let (response, content) = get_data(url).unwrap();
-        let (status, msg) = parse_status(&response).unwrap();
+    pub fn new(url: &Url) -> Result<Self, String> {
+        let (response, content) = 
+            get_data(url).map_err(|e| e.to_string())?;
+        let (status, msg) = 
+            parse_status(&response).map_err(|e| e.to_string())?;
         let doc = match status {
             Status::Success => parse_doc(&content, url),
             _ => {
@@ -58,12 +58,13 @@ impl GemDoc {
                 vec![(GemType::Text, msg)]
             }
         };
-        Self {
-            url: url.clone(),
+        let gem_doc = Self {
+            url:    url.clone(),
             status: status,
-            msg: msg,
-            doc: doc,
-        }
+            msg:    msg,
+            doc:    doc,
+        };
+        Ok(gem_doc)
     }
 }
 #[derive(Clone, PartialEq, Debug)]
@@ -78,21 +79,20 @@ pub enum GemType {
     ListItem,
     Quote,
 } 
-pub fn parse_doc(text_str: &str, source: &Url) 
-    -> Vec<(GemType, String)> 
-{
+pub fn parse_doc(text_str: &str, source: &Url) -> Vec<(GemType, String)> {
     let mut vec = vec![];
     let mut preformat = false;
     for line in text_str.lines() {
         match line.split_at_checked(3) {
-            Some(("```", _)) => preformat = !preformat,
-            _ => match preformat {
-                true => 
-                    vec.push((GemType::PreFormat, 
-                            line.to_string())),
-                false => {
-                    let (gem, text) = parse_formatted(line, source);
-                    vec.push((gem, text.to_string()));
+            Some(("```", _)) => 
+                preformat = !preformat,
+            _ => 
+                match preformat {
+                    true => 
+                        vec.push((GemType::PreFormat, line.into())),
+                    false => {
+                        let (gem, text) = parse_formatted(line, source);
+                        vec.push((gem, text.into()));
                 }
             }
         }
@@ -103,38 +103,36 @@ fn parse_formatted(line: &str, source: &Url) -> (GemType, String) {
     // look for 3 character symbols
     if let Some((symbol, text)) = line.split_at_checked(3) {
         if symbol == "###" {
-            return (GemType::HeadingThree, String::from(text))
+            return (GemType::HeadingThree, text.into())
         }
     }
     // look for 2 character symbols
     if let Some((symbol, text)) = line.split_at_checked(2) {
         if symbol == "=>" {
-            let (url_str, link_str) = 
-                common::split_whitespace_once(text);
+            let (url_str, link_str) = common::split_whitespace_once(text);
             match join_if_relative(source, url_str) {
                 Ok(url) =>
                     return (
                         GemType::Link(parse_scheme(&url), url), 
-                        String::from(link_str)),
+                        link_str.into()),
                 Err(s) => 
-                    return (GemType::BadLink(s), 
-                        String::from(link_str))
+                    return (GemType::BadLink(s), link_str.into())
             }
         } else if symbol == "##" {
-            return (GemType::HeadingTwo, String::from(text))
+            return (GemType::HeadingTwo, text.into())
         }
     }
     // look for 1 character symbols
     if let Some((symbol, text)) = line.split_at_checked(1) {
         if symbol == ">" {
-            return (GemType::Quote, String::from(text))
+            return (GemType::Quote, text.into())
         } else if symbol == "*" {
             return (GemType::ListItem, format!("- {}", text))
         } else if symbol == "#" {
-            return (GemType::HeadingOne, String::from(text))
+            return (GemType::HeadingOne, text.into())
         }
     }
-    return (GemType::Text, String::from(line))
+    return (GemType::Text, line.into())
 }
 #[derive(Debug, Clone)]
 pub enum Status {
@@ -161,11 +159,15 @@ pub enum Status {
     ExpiredCertRejected,     
 }
 pub fn parse_status(line: &str) -> Result<(Status, String), String> {
-    let (code, message) = common::split_whitespace_once(line);
-    let status = getstatus(code.parse().unwrap()).unwrap();
-    Ok((status, String::from(message)))
+    let (code_str, msg) = 
+        common::split_whitespace_once(line);
+    let code = 
+        code_str.parse::<u8>().map_err(|e| e.to_string())?;
+    let status = 
+        get_status(code)?;
+    Ok((status, msg.into()))
 }
-fn getstatus(code: u8) -> Result<Status, String> {
+fn get_status(code: u8) -> Result<Status, String> {
     match code {
         10 | 12..=19 => Ok(Status::InputExpected),
         11 =>           Ok(Status::InputExpectedSensitive),
@@ -189,51 +191,47 @@ fn getstatus(code: u8) -> Result<Status, String> {
         64 =>           Ok(Status::FutureCertRejected),
         65 =>           Ok(Status::ExpiredCertRejected),
         _ => 
-            Err(format!(
-                "received status number {} which maps to nothing", 
-                code)),
+            Err(format!("invalid status number: {}", code)),
     }
 }
 // returns response and content
 pub fn get_data(url: &Url) -> Result<(String, String), String> {
     let host = url.host_str().unwrap_or("");
     let urlf = format!("{}:1965", host);
-    let failmsg = "Could not connect to ";
 
     // get connector
     let connector = TlsConnector::builder()
         .danger_accept_invalid_hostnames(true)
         .danger_accept_invalid_certs(true)
         .build()
-        .or_else(|e| Err(format!("{}{}\n{}", failmsg, urlf, e)))?;
+        .map_err(|e| e.to_string())?;
 
     // get socket address iterator
     let mut addrs_iter = urlf.to_socket_addrs()
-        .or_else(|e| Err(format!("{}{}\n{}", failmsg, urlf, e)))?;
+        .map_err(|e| e.to_string())?;
 
     // get socket address from socket address iterator
     let Some(socket_addr) = addrs_iter.next() 
-        else {return Err(format!("Could not connect to {}", urlf))};
+        else {return Err(format!("{}", urlf))};
 
     // get tcp stream from socket address
     let tcpstream = 
         TcpStream::connect_timeout(&socket_addr, Duration::new(10, 0))
-        .or_else(|e| Err(format!("Could not connect to {}\n{}", urlf, e)))?;
+        .map_err(|e| e.to_string())?;
 
     // get stream from tcp stream
     let mut stream = connector.connect(&host, tcpstream) 
-        .or_else(|e| Err(format!("Could not connect to {}\n{}", urlf, e)))?;
+        .map_err(|e| e.to_string())?;
 
     // write url to stream
     stream.write_all(format!("{}\r\n", url).as_bytes())
-        .or_else(|e| Err(format!("Could not write to {}\n{}", url, e)))?;
+        .map_err(|e| e.to_string())?;
 
     // initialize response vector
     let mut response = vec![];
 
     // load response vector from stream
-    stream.read_to_end(&mut response)
-        .or_else(|e| Err(format!("Could not read {}\n{}", url, e)))?;
+    stream.read_to_end(&mut response).map_err(|e| e.to_string())?;
 
     // find clrf in response vector
     let Some(clrf_idx) = find_clrf(&response) 

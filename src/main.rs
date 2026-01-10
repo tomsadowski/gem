@@ -10,7 +10,7 @@ mod ui;         // uses backend and frontend
 mod config;     // uses backend and frontend
 
 use crossterm::{
-    QueueableCommand, terminal, cursor, event,
+    QueueableCommand, terminal, event,
 };
 use std::{
     io::{self, stdout, Write},
@@ -18,26 +18,25 @@ use std::{
 };
 
 fn main() -> io::Result<()> {
-    let configtext = fs::read_to_string("gem.toml").unwrap();
-    let config = config::Config::new(configtext.as_str());
     let (w, h) = terminal::size()?;
-    let mut ui = ui::UI::new(&config, w, h);
+    let mut ui = ui::UI::new("gem.toml", w, h);
     let mut stdout = stdout();
+
     terminal::enable_raw_mode()?;
     stdout
         .queue(terminal::EnterAlternateScreen)?
-        .queue(terminal::DisableLineWrap)?
-        .queue(cursor::Show)?;
+        .queue(terminal::DisableLineWrap)?;
     ui.view(&stdout)?;
+
     // main loop
-    while !ui.quit() {
+    while !ui.is_quit() {
         if ui.update(event::read()?) {
             ui.view(&stdout)?;
         }
     }
+
     // clean up
     terminal::disable_raw_mode()?;
     stdout.queue(terminal::LeaveAlternateScreen)?;
-    stdout.flush()?;
-    Ok(())
+    stdout.flush()
 }
