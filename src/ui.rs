@@ -1,7 +1,7 @@
 // ui
 
 use crate::{
-    config::{self, Config, Colors},
+    config::{self, Config, ColorParams},
     gemini::{GemType, GemDoc, Scheme},
     widget::{Rect, Pager, CursorText, ColoredText},
 };
@@ -40,13 +40,16 @@ pub enum TabMsg {
 pub enum InputMsg {
     None,
     Cancel,
-    Choose(char),
+    Ack,
+    Yes,
+    No,
     Text(String),
 }
 // view currently in use
 #[derive(Debug)]
 pub enum View {
     Tab,
+    StatusPane,
     Quit,
 }
 // coordinates activities between views
@@ -263,13 +266,13 @@ impl TabServer {
         let width = std::cmp::min(usize::from(w), text.len());
         ColoredText::new(
                 &text[..usize::from(width)],
-                cfg.colors.get_ui()
+                cfg.colors.get_banner()
             )
     }
     fn get_hdr_line(w: u16, cfg: &Config) -> ColoredText {
         ColoredText::new(
                 &String::from("-").repeat(usize::from(w)),
-                cfg.colors.get_ui()
+                cfg.colors.get_banner()
             )
     }
 }
@@ -309,20 +312,15 @@ impl Tab {
         // send keycode to dialog if there is a dialog
         if let Some((m, d)) = &mut self.dlg {
             match d.update(keycode) {
-                Some(InputMsg::Choose(c)) => {
-                    let msg = match c == self.cfg.keys.yes {
-                        true  => Some(m.clone()),
-                        false => Some(TabMsg::None),
-                    };
+                Some(InputMsg::Yes) => {
+                    let msg = Some(m.clone());
                     self.dlg = None;
                     return msg
                 }
                 Some(InputMsg::Text(text)) => {
                     let msg = match m {
-                        TabMsg::NewTab => 
-                            Some(TabMsg::Open(text)),
-                        _ => 
-                            Some(TabMsg::None),
+                        TabMsg::NewTab  => Some(TabMsg::Open(text)),
+                        _               => Some(TabMsg::None),
                     };
                     self.dlg = None;
                     return msg
@@ -339,44 +337,42 @@ impl Tab {
         }
         // there is no dialog, process keycode here
         else if let KeyCode::Char(c) = keycode {
-            if c == &self.cfg.keys.move_cursor_down {
+            if c == &self.cfg.keys.tab.move_down {
                 match self.page.move_down(1) {
                     true  => return Some(TabMsg::None),
                     false => return None,
                 }
             }
-            else if c == &self.cfg.keys.move_cursor_up {
+            else if c == &self.cfg.keys.tab.move_up {
                 match self.page.move_up(1) {
                     true  => return Some(TabMsg::None),
                     false => return None,
                 }
             }
-            else if c == &self.cfg.keys.cycle_to_left_tab {
+            else if c == &self.cfg.keys.tab.cycle_left {
                 return Some(TabMsg::CycleLeft)
             }
-            else if c == &self.cfg.keys.cycle_to_right_tab {
+            else if c == &self.cfg.keys.tab.cycle_right {
                 return Some(TabMsg::CycleRight)
             }
             // make a dialog
-            else if c == &self.cfg.keys.delete_current_tab {
+            else if c == &self.cfg.keys.tab.delete_tab {
                 let dialog = 
-                    Dialog::choose(
+                    Dialog::yes_no(
                         &self.rect,
-                        "Delete current tab?",
-                        self.cfg.colors.get_ui(),
-                        vec![(self.cfg.keys.yes, "yes"),
-                             (self.cfg.keys.no, "no")]);
+                        &self.cfg,
+                        "Delete current tab?");
                 self.dlg = Some((TabMsg::DeleteMe, dialog));
                 return Some(TabMsg::None)
             }
-            else if c == &self.cfg.keys.new_tab {
+            else if c == &self.cfg.keys.tab.new_tab {
                 let dialog = Dialog::text(  &self.rect, 
-                                            "enter path: ", 
-                                            self.cfg.colors.get_ui());
+                                            &self.cfg,
+                                            "enter path: "  );
                 self.dlg = Some((TabMsg::NewTab, dialog));
                 return Some(TabMsg::None)
             }
-            else if c == &self.cfg.keys.inspect_under_cursor {
+            else if c == &self.cfg.keys.tab.inspect {
                 let gemtype = match &self.doc {
                     Some(doc) => 
                         doc.doc[self.page.select_under_cursor().0].0.clone(),
@@ -385,29 +381,25 @@ impl Tab {
                 let dialog_tuple = 
                     match gemtype {
                         GemType::Link(Scheme::Gemini, url) => {
-                            let dialog = Dialog::choose(
-                                &self.rect,
-                                &format!("go to {}?", url),
-                                self.cfg.colors.get_ui(),
-                                vec![(self.cfg.keys.yes, "yes"), 
-                                     (self.cfg.keys.no, "no")]);
+                            let dialog = Dialog::yes_no(
+                                &self.rect, 
+                                &self.cfg, 
+                                &format!("go to {}?", url));
                             (TabMsg::Go(url.to_string()), dialog)
                         }
                         GemType::Link(_, url) => {
-                            let dialog = Dialog::choose(
+                            let dialog = Dialog::ack(
                                 &self.rect,
-                                &format!("Protocol {} not yet supported", url),
-                                self.cfg.colors.get_ui(),
-                                vec![(self.cfg.keys.yes, "acknowledge")]);
-                            (TabMsg::Acknowledge, dialog)
+                                &self.cfg,
+                                &format!("Protocol {} not yet supported", url));
+                            (TabMsg::None, dialog)
                         }
                         gemtext => {
-                            let dialog = Dialog::choose(
-                                &self.rect,
-                                &format!("you've selected {:?}", gemtext),
-                                self.cfg.colors.get_ui(),
-                                vec![(self.cfg.keys.yes, "acknowledge")]);
-                            (TabMsg::Acknowledge, dialog)
+                            let dialog = Dialog::ack(
+                                &self.rect, 
+                                &self.cfg, 
+                                &format!("you've selected {:?}", gemtext));
+                            (TabMsg::None, dialog)
                         }
                     };
                 self.dlg = Some(dialog_tuple);
@@ -451,7 +443,8 @@ impl Tab {
 }
 #[derive(Clone, Debug)]
 pub enum InputType {
-    Choose {keys: Vec<char>, view: Pager},
+    Ack(char),
+    YesNo(char, char),
     Text(CursorText),
 }
 impl InputType {
@@ -495,13 +488,30 @@ impl InputType {
                     }
                 }
             }
-            InputType::Choose {keys, ..} => {
+            InputType::Ack(ack) => {
                 match keycode {
                     KeyCode::Char(c) => {
-                        match keys.contains(&c) {
-                            true  => Some(InputMsg::Choose(*c)),
-                            false => None,
+                        if ack ==  c {
+                            return Some(InputMsg::Ack)
+                        } else {
+                            return None
                         }
+
+                    }
+                    _ => None,
+                }
+            }
+            InputType::YesNo(yes, no) => {
+                match keycode {
+                    KeyCode::Char(c) => {
+                        if yes ==  c {
+                            return Some(InputMsg::Yes)
+                        } else if no == c {
+                            return Some(InputMsg::No)
+                        } else {
+                            return None
+                        }
+
                     }
                     _ => None,
                 }
@@ -516,31 +526,28 @@ pub struct Dialog {
     input_type: InputType,
 }
 impl Dialog {
-    pub fn text(rect: &Rect, prompt: &str, color: Color) -> Self {
+    pub fn text(rect: &Rect, cfg: &Config, prompt: &str) -> Self {
         Self {
             rect:       rect.clone(),
             prompt:     String::from(prompt), 
-            input_type: InputType::Text(CursorText::new(rect, "", color)),
+            input_type: InputType::Text(
+                CursorText::new(rect, "", cfg.colors.get_dialog())),
         }
     }
-    pub fn choose(  rect:   &Rect, 
-                    prompt: &str, 
-                    color:  Color,
-                    choose: Vec<(char, &str)>) -> Self
-    {
-        let view_rect = Rect {  x: rect.x, 
-                                y: rect.y + 8, 
-                                w: rect.w, 
-                                h: rect.h - 8   };
-        let keys_vec = choose.iter().map(|(c, _)| *c).collect();
-        let view_vec = choose.iter()
-                .map(|(x, y)| format!("|{}|  {}", x, y)).collect();
-        let pager    = Pager::one_color(&view_rect, &view_vec, color);
+    pub fn ack(rect: &Rect, cfg: &Config, prompt: &str) -> Self {
         Self {
             rect:       rect.clone(),
             prompt:     String::from(prompt), 
-            input_type: InputType::Choose { keys: keys_vec, 
-                                            view: pager   },
+            input_type: InputType::Ack(cfg.keys.dialog.ack),
+        }
+    }
+    pub fn yes_no(rect: &Rect, cfg: &Config, prompt: &str ) -> Self {
+        let yes = cfg.keys.dialog.yes;
+        let no  = cfg.keys.dialog.no;
+        Self {
+            rect:       rect.clone(),
+            prompt:     String::from(prompt), 
+            input_type: InputType::YesNo(yes, no),
         }
     }
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
@@ -548,24 +555,30 @@ impl Dialog {
             .queue(MoveTo(self.rect.x, self.rect.y + 4))?
             .queue(Print(&self.prompt))?;
         match &self.input_type {
-            InputType::Choose {view, ..} => {
-                view.view(stdout)
+            InputType::Ack(ack) => {
+                stdout
+                    .queue(MoveTo(self.rect.x, self.rect.y + 8))?
+                    .queue(Print(&format!("|{}| acknowledge", ack)))?;
+            }
+            InputType::YesNo(yes, no) => {
+                stdout
+                    .queue(MoveTo(self.rect.x, self.rect.y + 8))?
+                    .queue(Print(&format!("|{}| yes |{}| no", yes, no)))?;
             }
             InputType::Text(cursortext) => {
-                cursortext.view(self.rect.y + 8, stdout)
+                cursortext.view(self.rect.y + 8, stdout)?;
             }
         }
+        Ok(())
     }
     // No wrapping yet, so resize is straightforward
     pub fn resize(&mut self, rect: &Rect) {
         self.rect = rect.clone();
         match &mut self.input_type {
-            InputType::Choose {view, ..} => {
-                view.resize(&self.rect)
-            }
             InputType::Text(cursortext) => {
                 cursortext.resize(&self.rect)
             }
+            _ => {}
         }
     }
     // Keycode has various meanings depending on the InputType.

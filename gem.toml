@@ -4,7 +4,9 @@ scroll_at = 3
 
 [colors]
 background = [205, 205, 205]
-ui         = [ 80, 180, 180]
+dialog     = [ 80, 180, 180]
+banner     = [ 80, 180, 180]
+
 link       = [100, 200, 200]
 text       = [  0,   0,   0]
 preformat  = [200, 200, 200]
@@ -16,18 +18,27 @@ listitem   = [100, 200, 100]
 badlink    = [ 60,  60, 200]
 
 [format]
-margin     = 2
-listbullet = " - "
+margin      = 2
+list_prefix = " - "
+heading3    = (3, 2)
+heading2    = (2, 1)
+heading1    = (1, 0)
 
 [keys]
-# yes/no dialog
-yes                  = "y"
-no                   = "n"
-# navigation
+global_mode          = "g"
+status_view          = "e"
+tab_view             = "i"
+
+[keys.tab]
 move_cursor_up       = "o"
 move_cursor_down     = "i"
-cycle_to_left_tab    = "e"
-cycle_to_right_tab   = "n"
-inspect_under_cursor = "w"
-delete_current_tab   = "v"
+cycle_left           = "e"
+cycle_right          = "n"
+inspect              = "w"
+delete_tab           = "v"
 new_tab              = "p"
+
+[keys.dialog]
+acknowledge          = "y"
+yes                  = "y"
+no                   = "n"
