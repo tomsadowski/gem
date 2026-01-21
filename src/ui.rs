@@ -20,7 +20,7 @@ use url::Url;
 
 #[derive(Clone, Debug)]
 pub enum ViewMsg {
-    None,
+    Default,
     Global,
     ReloadConfig,
     Msg(String),
@@ -28,8 +28,8 @@ pub enum ViewMsg {
 }
 #[derive(Clone, Debug)]
 pub enum TabMsg {
+    Default,
     Quit,
-    None,
     CycleLeft,
     CycleRight,
     DeleteMe,
@@ -39,7 +39,7 @@ pub enum TabMsg {
 }
 #[derive(Clone, Debug)]
 pub enum InputMsg {
-    None,
+    Default,
     Cancel,
     Ack,
     Yes,
@@ -77,7 +77,7 @@ impl UI {
             Ok(text) => 
                 match Config::parse(&text) {
                     Ok(cfg) => {
-                        (cfg, ViewMsg::None)
+                        (cfg, ViewMsg::Default)
                     }
                     Err(e) => {
                         (Config::default(), ViewMsg::Msg(e))
@@ -101,7 +101,6 @@ impl UI {
             msgview.push(&msg);
             view = View::Msg;
         };
-
         Self {
             focus:    Focus::View(view.clone()),
             tabs:     tabview,
@@ -135,17 +134,17 @@ impl UI {
         match keycode {
             KeyCode::Esc => {
                 self.focus = Focus::View(self.view.clone());
-                return Some(ViewMsg::None)
+                return Some(ViewMsg::Default)
             }
             KeyCode::Char(c) => {
                 if c == &self.cfg.keys.tab_view {
                     self.view = View::Tab;
                     self.focus = Focus::View(self.view.clone());
-                    return Some(ViewMsg::None)
+                    return Some(ViewMsg::Default)
                 } else if c == &self.cfg.keys.msg_view {
                     self.view = View::Msg;
                     self.focus = Focus::View(self.view.clone());
-                    return Some(ViewMsg::None)
+                    return Some(ViewMsg::Default)
                 } else if c == &self.cfg.keys.load_cfg {
                     self.focus = Focus::View(self.view.clone());
                     return Some(ViewMsg::ReloadConfig)
@@ -241,20 +240,18 @@ pub struct MessageView {
 impl MessageView {
     pub fn push(&mut self, msg: &str) {
         self.messages.push(msg.into());
-        self.page = 
-            Pager::one_color( 
-                &self.rect,
-                &self.messages, 
-                self.cfg.colors.get_dialog(),
-                self.cfg.scroll_at);
+        self.page = Pager::one_color( 
+            &self.rect,
+            &self.messages, 
+            self.cfg.colors.get_dialog(),
+            self.cfg.scroll_at);
     }
     pub fn init(rect: &Rect, cfg: &Config) -> Self {
-        let page = 
-            Pager::one_color( 
-                rect, 
-                &vec![],
-                cfg.colors.get_dialog(),
-                cfg.scroll_at);
+        let page = Pager::one_color( 
+            rect, 
+            &vec![],
+            cfg.colors.get_dialog(),
+            cfg.scroll_at);
         Self {
             rect:       rect.clone(),
             cfg:        cfg.clone(),
@@ -279,13 +276,13 @@ impl MessageView {
             }
             if c == &self.cfg.keys.tab.move_down {
                 match self.page.move_down(1) {
-                    true  => return Some(ViewMsg::None),
+                    true  => return Some(ViewMsg::Default),
                     false => return None,
                 }
             }
             else if c == &self.cfg.keys.tab.move_up {
                 match self.page.move_up(1) {
-                    true  => return Some(ViewMsg::None),
+                    true  => return Some(ViewMsg::Default),
                     false => return None,
                 }
             } else {
@@ -330,7 +327,7 @@ impl TabView {
     pub fn update(&mut self, keycode: &KeyCode) -> Option<ViewMsg> {
         let response = self.tabs[self.idx].update(keycode);
         if let Some(msg) = response {
-            let mut viewmsg: Option<ViewMsg> = Some(ViewMsg::None);
+            let mut viewmsg: Option<ViewMsg> = Some(ViewMsg::Default);
             match msg {
                 TabMsg::ViewMsg(m) => {
                     viewmsg = Some(m);
@@ -364,7 +361,12 @@ impl TabView {
             let len = self.tabs.len();
             let url = self.tabs[self.idx].get_url();
             self.hdr_text = 
-                Self::get_hdr_text(self.rect.w, &self.cfg, self.idx, len, &url);
+                Self::get_hdr_text(
+                    self.rect.w, 
+                    &self.cfg, 
+                    self.idx, 
+                    len, 
+                    &url);
             self.hdr_line = Self::get_hdr_line(self.rect.w, &self.cfg);
             viewmsg
         } else {
@@ -435,7 +437,7 @@ pub struct Tab {
 }
 impl Tab {
     pub fn init(rect: &Rect, url_str: &str, cfg: &Config) -> (Self, ViewMsg) {
-        let mut msg = ViewMsg::None;
+        let mut msg = ViewMsg::Default;
         let mut doc: Option<GemDoc> = None;
         match Url::parse(url_str) {
             Err(e) => {
@@ -483,7 +485,7 @@ impl Tab {
                 }
                 Some(InputMsg::No) => {
                     self.dlg = None;
-                    return Some(TabMsg::None)
+                    return Some(TabMsg::Default)
                 }
                 Some(InputMsg::Ack) => {
                     let msg = Some(m.clone());
@@ -492,18 +494,18 @@ impl Tab {
                 }
                 Some(InputMsg::Text(text)) => {
                     let msg = match m {
-                        TabMsg::NewTab  => Some(TabMsg::Go(text)),
-                        _               => Some(TabMsg::None),
+                        TabMsg::NewTab => Some(TabMsg::Go(text)),
+                        _              => Some(TabMsg::Default),
                     };
                     self.dlg = None;
                     return msg
                 }
                 Some(InputMsg::Cancel) => {
                     self.dlg = None;
-                    return Some(TabMsg::None)
+                    return Some(TabMsg::Default)
                 }
                 Some(_) => {
-                    return Some(TabMsg::None)
+                    return Some(TabMsg::Default)
                 }
                _ => return None
             }
@@ -515,13 +517,13 @@ impl Tab {
             }
             if c == &self.cfg.keys.tab.move_down {
                 match self.page.move_down(1) {
-                    true  => return Some(TabMsg::None),
+                    true  => return Some(TabMsg::Default),
                     false => return None,
                 }
             }
             else if c == &self.cfg.keys.tab.move_up {
                 match self.page.move_up(1) {
-                    true  => return Some(TabMsg::None),
+                    true  => return Some(TabMsg::Default),
                     false => return None,
                 }
             }
@@ -533,20 +535,20 @@ impl Tab {
             }
             // make a dialog
             else if c == &self.cfg.keys.tab.delete_tab {
-                let dialog = 
-                    Dialog::ask(
-                        &self.rect,
-                        &self.cfg,
-                        "Delete current tab?");
+                let dialog = Dialog::ask(
+                    &self.rect,
+                    &self.cfg,
+                    "Delete current tab?");
                 self.dlg = Some((TabMsg::DeleteMe, dialog));
-                return Some(TabMsg::None)
+                return Some(TabMsg::Default)
             }
             else if c == &self.cfg.keys.tab.new_tab {
-                let dialog = Dialog::text(  &self.rect, 
-                                            &self.cfg,
-                                            "enter path: "  );
+                let dialog = Dialog::text(
+                    &self.rect,
+                    &self.cfg,
+                    "enter path: ");
                 self.dlg = Some((TabMsg::NewTab, dialog));
-                return Some(TabMsg::None)
+                return Some(TabMsg::Default)
             }
             else if c == &self.cfg.keys.tab.inspect {
                 let gemtype = match &self.doc {
@@ -568,18 +570,18 @@ impl Tab {
                                 &self.rect,
                                 &self.cfg,
                                 &format!("Protocol {} not yet supported", url));
-                            (TabMsg::None, dialog)
+                            (TabMsg::Default, dialog)
                         }
                         gemtext => {
                             let dialog = Dialog::ack(
                                 &self.rect, 
                                 &self.cfg, 
                                 &format!("you've selected {:?}", gemtext));
-                            (TabMsg::None, dialog)
+                            (TabMsg::Default, dialog)
                         }
                     };
                 self.dlg = Some(dialog_tuple);
-                return Some(TabMsg::None)
+                return Some(TabMsg::Default)
             } else {
                 return None
             }
@@ -618,6 +620,49 @@ impl Tab {
         Pager::new(rect, &colored_text, cfg.scroll_at)
     }
 }
+pub struct Typer {
+    cursor_text: CursorText,
+}
+impl Typer {
+    pub fn update(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
+        match keycode {
+            KeyCode::Enter => {
+                Some(InputMsg::Text(self.cursor_text.get_text()))
+            }
+            KeyCode::Left => {
+                match self.cursor_text.move_left(1) {
+                    true  => Some(InputMsg::Default),
+                    false => None,
+                }
+            }
+            KeyCode::Right => {
+                match self.cursor_text.move_right(1) {
+                    true  => Some(InputMsg::Default),
+                    false => None,
+                }
+            }
+            KeyCode::Delete => {
+                match self.cursor_text.delete() {
+                    true  => Some(InputMsg::Default),
+                    false => None,
+                }
+            }
+            KeyCode::Backspace => {
+                match self.cursor_text.backspace() {
+                    true  => Some(InputMsg::Default),
+                    false => None,
+                }
+            }
+            KeyCode::Char(c) => {
+                self.cursor_text.insert(*c);
+                Some(InputMsg::Default)
+            }
+            _ => { 
+                None
+            }
+        }
+    }
+}
 #[derive(Clone, Debug)]
 pub enum InputType {
     Ack(char),
@@ -634,31 +679,31 @@ impl InputType {
                     }
                     KeyCode::Left => {
                         match cursortext.move_left(1) {
-                            true  => Some(InputMsg::None),
+                            true  => Some(InputMsg::Default),
                             false => None,
                         }
                     }
                     KeyCode::Right => {
                         match cursortext.move_right(1) {
-                            true  => Some(InputMsg::None),
+                            true  => Some(InputMsg::Default),
                             false => None,
                         }
                     }
                     KeyCode::Delete => {
                         match cursortext.delete() {
-                            true  => Some(InputMsg::None),
+                            true  => Some(InputMsg::Default),
                             false => None,
                         }
                     }
                     KeyCode::Backspace => {
                         match cursortext.backspace() {
-                            true  => Some(InputMsg::None),
+                            true  => Some(InputMsg::Default),
                             false => None,
                         }
                     }
                     KeyCode::Char(c) => {
                         cursortext.insert(*c);
-                        Some(InputMsg::None)
+                        Some(InputMsg::Default)
                     }
                     _ => { 
                         None
@@ -673,7 +718,6 @@ impl InputType {
                         } else {
                             return None
                         }
-
                     }
                     _ => None,
                 }
@@ -747,7 +791,6 @@ impl Dialog {
         }
         Ok(())
     }
-    // No wrapping yet, so resize is straightforward
     pub fn resize(&mut self, rect: &Rect) {
         self.rect = rect.clone();
         match &mut self.input_type {
@@ -757,8 +800,6 @@ impl Dialog {
             _ => {}
         }
     }
-    // Keycode has various meanings depending on the InputType.
-    // The match statement might be moved to impl InputType
     pub fn update(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
         match keycode {
             KeyCode::Esc => 

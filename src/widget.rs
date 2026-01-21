@@ -237,6 +237,15 @@ impl Cursor {
     }
 }
 #[derive(Clone, Debug)]
+pub struct Formatting {
+    pub color: Color,
+    pub indent: u16,
+    pub leading_space: u16,
+    pub trailing_space: u16,
+    pub bold: bool,
+    pub wrap: bool,
+}
+#[derive(Clone, Debug)]
 pub struct ColoredText {
     pub color: Color,
     pub text:  String,
@@ -353,29 +362,33 @@ impl Pager {
     }
     pub fn new(rect: &Rect, source: &Vec<ColoredText>, buf: u8) -> Self {
         let display = common::wrap_list(
-            &source.iter().map(|ct| ct.text.clone()).collect(),
+            &source
+                .iter()
+                .map(|ct| ct.text.clone())
+                .collect(),
             rect.w);
         return Self {
             rect:    rect.clone(),
-            cursor:  Cursor::new(   display.len(), 
-                                    &Range::verticle(rect),
-                                    buf, 
-                                    0   ),
+            cursor:  Cursor::new(
+                display.len(), 
+                &Range::verticle(rect),
+                buf, 
+                0),
             source:  source.clone(),
             display: display,
         }
     }
     pub fn resize(&mut self, rect: &Rect) {
         self.rect    = rect.clone();
-        self.display = 
-            common::wrap_list(
-                &self.source.iter()
-                    .map(|ct| ct.text.clone())
-                    .collect(),
-                rect.w  );
+        self.display = common::wrap_list(
+            &self.source
+                .iter()
+                .map(|ct| ct.text.clone())
+                .collect(),
+            rect.w);
         self.cursor.resize(
             self.display.len(), 
-            &Range::verticle(rect)  );
+            &Range::verticle(rect));
     }
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
         stdout.queue(cursor::Hide)?;
@@ -388,8 +401,8 @@ impl Pager {
                 .queue(Print(text.as_str()))?;
         }
         stdout
-            .queue(cursor::MoveTo(  self.rect.x, 
-                                    self.cursor.get_cursor()))?
+            .queue(MoveTo(  self.rect.x, 
+                            self.cursor.get_cursor()))?
             .queue(cursor::Show)?
             .flush()
     }
