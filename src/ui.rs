@@ -85,12 +85,12 @@ impl UI {
         let mut view = View::Tab;
         let mut msgview = MessageView::init(&dscr, &cfg);
         if let ViewMsg::Msg(msg) = cfgmsg {
-            msgview.push(&msg);
+            msgview.push(&msg, &cfg);
             view = View::Msg;
         };
         let (tabview, tabmsg) = TabView::init(&dscr, &cfg);
         if let ViewMsg::Msg(msg) = tabmsg {
-            msgview.push(&msg);
+            msgview.push(&msg, &cfg);
             view = View::Msg;
         };
         Self {
@@ -123,8 +123,8 @@ impl UI {
     // resize all views, maybe do this in parallel?
     fn resize(&mut self, w: u16, h: u16) {
         self.scr = Screen::origin(w, h);
-        self.tabs.resize(&self.scr);
-        self.msg.resize(&self.scr);
+        self.tabs.resize(&self.dscr, &self.cfg);
+        self.msg.resize(&self.dscr);
     }
     // display the current view
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
@@ -209,7 +209,7 @@ impl UI {
                         true
                     }
                     Some(ViewMsg::Msg(s)) => {
-                        self.msg.push(&s);
+                        self.msg.push(&s, &self.cfg);
                         true
                     }
                     Some(_) => true,
@@ -222,7 +222,7 @@ impl UI {
     fn update_cfg(&mut self, cfg: Config) {
         self.cfg = cfg;
         self.bg_color = self.cfg.colors.get_background();
-        self.tabs.update_cfg(&self.scr, &self.cfg);
+        self.tabs.update_cfg(&self.dscr, &self.cfg);
     }
     // no need to derive PartialEq for View
     pub fn is_quit(&self) -> bool {
@@ -235,12 +235,12 @@ pub struct MessageView {
     reader:   Reader,
 }
 impl MessageView {
-    pub fn push(&mut self, msg: &str) {
+    pub fn push(&mut self, msg: &str, cfg: &Config) {
         self.messages.push(msg.into());
         self.reader = Reader::one_color( 
             &self.dscr,
             &self.messages, 
-            self.cfg.colors.get_dialog());
+            cfg.colors.get_dialog());
     }
     pub fn init(dscr: &DataScreen, cfg: &Config) -> Self {
         let reader = Reader::one_color( 
@@ -280,6 +280,7 @@ impl MessageView {
     }
 }
 pub struct TabView {
+    dscr:     DataScreen,
     hdr_text: ColoredText,
     hdr_line: ColoredText,
     tabs:     Vec<Tab>,
@@ -287,26 +288,28 @@ pub struct TabView {
 }
 impl TabView {
     pub fn init(dscr: &DataScreen, cfg: &Config) -> (Self, ViewMsg) {
-        let (tab, msg) = Tab::init(&rect, &cfg.init_url, cfg);
+        let (tab, msg) = Tab::init(dscr, &cfg.init_url, cfg);
         let tabview = Self {
+            hdr_text: 
+                Self::get_hdr_text(dscr.outer.w, &cfg, 0, 1, &cfg.init_url),
+            hdr_line: Self::get_hdr_line(dscr.outer.w, &cfg),
+            dscr:     dscr.clone(),
             tabs:     vec![tab],
             idx:      0,
-            hdr_text: Self::get_hdr_text(rect.w, &cfg, 0, 1, &cfg.init_url),
-            hdr_line: Self::get_hdr_line(rect.w, &cfg),
         };
         (tabview, msg)
     }
     // adjust length of banner line, resize all tabs
-    pub fn resize(&mut self, rect: &Screen) {
-        self.rect     = Self::get_rect(rect, &self.cfg);
-        self.hdr_line = Self::get_hdr_line(self.rect.w, &self.cfg);
+    pub fn resize(&mut self, dscr: &DataScreen, cfg: &Config) {
+        self.dscr     = dscr.clone();
+        self.hdr_line = Self::get_hdr_line(self.dscr.outer.w, &cfg);
         for tab in self.tabs.iter_mut() {
-            tab.resize(&self.rect);
+            tab.resize(&self.dscr);
         }
     }
     // send keycode to current tab and process response
     pub fn update(&mut self, keycode: &KeyCode, cfg: &Config) -> Option<ViewMsg> {
-        let response = self.tabs[self.idx].update(keycode);
+        let response = self.tabs[self.idx].update(keycode, cfg);
         if let Some(msg) = response {
             let mut viewmsg: Option<ViewMsg> = Some(ViewMsg::Default);
             match msg {
@@ -314,7 +317,7 @@ impl TabView {
                     viewmsg = Some(m);
                 }
                 TabMsg::Go(url) => {
-                    let (tab, m) = Tab::init(&self.rect, &url, cfg);
+                    let (tab, m) = Tab::init(&self.dscr, &url, cfg);
                     viewmsg = Some(m);
                     self.tabs.push(tab);
                     self.idx = self.tabs.len() - 1;
@@ -342,15 +345,15 @@ impl TabView {
                 _ => {},
             }
             let len = self.tabs.len();
-            let url = self.tabs[self.idx].url;
+            let url = &self.tabs[self.idx].url;
             self.hdr_text = 
                 Self::get_hdr_text(
-                    self.rect.w, 
+                    self.dscr.outer.w, 
                     cfg, 
                     self.idx, 
                     len, 
                     &url);
-            self.hdr_line = Self::get_hdr_line(self.rect.w, cfg);
+            self.hdr_line = Self::get_hdr_line(self.dscr.outer.w, cfg);
             viewmsg
         } else {
             None
@@ -359,26 +362,26 @@ impl TabView {
     // display banner and reader
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
         stdout
-            .queue(MoveTo(self.rect.x, 0))?
+            .queue(MoveTo(self.dscr.outer.x, 0))?
             .queue(SetForegroundColor(self.hdr_text.color))?
             .queue(Print(&self.hdr_text.text))?
-            .queue(MoveTo(self.rect.x, 1))?
+            .queue(MoveTo(self.dscr.outer.x, 1))?
             .queue(SetForegroundColor(self.hdr_line.color))?
             .queue(Print(&self.hdr_line.text))?;
         self.tabs[self.idx].view(stdout)
     }
-    pub fn update_cfg(&mut self, rect: &Screen, cfg: &Config) {
-        self.rect     = Self::get_rect(rect, cfg);
+    pub fn update_cfg(&mut self, dscr: &DataScreen, cfg: &Config) {
+        self.dscr     = dscr.clone();
         self.hdr_text = 
             Self::get_hdr_text(
-                self.rect.w, 
+                self.dscr.outer.w, 
                 cfg, 
                 self.idx, 
                 self.tabs.len(), 
                 &self.tabs[self.idx].url);
-        self.hdr_line = Self::get_hdr_line(self.rect.w, &self.cfg);
+        self.hdr_line = Self::get_hdr_line(self.dscr.outer.w, cfg);
         for tab in self.tabs.iter_mut() {
-            tab.update_cfg(&self.rect, &self.cfg);
+            tab.update_cfg(&self.dscr, cfg);
         }
     }
     fn get_hdr_text(    w:          u16,
@@ -402,13 +405,16 @@ impl TabView {
     }
 }
 pub struct Tab {
+    dscr:    DataScreen,
     pub url: String,
     pub doc: Option<GemDoc>,
     pub dlg: Option<(TabMsg, Dialog)>,
     pub reader: Reader,
 }
 impl Tab {
-    pub fn init(rect: &Screen, url_str: &str, cfg: &Config) -> (Self, ViewMsg) {
+    pub fn init(dscr: &DataScreen, url_str: &str, cfg: &Config) 
+        -> (Self, ViewMsg) 
+    {
         let mut msg = ViewMsg::Default;
         let mut doc: Option<GemDoc> = None;
         match Url::parse(url_str) {
@@ -426,10 +432,10 @@ impl Tab {
                 }
             }
         }
-        let reader = Self::get_reader(rect, &doc, cfg);
+        let reader = Self::get_reader(dscr, &doc, cfg);
         let tab = Self {
             url:  String::from(url_str),
-            rect: rect.clone(),
+            dscr: dscr.clone(),
             dlg:  None,
             reader: reader,
             doc:  doc,
@@ -437,11 +443,11 @@ impl Tab {
         (tab, msg)
     }
     // resize reader and dialog
-    pub fn resize(&mut self, rect: &Screen) {
-        self.rect = rect.clone();
-        self.reader.resize(&rect);
+    pub fn resize(&mut self, dscr: &DataScreen) {
+        self.dscr = dscr.clone();
+        self.reader.resize(&dscr);
         if let Some((_, d)) = &mut self.dlg {
-            d.resize(&rect);
+            d.resize(&dscr);
         }
     }
     pub fn update(&mut self, keycode: &KeyCode, cfg: &Config) -> Option<TabMsg> {
@@ -504,36 +510,36 @@ impl Tab {
             // make a dialog
             else if c == &cfg.keys.tab.delete_tab {
                 let dialog = Dialog::ask(
-                    &self.rect, cfg, "Delete current tab?");
+                    &self.dscr, cfg, "Delete current tab?");
                 self.dlg = Some((TabMsg::DeleteMe, dialog));
                 Some(TabMsg::Default)
             }
             else if c == &cfg.keys.tab.new_tab {
                 let dialog = Dialog::text(
-                    &self.rect, cfg, "enter path: ");
+                    &self.dscr, cfg, "enter path: ");
                 self.dlg = Some((TabMsg::NewTab, dialog));
                 Some(TabMsg::Default)
             }
             else if c == &cfg.keys.tab.inspect {
                 let gemtype = match &self.doc {
                     Some(doc) => 
-                        doc.doc[self.reader.select_under_cursor().0].0.clone(),
+                        doc.doc[self.reader.select().0].0.clone(),
                     None => GemType::Text,
                 };
                 let dialog_tuple = match gemtype {
                     GemType::Link(Scheme::Gemini, url) => {
                         let msg = &format!("go to {}?", url);
-                        let dialog = Dialog::ask(&self.rect, cfg, &msg);
+                        let dialog = Dialog::ask(&self.dscr, cfg, &msg);
                         (TabMsg::Go(url.into()), dialog)
                     }
                     GemType::Link(_, url) => {
                         let msg = format!("Protocol {} not yet supported", url);
-                        let dialog = Dialog::ack(&self.rect, cfg, &msg);
+                        let dialog = Dialog::ack(&self.dscr, cfg, &msg);
                         (TabMsg::Default, dialog)
                     }
                     gemtext => {
                         let msg = format!("you've selected {:?}", gemtext);
-                        let dialog = Dialog::ack(&self.rect, cfg, &msg);
+                        let dialog = Dialog::ack(&self.dscr, cfg, &msg);
                         (TabMsg::Default, dialog)
                     }
                 };
@@ -542,9 +548,9 @@ impl Tab {
             } else {None}
         } else {None}
     }
-    pub fn update_cfg(&mut self, rect: &Screen, cfg: &Config) {
-        self.rect = rect.clone();
-        self.reader = Self::get_reader(&self.rect, &self.doc, cfg);
+    pub fn update_cfg(&mut self, dscr: &DataScreen, cfg: &Config) {
+        self.dscr = dscr.clone();
+        self.reader = Self::get_reader(&self.dscr, &self.doc, cfg);
     }
     // show dialog if there's a dialog, otherwise show reader
     pub fn view(&self, stdout: &Stdout) -> io::Result<()> {
@@ -554,7 +560,9 @@ impl Tab {
             self.reader.view(stdout)
         }
     }
-    fn get_reader(rect: &Screen, doc: &Option<GemDoc>, cfg: &Config) -> Reader {
+    fn get_reader(dscr: &DataScreen, doc: &Option<GemDoc>, cfg: &Config) 
+        -> Reader 
+    {
         let colored_text = 
             if let Some(gemdoc) = &doc {
                 cfg.colors.from_gem_doc(&gemdoc) 
@@ -564,7 +572,7 @@ impl Tab {
                         &GemType::Text, 
                         "Nothing to display")]
             };
-        Reader::new(rect, &colored_text)
+        Reader::new(dscr, &colored_text)
     }
 }
 #[derive(Clone, Debug)]
@@ -627,29 +635,29 @@ impl InputType {
 }
 #[derive(Clone, Debug)]
 pub struct Dialog {
-    rect:       Screen,
+    dscr:       DataScreen,
     prompt:     String,
     input_type: InputType,
 }
 impl Dialog {
-    pub fn text(rect: &Screen, cfg: &Config, prompt: &str) -> Self {
+    pub fn text(dscr: &DataScreen, cfg: &Config, prompt: &str) -> Self {
         Self {
-            rect:       rect.clone(),
+            dscr:       dscr.clone(),
             prompt:     prompt.into(), 
             input_type: InputType::Text(
-                Editor::new(rect, "", cfg.colors.get_dialog())),
+                Editor::new(dscr, "", cfg.colors.get_dialog())),
         }
     }
-    pub fn ack(rect: &Screen, cfg: &Config, prompt: &str) -> Self {
+    pub fn ack(dscr: &DataScreen, cfg: &Config, prompt: &str) -> Self {
         Self {
-            rect:       rect.clone(),
+            dscr:       dscr.clone(),
             prompt:     prompt.into(), 
             input_type: InputType::Ack(cfg.keys.dialog.ack),
         }
     }
-    pub fn ask(rect: &Screen, cfg: &Config, prompt: &str ) -> Self {
+    pub fn ask(dscr: &DataScreen, cfg: &Config, prompt: &str ) -> Self {
         Self {
-            rect:       rect.clone(),
+            dscr:       dscr.clone(),
             prompt:     prompt.into(), 
             input_type: InputType::Ask( cfg.keys.dialog.yes, 
                                         cfg.keys.dialog.no  ),
@@ -657,30 +665,30 @@ impl Dialog {
     }
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
         stdout
-            .queue(MoveTo(self.rect.x, self.rect.y + 4))?
+            .queue(MoveTo(self.dscr.outer.x, self.dscr.outer.y + 4))?
             .queue(Print(&self.prompt))?;
         match &self.input_type {
             InputType::Ack(ack) => {
                 stdout
-                    .queue(MoveTo(self.rect.x, self.rect.y + 8))?
+                    .queue(MoveTo(self.dscr.outer.x, self.dscr.outer.y + 8))?
                     .queue(Print(&format!("|{}| acknowledge", ack)))?;
             }
             InputType::Ask(yes, no) => {
                 stdout
-                    .queue(MoveTo(self.rect.x, self.rect.y + 8))?
+                    .queue(MoveTo(self.dscr.outer.x, self.dscr.outer.y + 8))?
                     .queue(Print(&format!("|{}| yes |{}| no", yes, no)))?;
             }
             InputType::Text(editor) => {
-                editor.view(self.rect.y + 8, stdout)?;
+                editor.view(stdout)?;
             }
         }
         Ok(())
     }
-    pub fn resize(&mut self, rect: &Screen) {
-        self.rect = rect.clone();
+    pub fn resize(&mut self, dscr: &DataScreen) {
+        self.dscr = dscr.clone();
         match &mut self.input_type {
             InputType::Text(editor) => {
-                editor.resize(&self.rect)
+                editor.resize(&self.dscr)
             }
             _ => {}
         }
