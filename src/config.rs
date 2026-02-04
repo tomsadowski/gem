@@ -13,7 +13,7 @@ use serde::Deserialize;
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {
     pub init_url:  String,
-    pub scroll_at: u8,
+    pub scroll_at: u16,
     pub colors:    ColorParams,
     pub keys:      KeyParams,
     pub format:    FormatParams,
@@ -100,7 +100,7 @@ impl DialogKeyParams {
 }
 #[derive(Deserialize, Debug, Clone)]
 pub struct FormatParams {
-    pub margin: u8,
+    pub margin: u16,
     // gemini
     pub list_prefix: String,
     pub heading1:    (u8, u8),

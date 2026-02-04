@@ -3,7 +3,8 @@
 use crate::{
     config::{self, Config, ColorParams},
     gemini::{GemType, GemDoc, Scheme},
-    widget::{Rect, Pager, CursorText, ColoredText},
+    widget::{Reader, Editor, ColoredText},
+    screen::{Screen, DataScreen},
 };
 use crossterm::{
     QueueableCommand,
@@ -61,7 +62,8 @@ pub enum Focus {
 }
 // coordinates activities between views
 pub struct UI {
-    rect:     Rect,
+    scr:      Screen,
+    dscr:     DataScreen,
     cfg:      Config,
     cfg_path: String,
     bg_color: Color,
@@ -71,6 +73,38 @@ pub struct UI {
     tabs:     TabView,
 } 
 impl UI {
+    // start with View::Tab
+    pub fn new(path: &str, w: u16, h: u16) -> Self {
+        let (cfg, cfgmsg) = Self::load_config(path);
+        let x_margin = cfg.format.margin;
+        let y_margin = cfg.format.margin;
+        let x_scroll = cfg.scroll_at;
+        let y_scroll = cfg.scroll_at;
+        let scr = Screen::origin(w, h).crop_x(x_margin).crop_y(y_margin);
+        let dscr = DataScreen::new(&scr, x_scroll, y_scroll);
+        let mut view = View::Tab;
+        let mut msgview = MessageView::init(&dscr, &cfg);
+        if let ViewMsg::Msg(msg) = cfgmsg {
+            msgview.push(&msg);
+            view = View::Msg;
+        };
+        let (tabview, tabmsg) = TabView::init(&dscr, &cfg);
+        if let ViewMsg::Msg(msg) = tabmsg {
+            msgview.push(&msg);
+            view = View::Msg;
+        };
+        Self {
+            scr:      scr,
+            dscr:     dscr,
+            bg_color: cfg.colors.get_background(),
+            cfg:      cfg,
+            cfg_path: path.into(),
+            focus:    Focus::View(view.clone()),
+            view:     view,
+            tabs:     tabview,
+            msg:      msgview,
+        }
+    }
     // return default config if error
     fn load_config(path: &str) -> (Config, ViewMsg) {
         match fs::read_to_string(path) {
@@ -86,37 +120,11 @@ impl UI {
             Err(e) => (Config::default(), ViewMsg::Msg(e.to_string())),
         }
     }
-    // start with View::Tab
-    pub fn new(path: &str, w: u16, h: u16) -> Self {
-        let rect = Rect::origin(w, h);
-        let mut view = View::Tab;
-        let (cfg, cfgmsg) = Self::load_config(path);
-        let mut msgview = MessageView::init(&rect, &cfg);
-        if let ViewMsg::Msg(msg) = cfgmsg {
-            msgview.push(&msg);
-            view = View::Msg;
-        };
-        let (tabview, tabmsg) = TabView::init(&rect, &cfg);
-        if let ViewMsg::Msg(msg) = tabmsg {
-            msgview.push(&msg);
-            view = View::Msg;
-        };
-        Self {
-            focus:    Focus::View(view.clone()),
-            tabs:     tabview,
-            msg:      msgview,
-            view:     view,
-            rect:     rect,
-            cfg_path: path.into(),
-            cfg:      cfg.clone(),
-            bg_color: cfg.colors.get_background(),
-        }
-    }
     // resize all views, maybe do this in parallel?
     fn resize(&mut self, w: u16, h: u16) {
-        self.rect = Rect::origin(w, h);
-        self.tabs.resize(&self.rect);
-        self.msg.resize(&self.rect);
+        self.scr = Screen::origin(w, h);
+        self.tabs.resize(&self.scr);
+        self.msg.resize(&self.scr);
     }
     // display the current view
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
@@ -134,27 +142,23 @@ impl UI {
         match keycode {
             KeyCode::Esc => {
                 self.focus = Focus::View(self.view.clone());
-                return Some(ViewMsg::Default)
+                Some(ViewMsg::Default)
             }
             KeyCode::Char(c) => {
                 if c == &self.cfg.keys.tab_view {
                     self.view = View::Tab;
                     self.focus = Focus::View(self.view.clone());
-                    return Some(ViewMsg::Default)
+                    Some(ViewMsg::Default)
                 } else if c == &self.cfg.keys.msg_view {
                     self.view = View::Msg;
                     self.focus = Focus::View(self.view.clone());
-                    return Some(ViewMsg::Default)
+                    Some(ViewMsg::Default)
                 } else if c == &self.cfg.keys.load_cfg {
                     self.focus = Focus::View(self.view.clone());
-                    return Some(ViewMsg::ReloadConfig)
-                } else {
-                    return None
-                }
+                    Some(ViewMsg::ReloadConfig)
+                } else {None}
             } 
-            _ => {
-                return None
-            }
+            _ => {None}
         }
 
     }
@@ -162,10 +166,6 @@ impl UI {
     // otherwise delegate to current view
     pub fn update(&mut self, event: Event) -> bool {
         match event {
-            Event::Resize(w, h) => {
-                self.resize(w, h); 
-                true
-            }
             Event::Key(
                 KeyEvent {
                     modifiers: KeyModifiers::CONTROL,
@@ -176,24 +176,24 @@ impl UI {
                 self.view = View::Quit;
                 true
             }
+            Event::Resize(w, h) => {
+                self.resize(w, h); 
+                true
+            }
             Event::Key(
                 KeyEvent {
                     code: keycode, 
                     kind: KeyEventKind::Press, ..
                 }
             ) => {
-                let view_msg = 
-                    match &self.focus {
-                        Focus::View(view) => match view {
-                            View::Tab => 
-                                self.tabs.update(&keycode),
-                            View::Msg => 
-                                self.msg.update(&keycode),
-                            _ => None,
-                        },
-                        Focus::Global => 
-                            self.update_global(&keycode),
-                    }; 
+                let view_msg = match &self.focus {
+                    Focus::Global => self.update_global(&keycode),
+                    Focus::View(view) => match view {
+                        View::Tab => self.tabs.update(&keycode, &self.cfg),
+                        View::Msg => self.msg.update(&keycode, &self.cfg),
+                        _ => None,
+                    },
+                }; 
                 match view_msg {
                     Some(ViewMsg::Global) => {
                         self.focus = Focus::Global;
@@ -212,10 +212,8 @@ impl UI {
                         self.msg.push(&s);
                         true
                     }
-                    Some(_) => 
-                        true,
-                    None => 
-                        false
+                    Some(_) => true,
+                    None => false
                 } 
             }
             _ => false,
@@ -224,7 +222,7 @@ impl UI {
     fn update_cfg(&mut self, cfg: Config) {
         self.cfg = cfg;
         self.bg_color = self.cfg.colors.get_background();
-        self.tabs.update_cfg(&self.rect, &self.cfg);
+        self.tabs.update_cfg(&self.scr, &self.cfg);
     }
     // no need to derive PartialEq for View
     pub fn is_quit(&self) -> bool {
@@ -232,82 +230,65 @@ impl UI {
     }
 } 
 pub struct MessageView {
-    rect:     Rect,
-    cfg:      Config,
+    dscr:     DataScreen,
     messages: Vec<String>,
-    page:     Pager,
+    reader:   Reader,
 }
 impl MessageView {
     pub fn push(&mut self, msg: &str) {
         self.messages.push(msg.into());
-        self.page = Pager::one_color( 
-            &self.rect,
+        self.reader = Reader::one_color( 
+            &self.dscr,
             &self.messages, 
-            self.cfg.colors.get_dialog(),
-            self.cfg.scroll_at);
+            self.cfg.colors.get_dialog());
     }
-    pub fn init(rect: &Rect, cfg: &Config) -> Self {
-        let page = Pager::one_color( 
-            rect, 
+    pub fn init(dscr: &DataScreen, cfg: &Config) -> Self {
+        let reader = Reader::one_color( 
+            dscr, 
             &vec![],
-            cfg.colors.get_dialog(),
-            cfg.scroll_at);
+            cfg.colors.get_dialog());
         Self {
-            rect:       rect.clone(),
-            cfg:        cfg.clone(),
-            page:       page,
+            dscr:       dscr.clone(),
+            reader:     reader,
             messages:   vec![],
         }
     }
-    // resize page
-    pub fn resize(&mut self, rect: &Rect) {
-        self.rect = rect.clone();
-        self.page.resize(&rect);
+    // resize reader
+    pub fn resize(&mut self, dscr: &DataScreen) {
+        self.dscr = dscr.clone();
+        self.reader.resize(&dscr);
     }
-    // show dialog if there's a dialog, otherwise show page
+    // show dialog if there's a dialog, otherwise show reader
     pub fn view(&self, stdout: &Stdout) -> io::Result<()> {
-        self.page.view(stdout)
+        self.reader.view(stdout)
     }
     // send keycode to current tab and process response
-    pub fn update(&mut self, keycode: &KeyCode) -> Option<ViewMsg> {
+    pub fn update(&mut self, keycode: &KeyCode, cfg: &Config) 
+        -> Option<ViewMsg> 
+    {
         if let KeyCode::Char(c) = keycode {
-            if c == &self.cfg.keys.global {
-                return Some(ViewMsg::Global)
+            if c == &cfg.keys.global {
+                Some(ViewMsg::Global)
             }
-            if c == &self.cfg.keys.tab.move_down {
-                match self.page.move_down(1) {
-                    true  => return Some(ViewMsg::Default),
-                    false => return None,
-                }
+            else if c == &cfg.keys.tab.move_down {
+                self.reader.move_down(1).then_some(ViewMsg::Default)
             }
-            else if c == &self.cfg.keys.tab.move_up {
-                match self.page.move_up(1) {
-                    true  => return Some(ViewMsg::Default),
-                    false => return None,
-                }
-            } else {
-                return None
-            }
-        } else {
-            return None
-        }
+            else if c == &cfg.keys.tab.move_up {
+                self.reader.move_up(1).then_some(ViewMsg::Default)
+            } else {None}
+        } else {None}
     }
 }
 pub struct TabView {
-    rect:     Rect,
-    cfg:      Config,
     hdr_text: ColoredText,
     hdr_line: ColoredText,
     tabs:     Vec<Tab>,
     idx:      usize,
 }
 impl TabView {
-    pub fn init(rect: &Rect, cfg: &Config) -> (Self, ViewMsg) {
-        let rect = Self::get_rect(rect, cfg);
+    pub fn init(dscr: &DataScreen, cfg: &Config) -> (Self, ViewMsg) {
         let (tab, msg) = Tab::init(&rect, &cfg.init_url, cfg);
         let tabview = Self {
-            rect:     rect.clone(),
-            cfg:      cfg.clone(),
             tabs:     vec![tab],
             idx:      0,
             hdr_text: Self::get_hdr_text(rect.w, &cfg, 0, 1, &cfg.init_url),
@@ -316,7 +297,7 @@ impl TabView {
         (tabview, msg)
     }
     // adjust length of banner line, resize all tabs
-    pub fn resize(&mut self, rect: &Rect) {
+    pub fn resize(&mut self, rect: &Screen) {
         self.rect     = Self::get_rect(rect, &self.cfg);
         self.hdr_line = Self::get_hdr_line(self.rect.w, &self.cfg);
         for tab in self.tabs.iter_mut() {
@@ -324,7 +305,7 @@ impl TabView {
         }
     }
     // send keycode to current tab and process response
-    pub fn update(&mut self, keycode: &KeyCode) -> Option<ViewMsg> {
+    pub fn update(&mut self, keycode: &KeyCode, cfg: &Config) -> Option<ViewMsg> {
         let response = self.tabs[self.idx].update(keycode);
         if let Some(msg) = response {
             let mut viewmsg: Option<ViewMsg> = Some(ViewMsg::Default);
@@ -333,7 +314,7 @@ impl TabView {
                     viewmsg = Some(m);
                 }
                 TabMsg::Go(url) => {
-                    let (tab, m) = Tab::init(&self.rect, &url, &self.cfg);
+                    let (tab, m) = Tab::init(&self.rect, &url, cfg);
                     viewmsg = Some(m);
                     self.tabs.push(tab);
                     self.idx = self.tabs.len() - 1;
@@ -345,35 +326,37 @@ impl TabView {
                     }
                 }
                 TabMsg::CycleLeft => {
-                    match self.idx == 0 {
-                        true  => self.idx = self.tabs.len() - 1,
-                        false => self.idx -= 1,
+                    if self.idx == 0 {
+                        self.idx = self.tabs.len() - 1;
+                    } else {
+                        self.idx -= 1;
                     }
                 }
                 TabMsg::CycleRight => {
-                    match self.idx == self.tabs.len() - 1 {
-                        true  => self.idx = 0,
-                        false => self.idx += 1,
+                    if self.idx == self.tabs.len() - 1 {
+                        self.idx = 0;
+                    } else {
+                        self.idx += 1;
                     }
                 }
                 _ => {},
             }
             let len = self.tabs.len();
-            let url = self.tabs[self.idx].get_url();
+            let url = self.tabs[self.idx].url;
             self.hdr_text = 
                 Self::get_hdr_text(
                     self.rect.w, 
-                    &self.cfg, 
+                    cfg, 
                     self.idx, 
                     len, 
                     &url);
-            self.hdr_line = Self::get_hdr_line(self.rect.w, &self.cfg);
+            self.hdr_line = Self::get_hdr_line(self.rect.w, cfg);
             viewmsg
         } else {
             None
         }
     }
-    // display banner and page
+    // display banner and reader
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
         stdout
             .queue(MoveTo(self.rect.x, 0))?
@@ -384,27 +367,18 @@ impl TabView {
             .queue(Print(&self.hdr_line.text))?;
         self.tabs[self.idx].view(stdout)
     }
-    pub fn update_cfg(&mut self, rect: &Rect, cfg: &Config) {
-        self.cfg      = cfg.clone();
-        self.rect     = Self::get_rect(rect, &self.cfg);
+    pub fn update_cfg(&mut self, rect: &Screen, cfg: &Config) {
+        self.rect     = Self::get_rect(rect, cfg);
         self.hdr_text = 
             Self::get_hdr_text(
                 self.rect.w, 
-                &self.cfg, 
+                cfg, 
                 self.idx, 
                 self.tabs.len(), 
                 &self.tabs[self.idx].url);
         self.hdr_line = Self::get_hdr_line(self.rect.w, &self.cfg);
         for tab in self.tabs.iter_mut() {
             tab.update_cfg(&self.rect, &self.cfg);
-        }
-    }
-    fn get_rect(rect: &Rect, cfg: &Config) -> Rect {
-        Rect {
-            x: rect.x + cfg.format.margin as u16, 
-            y: rect.y + 2, 
-            w: rect.w - (cfg.format.margin * 2) as u16,
-            h: rect.h - 2
         }
     }
     fn get_hdr_text(    w:          u16,
@@ -428,15 +402,13 @@ impl TabView {
     }
 }
 pub struct Tab {
-    rect: Rect,
-    cfg:  Config,
-    url:  String,
-    doc:  Option<GemDoc>,
-    dlg:  Option<(TabMsg, Dialog)>,
-    page: Pager,
+    pub url: String,
+    pub doc: Option<GemDoc>,
+    pub dlg: Option<(TabMsg, Dialog)>,
+    pub reader: Reader,
 }
 impl Tab {
-    pub fn init(rect: &Rect, url_str: &str, cfg: &Config) -> (Self, ViewMsg) {
+    pub fn init(rect: &Screen, url_str: &str, cfg: &Config) -> (Self, ViewMsg) {
         let mut msg = ViewMsg::Default;
         let mut doc: Option<GemDoc> = None;
         match Url::parse(url_str) {
@@ -454,26 +426,25 @@ impl Tab {
                 }
             }
         }
-        let page = Self::get_page(rect, &doc, cfg);
+        let reader = Self::get_reader(rect, &doc, cfg);
         let tab = Self {
             url:  String::from(url_str),
-            cfg:  cfg.clone(),
             rect: rect.clone(),
             dlg:  None,
-            page: page,
+            reader: reader,
             doc:  doc,
         };
         (tab, msg)
     }
-    // resize page and dialog
-    pub fn resize(&mut self, rect: &Rect) {
+    // resize reader and dialog
+    pub fn resize(&mut self, rect: &Screen) {
         self.rect = rect.clone();
-        self.page.resize(&rect);
+        self.reader.resize(&rect);
         if let Some((_, d)) = &mut self.dlg {
             d.resize(&rect);
         }
     }
-    pub fn update(&mut self, keycode: &KeyCode) -> Option<TabMsg> {
+    pub fn update(&mut self, keycode: &KeyCode, cfg: &Config) -> Option<TabMsg> {
         // send keycode to dialog if there is a dialog.
         if let Some((m, d)) = &mut self.dlg {
             // process response
@@ -481,243 +452,158 @@ impl Tab {
                 Some(InputMsg::Yes) => {
                     let msg = Some(m.clone());
                     self.dlg = None;
-                    return msg
+                    msg
                 }
                 Some(InputMsg::No) => {
                     self.dlg = None;
-                    return Some(TabMsg::Default)
+                    Some(TabMsg::Default)
                 }
                 Some(InputMsg::Ack) => {
                     let msg = Some(m.clone());
                     self.dlg = None;
-                    return msg
+                    msg
                 }
                 Some(InputMsg::Text(text)) => {
-                    let msg = match m {
-                        TabMsg::NewTab => Some(TabMsg::Go(text)),
-                        _              => Some(TabMsg::Default),
+                    let msg = if let TabMsg::NewTab = m {
+                        Some(TabMsg::Go(text))
+                    } else {
+                        Some(TabMsg::Default)
                     };
                     self.dlg = None;
-                    return msg
+                    msg
                 }
                 Some(InputMsg::Cancel) => {
                     self.dlg = None;
-                    return Some(TabMsg::Default)
+                    Some(TabMsg::Default)
                 }
                 Some(_) => {
-                    return Some(TabMsg::Default)
+                    Some(TabMsg::Default)
                 }
-               _ => return None
+               _ => None
             }
         }
         // there is no dialog, process keycode
         else if let KeyCode::Char(c) = keycode {
-            if c == &self.cfg.keys.global {
-                return Some(TabMsg::ViewMsg(ViewMsg::Global))
+            if c == &cfg.keys.global {
+                Some(TabMsg::ViewMsg(ViewMsg::Global))
             }
-            if c == &self.cfg.keys.tab.move_down {
-                match self.page.move_down(1) {
-                    true  => return Some(TabMsg::Default),
-                    false => return None,
-                }
+            else if c == &cfg.keys.tab.move_down {
+                self.reader.move_down(1)
+                    .then_some(TabMsg::Default)
             }
-            else if c == &self.cfg.keys.tab.move_up {
-                match self.page.move_up(1) {
-                    true  => return Some(TabMsg::Default),
-                    false => return None,
-                }
+            else if c == &cfg.keys.tab.move_up {
+                self.reader.move_up(1)
+                    .then_some(TabMsg::Default)
             }
-            else if c == &self.cfg.keys.tab.cycle_left {
-                return Some(TabMsg::CycleLeft)
+            else if c == &cfg.keys.tab.cycle_left {
+                Some(TabMsg::CycleLeft)
             }
-            else if c == &self.cfg.keys.tab.cycle_right {
-                return Some(TabMsg::CycleRight)
+            else if c == &cfg.keys.tab.cycle_right {
+                Some(TabMsg::CycleRight)
             }
             // make a dialog
-            else if c == &self.cfg.keys.tab.delete_tab {
+            else if c == &cfg.keys.tab.delete_tab {
                 let dialog = Dialog::ask(
-                    &self.rect,
-                    &self.cfg,
-                    "Delete current tab?");
+                    &self.rect, cfg, "Delete current tab?");
                 self.dlg = Some((TabMsg::DeleteMe, dialog));
-                return Some(TabMsg::Default)
+                Some(TabMsg::Default)
             }
-            else if c == &self.cfg.keys.tab.new_tab {
+            else if c == &cfg.keys.tab.new_tab {
                 let dialog = Dialog::text(
-                    &self.rect,
-                    &self.cfg,
-                    "enter path: ");
+                    &self.rect, cfg, "enter path: ");
                 self.dlg = Some((TabMsg::NewTab, dialog));
-                return Some(TabMsg::Default)
+                Some(TabMsg::Default)
             }
-            else if c == &self.cfg.keys.tab.inspect {
+            else if c == &cfg.keys.tab.inspect {
                 let gemtype = match &self.doc {
                     Some(doc) => 
-                        doc.doc[self.page.select_under_cursor().0].0.clone(),
+                        doc.doc[self.reader.select_under_cursor().0].0.clone(),
                     None => GemType::Text,
                 };
-                let dialog_tuple = 
-                    match gemtype {
-                        GemType::Link(Scheme::Gemini, url) => {
-                            let dialog = Dialog::ask(
-                                &self.rect, 
-                                &self.cfg, 
-                                &format!("go to {}?", url));
-                            (TabMsg::Go(url.to_string()), dialog)
-                        }
-                        GemType::Link(_, url) => {
-                            let dialog = Dialog::ack(
-                                &self.rect,
-                                &self.cfg,
-                                &format!("Protocol {} not yet supported", url));
-                            (TabMsg::Default, dialog)
-                        }
-                        gemtext => {
-                            let dialog = Dialog::ack(
-                                &self.rect, 
-                                &self.cfg, 
-                                &format!("you've selected {:?}", gemtext));
-                            (TabMsg::Default, dialog)
-                        }
-                    };
+                let dialog_tuple = match gemtype {
+                    GemType::Link(Scheme::Gemini, url) => {
+                        let msg = &format!("go to {}?", url);
+                        let dialog = Dialog::ask(&self.rect, cfg, &msg);
+                        (TabMsg::Go(url.into()), dialog)
+                    }
+                    GemType::Link(_, url) => {
+                        let msg = format!("Protocol {} not yet supported", url);
+                        let dialog = Dialog::ack(&self.rect, cfg, &msg);
+                        (TabMsg::Default, dialog)
+                    }
+                    gemtext => {
+                        let msg = format!("you've selected {:?}", gemtext);
+                        let dialog = Dialog::ack(&self.rect, cfg, &msg);
+                        (TabMsg::Default, dialog)
+                    }
+                };
                 self.dlg = Some(dialog_tuple);
-                return Some(TabMsg::Default)
-            } else {
-                return None
-            }
-        } else {
-            return None
-        }
+                Some(TabMsg::Default)
+            } else {None}
+        } else {None}
     }
-    pub fn update_cfg(&mut self, rect: &Rect, cfg: &Config) {
-        self.cfg = cfg.clone();
+    pub fn update_cfg(&mut self, rect: &Screen, cfg: &Config) {
         self.rect = rect.clone();
-        self.page = Self::get_page(&self.rect, &self.doc, &self.cfg);
+        self.reader = Self::get_reader(&self.rect, &self.doc, cfg);
     }
-    pub fn get_url(&self) -> &str {
-        &self.url
-    }
-    // show dialog if there's a dialog, otherwise show page
+    // show dialog if there's a dialog, otherwise show reader
     pub fn view(&self, stdout: &Stdout) -> io::Result<()> {
-        match &self.dlg {
-            Some((_, d)) => 
-                d.view(stdout),
-            _ => 
-                self.page.view(stdout),
+        if let Some((_, d)) = &self.dlg {
+            d.view(stdout)
+        } else {
+            self.reader.view(stdout)
         }
     }
-    fn get_page(rect: &Rect, doc: &Option<GemDoc>, cfg: &Config) -> Pager {
+    fn get_reader(rect: &Screen, doc: &Option<GemDoc>, cfg: &Config) -> Reader {
         let colored_text = 
-            match &doc {
-                Some(gemdoc) => 
-                    cfg.colors.from_gem_doc(&gemdoc),
-                None => 
-                    vec![
-                        cfg.colors.from_gem_type(
-                            &GemType::Text, 
-                            "Nothing to display")]
+            if let Some(gemdoc) = &doc {
+                cfg.colors.from_gem_doc(&gemdoc) 
+            } else {
+                vec![
+                    cfg.colors.from_gem_type(
+                        &GemType::Text, 
+                        "Nothing to display")]
             };
-        Pager::new(rect, &colored_text, cfg.scroll_at)
-    }
-}
-pub struct Typer {
-    cursor_text: CursorText,
-}
-impl Typer {
-    pub fn update(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
-        match keycode {
-            KeyCode::Enter => {
-                Some(InputMsg::Text(self.cursor_text.get_text()))
-            }
-            KeyCode::Left => {
-                match self.cursor_text.move_left(1) {
-                    true  => Some(InputMsg::Default),
-                    false => None,
-                }
-            }
-            KeyCode::Right => {
-                match self.cursor_text.move_right(1) {
-                    true  => Some(InputMsg::Default),
-                    false => None,
-                }
-            }
-            KeyCode::Delete => {
-                match self.cursor_text.delete() {
-                    true  => Some(InputMsg::Default),
-                    false => None,
-                }
-            }
-            KeyCode::Backspace => {
-                match self.cursor_text.backspace() {
-                    true  => Some(InputMsg::Default),
-                    false => None,
-                }
-            }
-            KeyCode::Char(c) => {
-                self.cursor_text.insert(*c);
-                Some(InputMsg::Default)
-            }
-            _ => { 
-                None
-            }
-        }
+        Reader::new(rect, &colored_text)
     }
 }
 #[derive(Clone, Debug)]
 pub enum InputType {
     Ack(char),
     Ask(char, char),
-    Text(CursorText),
+    Text(Editor),
 }
 impl InputType {
     pub fn update(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
         match self {
-            InputType::Text(cursortext) => {
+            InputType::Text(editor) => {
                 match keycode {
                     KeyCode::Enter => {
-                        Some(InputMsg::Text(cursortext.get_text()))
+                        Some(InputMsg::Text(editor.get_text()))
                     }
                     KeyCode::Left => {
-                        match cursortext.move_left(1) {
-                            true  => Some(InputMsg::Default),
-                            false => None,
-                        }
+                        editor.move_left(1).then_some(InputMsg::Default)
                     }
                     KeyCode::Right => {
-                        match cursortext.move_right(1) {
-                            true  => Some(InputMsg::Default),
-                            false => None,
-                        }
+                        editor.move_right(1).then_some(InputMsg::Default)
                     }
                     KeyCode::Delete => {
-                        match cursortext.delete() {
-                            true  => Some(InputMsg::Default),
-                            false => None,
-                        }
+                        editor.delete().then_some(InputMsg::Default)
                     }
                     KeyCode::Backspace => {
-                        match cursortext.backspace() {
-                            true  => Some(InputMsg::Default),
-                            false => None,
-                        }
+                        editor.backspace().then_some(InputMsg::Default)
                     }
                     KeyCode::Char(c) => {
-                        cursortext.insert(*c);
+                        editor.insert(*c);
                         Some(InputMsg::Default)
                     }
-                    _ => { 
-                        None
-                    }
+                    _ => None
                 }
             }
             InputType::Ack(ack) => {
                 match keycode {
                     KeyCode::Char(c) => {
-                        if ack ==  c {
-                            return Some(InputMsg::Ack)
-                        } else {
-                            return None
-                        }
+                        (ack ==  c).then_some(InputMsg::Ack)
                     }
                     _ => None,
                 }
@@ -726,13 +612,12 @@ impl InputType {
                 match keycode {
                     KeyCode::Char(c) => {
                         if yes ==  c {
-                            return Some(InputMsg::Yes)
+                            Some(InputMsg::Yes)
                         } else if no == c {
-                            return Some(InputMsg::No)
+                            Some(InputMsg::No)
                         } else {
-                            return None
+                            None
                         }
-
                     }
                     _ => None,
                 }
@@ -742,27 +627,27 @@ impl InputType {
 }
 #[derive(Clone, Debug)]
 pub struct Dialog {
-    rect:       Rect,
+    rect:       Screen,
     prompt:     String,
     input_type: InputType,
 }
 impl Dialog {
-    pub fn text(rect: &Rect, cfg: &Config, prompt: &str) -> Self {
+    pub fn text(rect: &Screen, cfg: &Config, prompt: &str) -> Self {
         Self {
             rect:       rect.clone(),
             prompt:     prompt.into(), 
             input_type: InputType::Text(
-                CursorText::new(rect, "", cfg.colors.get_dialog())),
+                Editor::new(rect, "", cfg.colors.get_dialog())),
         }
     }
-    pub fn ack(rect: &Rect, cfg: &Config, prompt: &str) -> Self {
+    pub fn ack(rect: &Screen, cfg: &Config, prompt: &str) -> Self {
         Self {
             rect:       rect.clone(),
             prompt:     prompt.into(), 
             input_type: InputType::Ack(cfg.keys.dialog.ack),
         }
     }
-    pub fn ask(rect: &Rect, cfg: &Config, prompt: &str ) -> Self {
+    pub fn ask(rect: &Screen, cfg: &Config, prompt: &str ) -> Self {
         Self {
             rect:       rect.clone(),
             prompt:     prompt.into(), 
@@ -785,17 +670,17 @@ impl Dialog {
                     .queue(MoveTo(self.rect.x, self.rect.y + 8))?
                     .queue(Print(&format!("|{}| yes |{}| no", yes, no)))?;
             }
-            InputType::Text(cursortext) => {
-                cursortext.view(self.rect.y + 8, stdout)?;
+            InputType::Text(editor) => {
+                editor.view(self.rect.y + 8, stdout)?;
             }
         }
         Ok(())
     }
-    pub fn resize(&mut self, rect: &Rect) {
+    pub fn resize(&mut self, rect: &Screen) {
         self.rect = rect.clone();
         match &mut self.input_type {
-            InputType::Text(cursortext) => {
-                cursortext.resize(&self.rect)
+            InputType::Text(editor) => {
+                editor.resize(&self.rect)
             }
             _ => {}
         }

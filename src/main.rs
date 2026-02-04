@@ -3,11 +3,12 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-mod gemini;     // backend
-mod widget;     // frontend
-mod common;     // used by backend and frontend
-mod ui;         // uses backend and frontend
-mod config;     // uses backend and frontend
+mod gemini;     
+mod screen;     
+mod widget; 
+mod common;     
+mod ui;         
+mod config;     
 
 use crossterm::{
     QueueableCommand, terminal, event,

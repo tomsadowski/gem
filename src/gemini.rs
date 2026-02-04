@@ -84,28 +84,21 @@ pub fn parse_doc(text_str: &str, source: &Url) -> Vec<(GemType, String)> {
     let mut vec = vec![];
     let mut preformat = false;
     for line in text_str.lines() {
-        match line.split_at_checked(3) {
-            Some(("```", _)) => 
-                preformat = !preformat,
-            _ => 
-                match preformat {
-                    true => 
-                        vec.push((GemType::PreFormat, line.into())),
-                    false => {
-                        let (gem, text) = parse_formatted(line, source);
-                        vec.push((gem, text.into()));
-                }
-            }
+        if let Some(("```", _)) = line.split_at_checked(3) {
+            preformat = !preformat;
+        } else if preformat {
+            vec.push((GemType::PreFormat, line.into()));
+        } else {
+            let (gem, text) = parse_formatted(line, source);
+            vec.push((gem, text.into()));
         }
     }
     vec
 }
 fn parse_formatted(line: &str, source: &Url) -> (GemType, String) {
     // look for 3 character symbols
-    if let Some((symbol, text)) = line.split_at_checked(3) {
-        if symbol == "###" {
-            return (GemType::HeadingThree, text.into())
-        }
+    if let Some(("###", text)) = line.split_at_checked(3) {
+        return (GemType::HeadingThree, text.into())
     }
     // look for 2 character symbols
     if let Some((symbol, text)) = line.split_at_checked(2) {
@@ -160,12 +153,9 @@ pub enum Status {
     ExpiredCertRejected,     
 }
 pub fn parse_status(line: &str) -> Result<(Status, String), String> {
-    let (code_str, msg) = 
-        common::split_whitespace_once(line);
-    let code = 
-        code_str.parse::<u8>().map_err(|e| e.to_string())?;
-    let status = 
-        get_status(code)?;
+    let (code_str, msg) = common::split_whitespace_once(line);
+    let code = code_str.parse::<u8>().map_err(|e| e.to_string())?;
+    let status = get_status(code)?;
     Ok((status, msg.into()))
 }
 fn get_status(code: u8) -> Result<Status, String> {
