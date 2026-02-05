@@ -155,18 +155,17 @@ impl Reader {
     }
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
         stdout.queue(cursor::Hide)?;
-        let (a, b) = self.pcol.get_display_range();
-        for (j, (i, text)) in self.display[a..b].iter().enumerate() {
+        let rngs = screen::get_ranges(&self.dscr, &self.pos, &self.bounds);
+        for (scr_idx, idx, start, end) in rngs {
+            let (key, text) = &self.display[idx];
             stdout
-                .queue(MoveTo(  self.dscr.outer.x, 
-                                self.pcol.get_screen_start() + j as u16))?
-                .queue(SetForegroundColor(self.source[*i].color))?
-                .queue(Print(text.as_str()))?;
+                .queue(MoveTo(self.dscr.outer.x, scr_idx))?
+                .queue(SetForegroundColor(self.source[*key].color))?
+                .queue(Print(&text[start..end]))?;
         }
         stdout
-            .queue(MoveTo(  self.rect.x, 
-                            self.pcol.get_pcol()))?
-            .queue(pcol::Show)?
+            .queue(MoveTo(self.pos.x_cursor, self.pos.y_cursor))?
+            .queue(cursor::Show)?
             .flush()
     }
     pub fn move_left(&mut self, step: u16) -> bool {
