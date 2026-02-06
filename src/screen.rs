@@ -137,7 +137,8 @@ impl PosCol {
             (self.scroll, min(self.scroll + rng.len(), len))
         }
     }
-    pub fn fit(rng: &ScreenRange, idx: usize, len: usize  ) -> PosCol {
+    // called when screen resizes
+    pub fn fit(rng: &ScreenRange, idx: usize, len: usize) -> PosCol {
         let rng_len = rng.len();
         let max_scroll = len.saturating_sub(rng_len);
 
@@ -328,9 +329,11 @@ impl Pos {
         self.x_scroll = x_col.scroll;
     }
     pub fn move_left(&mut self, dscr: &DataScreen, step: u16) -> bool {
-        let mut x_col = self.get_x_col();
-        if x_col.move_backward(&dscr.get_x_rng(), step) {
-            self.set_x_col(&x_col); true
+        let mut x_col   = self.get_x_col();
+        let     x_rng   = dscr.get_x_rng();
+        if x_col.move_backward(&x_rng, step) {
+            self.set_x_col(&x_col); 
+            true
         } else {false}
     }
     pub fn move_right(  &mut self,
@@ -338,14 +341,15 @@ impl Pos {
                         data:   &Vec<usize>,
                         step:   u16 ) -> bool
     {
-        let (mut x_col, y_col) = self.get_cols();
-        let y_outer = &dscr.outer.get_y_rng();
+        let (mut x_col, y_col)  = self.get_cols();
+        let y_outer             = &dscr.outer.get_y_rng();
+        let x_rng               = dscr.get_x_rng();
         let x_len = {
             let idx = y_col.data_idx(&y_outer);
             if idx >= data.len() {0} 
             else {data[idx]}
         };
-        if x_col.move_forward(&dscr.get_x_rng(), x_len, step) {
+        if x_col.move_forward(&x_rng, x_len, step) {
             self.set_x_col(&x_col); true
         } else {false}
     }
@@ -354,8 +358,9 @@ impl Pos {
                     data:   &Vec<usize>,
                     step:   u16 ) -> bool
     {
-        let mut y_col = self.get_y_col();
-        if y_col.move_backward(&dscr.get_y_rng(), step) {
+        let mut y_col   = self.get_y_col();
+        let     y_rng   = dscr.get_y_rng();
+        if y_col.move_backward(&y_rng, step) {
             self.set_y_col(&y_col);
             self.move_into_x(dscr, data);
             true
@@ -366,8 +371,10 @@ impl Pos {
                         data:   &Vec<usize>,
                         step:   u16 ) -> bool
     {
-        let mut y_col = self.get_y_col();
-        if y_col.move_forward(&dscr.get_y_rng(), data.len(), step) {
+        let mut y_col   = self.get_y_col();
+        let     y_rng   = dscr.get_y_rng();
+        let     len     = data.len();
+        if y_col.move_forward(&y_rng, len, step) {
             self.set_y_col(&y_col);
             self.move_into_x(dscr, data);
             true
@@ -377,28 +384,31 @@ impl Pos {
         let (mut x_col, y_col) = self.get_cols();
         let idx = {
             let y_outer = dscr.outer.get_y_rng();
-            let idx1 = y_col.data_idx(&y_outer);
-            let idx2 = data.len().saturating_sub(1);
+            let idx1    = y_col.data_idx(&y_outer);
+            let idx2    = data.len().saturating_sub(1);
             min(idx1, idx2)
         };
-        x_col.move_into(&dscr.get_x_rng(), data[idx]);
+        let x_rng = dscr.get_x_rng();
+        x_col.move_into(&x_rng, data[idx]);
         self.set_x_col(&x_col);
     }
     pub fn move_into_y(&mut self, dscr: &DataScreen, data: &Vec<usize>) {
         let mut y_col = self.get_y_col();
-        let y_len = data.len();
-        y_col.move_into(&dscr.get_y_rng(), y_len);
+        let     y_len = data.len();
+        let     y_rng = dscr.get_y_rng();
+        y_col.move_into(&y_rng, y_len);
         self.set_y_col(&y_col);
     }
     pub fn get_ranges(&self, dscr: &DataScreen, data: &Vec<usize>) 
         -> Vec<(u16, usize, usize, usize)>
     {
+        let (x_col,     y_col)      = self.get_cols();
+        let (x_outer,   y_outer)    = dscr.outer.get_rngs();
+        let len                     = data.len();
+        let (start, end)            = y_col.data_range(&y_outer, len);
         let mut vec: Vec<(u16, usize, usize, usize)> = vec![];
-        let (x_col, y_col) = self.get_cols();
-        let (x_outer, y_outer) = dscr.outer.get_rngs();
-        let (start, end) = y_col.data_range(&y_outer, data.len());
         for (e, i) in (start..end).into_iter().enumerate() {
-            let (a, b) = x_col.data_range(&x_outer, data[i]);
+            let (a, b)  = x_col.data_range(&x_outer, data[i]);
             let scr_idx = y_outer.start + (e as u16);
             vec.push((scr_idx, i, a, b));
         }
