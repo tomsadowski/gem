@@ -1,6 +1,9 @@
 // screen
 use std::cmp::min;
 
+pub fn u16_or_0(u: usize) -> u16 {
+    u16::try_from(u).unwrap_or(u16::MIN)
+}
 #[derive(Clone, Debug)]
 pub struct ScreenRange {
     pub start: u16, 
@@ -117,10 +120,24 @@ pub struct PosCol {
     pub scroll: usize
 }
 impl PosCol {
-    pub fn fit( rng: &ScreenRange,
-                idx: usize,
-                len: usize  ) -> PosCol 
-    {
+    // index of cursor within its range
+    pub fn data_idx(&self, rng: &ScreenRange) -> usize {
+        if self.cursor > rng.start {
+            let diff = usize::from(self.cursor.saturating_sub(rng.start));
+            self.scroll + diff
+        } else {
+            self.scroll
+        }
+    }
+    // returns the start and end of displayable text
+    pub fn data_range(&self, rng: &ScreenRange, len: usize) -> (usize, usize) {
+        if len < rng.len() {
+            (0, len)
+        } else {
+            (self.scroll, min(self.scroll + rng.len(), len))
+        }
+    }
+    pub fn fit(rng: &ScreenRange, idx: usize, len: usize  ) -> PosCol {
         let rng_len = rng.len();
         let max_scroll = len.saturating_sub(rng_len);
 
@@ -147,10 +164,7 @@ impl PosCol {
             }
         }
     }
-    pub fn move_into(   &mut self,
-                        dscr: &DataScreenRange, 
-                        len: usize  )
-    {
+    pub fn move_into(&mut self, dscr: &DataScreenRange, len: usize) {
         let (start, end) = 
             if len < dscr.outer.len() {
                 self.scroll = 0;
@@ -166,9 +180,7 @@ impl PosCol {
             self.cursor = end;
         }
     }
-    pub fn move_backward(   &mut self,
-                            dscr:   &DataScreenRange, 
-                            step:   u16 ) -> bool
+    pub fn move_backward(&mut self, dscr: &DataScreenRange, step: u16) -> bool
     {
         let mut step = step;
         match (self.cursor == dscr.outer.start, self.scroll == usize::MIN) {
@@ -329,7 +341,7 @@ impl Pos {
         let (mut x_col, y_col) = self.get_cols();
         let y_outer = &dscr.outer.get_y_rng();
         let x_len = {
-            let idx = data_idx(&y_outer, &y_col);
+            let idx = y_col.data_idx(&y_outer);
             if idx >= data.len() {0} 
             else {data[idx]}
         };
@@ -365,7 +377,7 @@ impl Pos {
         let (mut x_col, y_col) = self.get_cols();
         let idx = {
             let y_outer = dscr.outer.get_y_rng();
-            let idx1 = data_idx(&y_outer, &y_col);
+            let idx1 = y_col.data_idx(&y_outer);
             let idx2 = data.len().saturating_sub(1);
             min(idx1, idx2)
         };
@@ -378,42 +390,18 @@ impl Pos {
         y_col.move_into(&dscr.get_y_rng(), y_len);
         self.set_y_col(&y_col);
     }
-}
-// index of cursor within its range
-pub fn data_idx(rng: &ScreenRange, col: &PosCol) -> usize {
-    if col.cursor > rng.start {
-        let diff = usize::from(col.cursor.saturating_sub(rng.start));
-        col.scroll + diff
-    } else {
-        col.scroll
+    pub fn get_ranges(&self, dscr: &DataScreen, data: &Vec<usize>) 
+        -> Vec<(u16, usize, usize, usize)>
+    {
+        let mut vec: Vec<(u16, usize, usize, usize)> = vec![];
+        let (x_col, y_col) = self.get_cols();
+        let (x_outer, y_outer) = dscr.outer.get_rngs();
+        let (start, end) = y_col.data_range(&y_outer, data.len());
+        for (e, i) in (start..end).into_iter().enumerate() {
+            let (a, b) = x_col.data_range(&x_outer, data[i]);
+            let scr_idx = y_outer.start + (e as u16);
+            vec.push((scr_idx, i, a, b));
+        }
+        vec
     }
-}
-pub fn u16_or_0(u: usize) -> u16 {
-    u16::try_from(u).unwrap_or(u16::MIN)
-}
-// returns the start and end of displayable text
-pub fn data_range(  rng: &ScreenRange, 
-                    pos: &PosCol, 
-                    len: usize  ) -> (usize, usize) 
-{
-    if len < rng.len() {
-        (0, len)
-    } else {
-        (pos.scroll, min(pos.scroll + rng.len(), len))
-    }
-}
-pub fn get_ranges(  dscr:   &DataScreen, 
-                    pos:    &Pos, 
-                    data:   &Vec<usize> ) -> Vec<(u16, usize, usize, usize)>
-{
-    let mut vec: Vec<(u16, usize, usize, usize)> = vec![];
-    let (x_col, y_col) = pos.get_cols();
-    let (x_outer, y_outer) = dscr.outer.get_rngs();
-    let (start, end) = data_range(&y_outer, &y_col, data.len());
-    for (e, i) in (start..end).into_iter().enumerate() {
-        let (a, b) = data_range(&x_outer, &x_col, data[i]);
-        let scr_idx = y_outer.start + (e as u16);
-        vec.push((scr_idx, i, a, b));
-    }
-    vec
 }

@@ -2,7 +2,7 @@
 
 use crate::{
     gemini::{GemType, GemDoc, Scheme},
-    widget::{ColoredText},
+    text::{ColoredText},
 };
 use crossterm::{
     style::{self, Color},
@@ -64,6 +64,8 @@ impl KeyParams {
 pub struct TabKeyParams {
     pub move_up:      char,
     pub move_down:    char,
+    pub move_left:    char,
+    pub move_right:   char,
     pub cycle_left:   char,
     pub cycle_right:  char,
     pub inspect:      char,
@@ -75,8 +77,10 @@ impl TabKeyParams {
         Self {
             move_up:      'o',
             move_down:    'i',
-            cycle_left:   'e',
-            cycle_right:  'n',
+            move_left:    'e',
+            move_right:   'n',
+            cycle_left:   'E',
+            cycle_right:  'N',
             inspect:      'w',
             delete_tab:   'v',
             new_tab:      'p',

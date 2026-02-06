@@ -3,7 +3,7 @@
 use crate::{
     config::{self, Config, ColorParams},
     gemini::{GemType, GemDoc, Scheme},
-    widget::{Reader, Editor, ColoredText},
+    text::{Reader, Editor, ColoredText},
     screen::{Screen, DataScreen},
 };
 use crossterm::{
@@ -124,7 +124,7 @@ impl UI {
     fn resize(&mut self, w: u16, h: u16) {
         self.scr = Screen::origin(w, h);
         self.tabs.resize(&self.dscr, &self.cfg);
-        self.msg.resize(&self.dscr);
+       self.msg.resize(&self.dscr);
     }
     // display the current view
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
@@ -269,6 +269,14 @@ impl MessageView {
         if let KeyCode::Char(c) = keycode {
             if c == &cfg.keys.global {
                 Some(ViewMsg::Global)
+            }
+            else if c == &cfg.keys.tab.move_left {
+                self.reader.move_left(1)
+                    .then_some(ViewMsg::Default)
+            }
+            else if c == &cfg.keys.tab.move_right {
+                self.reader.move_right(1)
+                    .then_some(ViewMsg::Default)
             }
             else if c == &cfg.keys.tab.move_down {
                 self.reader.move_down(1).then_some(ViewMsg::Default)
@@ -501,6 +509,14 @@ impl Tab {
                 self.reader.move_up(1)
                     .then_some(TabMsg::Default)
             }
+            else if c == &cfg.keys.tab.move_left {
+                self.reader.move_left(1)
+                    .then_some(TabMsg::Default)
+            }
+            else if c == &cfg.keys.tab.move_right {
+                self.reader.move_right(1)
+                    .then_some(TabMsg::Default)
+            }
             else if c == &cfg.keys.tab.cycle_left {
                 Some(TabMsg::CycleLeft)
             }
@@ -695,10 +711,8 @@ impl Dialog {
     }
     pub fn update(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
         match keycode {
-            KeyCode::Esc => 
-                Some(InputMsg::Cancel),
-            _ => 
-                self.input_type.update(keycode)
+            KeyCode::Esc => Some(InputMsg::Cancel),
+            _ => self.input_type.update(keycode)
         }
     }
 }

@@ -1,6 +1,6 @@
 // gemini
 
-use crate::common;
+use crate::text;
 use url::{
     Url, ParseError
 };
@@ -103,7 +103,7 @@ fn parse_formatted(line: &str, source: &Url) -> (GemType, String) {
     // look for 2 character symbols
     if let Some((symbol, text)) = line.split_at_checked(2) {
         if symbol == "=>" {
-            let (url_str, link_str) = common::split_whitespace_once(text);
+            let (url_str, link_str) = text::split_whitespace_once(text);
             match join_if_relative(source, url_str) {
                 Ok(url) =>
                     return (
@@ -153,7 +153,7 @@ pub enum Status {
     ExpiredCertRejected,     
 }
 pub fn parse_status(line: &str) -> Result<(Status, String), String> {
-    let (code_str, msg) = common::split_whitespace_once(line);
+    let (code_str, msg) = text::split_whitespace_once(line);
     let code = code_str.parse::<u8>().map_err(|e| e.to_string())?;
     let status = get_status(code)?;
     Ok((status, msg.into()))

@@ -5,8 +5,7 @@
 
 mod gemini;     
 mod screen;     
-mod widget; 
-mod common;     
+mod text; 
 mod ui;         
 mod config;     
 

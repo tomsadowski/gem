@@ -1,7 +1,6 @@
-// widget
+// text
 
 use crate::{
-    common,
     screen::{
         self, Screen, ScreenRange, Pos, PosCol, DataScreen, DataScreenRange},
 };
@@ -15,24 +14,70 @@ use std::{
     io::{self, Stdout, Write},
 };
 
-#[derive(Clone, Debug)]
-pub struct ColoredText {
-    pub color: Color,
-    pub text:  String,
+pub fn split_whitespace_once(source: &str) -> (&str, &str) {
+    let line = source.trim();
+    let (a, b) = {
+        if let Some(i) = line.find("\u{0009}") {
+            (line[..i].trim(), line[i..].trim())
+        } else if let Some(i) = line.find(" ") {
+            (line[..i].trim(), line[i..].trim())
+        } else {
+            (line, line)
+        }
+    };
+    (a, b)
 }
-impl ColoredText {
-    pub fn from_vec(vec: &Vec<&str>, color: Color) -> Vec<Self> {
-        vec.iter().map(|s| Self::new(s, color)).collect()
-    }
-    pub fn new(text: &str, color: Color) -> Self {
-        Self {
-            color: color,
-            text: text.into(),
+// call wrap for each element in the list
+pub fn wrap_list(lines: &Vec<String>, w: u16) 
+    -> Vec<(usize, String)> 
+{
+    let mut display: Vec<(usize, String)> = vec![];
+    for (i, l) in lines.iter().enumerate() {
+        let v = wrap(l, w);
+        for s in v.iter() {
+            display.push((i, s.to_string()));
         }
     }
-    pub fn getcolor(&self) -> Color {
-        self.color
+    display
+}
+// wrap text in terminal
+pub fn wrap(line: &str, screenwidth: u16) -> Vec<String> {
+    let width = usize::from(screenwidth);
+    let length = line.len();
+    let mut wrapped: Vec<String> = vec![];
+    // assume slice bounds
+    let mut start = 0;
+    let mut end = width;
+    while end < length {
+        start = line.ceil_char_boundary(start);
+        end = line.floor_char_boundary(end);
+        let longest = &line[start..end];
+        // try to break line at a space
+        match longest.rsplit_once(' ') {
+            // there is a space to break on
+            Some((a, b)) => {
+                let shortest = match a.len() {
+                    0 => b,
+                    _ => a,
+                };
+                wrapped.push(String::from(shortest.trim()));
+                start += shortest.len();
+                end = start + width;
+            }
+            // there is no space to break on
+            None => {
+                wrapped.push(String::from(longest.trim()));
+                start = end;
+                end += width;
+            }
+        }
     }
+    // add the remaining text
+    if start < length {
+        start = line.floor_char_boundary(start);
+        wrapped.push(String::from(line[start..].trim()));
+    }
+    wrapped
 }
 #[derive(Clone, Debug)]
 pub struct Editor {
@@ -116,6 +161,25 @@ impl Editor {
     }
 }
 #[derive(Clone, Debug)]
+pub struct ColoredText {
+    pub color: Color,
+    pub text:  String,
+}
+impl ColoredText {
+    pub fn from_vec(vec: &Vec<&str>, color: Color) -> Vec<Self> {
+        vec.iter().map(|s| Self::new(s, color)).collect()
+    }
+    pub fn new(text: &str, color: Color) -> Self {
+        Self {
+            color: color,
+            text: text.into(),
+        }
+    }
+    pub fn getcolor(&self) -> Color {
+        self.color
+    }
+}
+#[derive(Clone, Debug)]
 pub struct Reader {
     dscr:       DataScreen,
     pos:        Pos,
@@ -132,7 +196,7 @@ impl Reader {
         Self::new(dscr, &text.collect())
     }
     pub fn new(dscr: &DataScreen, colored_text: &Vec<ColoredText>) -> Self {
-        let display = common::wrap_list(
+        let display = wrap_list(
             &colored_text.iter().map(|ct| ct.text.clone()).collect(),
             dscr.outer.w);
         let bounds = display.iter().map(|(_, s)| s.len());
@@ -146,7 +210,7 @@ impl Reader {
     }
     pub fn resize(&mut self, dscr: &DataScreen) {
         self.dscr    = dscr.clone();
-        self.display = common::wrap_list(
+        self.display = wrap_list(
             &self.source.iter().map(|ct| ct.text.clone()).collect(),
             dscr.outer.w);
 //      self.pcol.resize(
@@ -155,7 +219,7 @@ impl Reader {
     }
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
         stdout.queue(cursor::Hide)?;
-        let rngs = screen::get_ranges(&self.dscr, &self.pos, &self.bounds);
+        let rngs = self.pos.get_ranges(&self.dscr, &self.bounds);
         for (scr_idx, idx, start, end) in rngs {
             let (key, text) = &self.display[idx];
             stdout
@@ -184,7 +248,7 @@ impl Reader {
         let idx = {
             let y_rng = self.dscr.outer.get_y_rng();
             let y_col = self.pos.get_y_col();
-            let idx = screen::data_idx(&y_rng, &y_col);
+            let idx = y_col.data_idx(&y_rng);
             self.display[idx].0
         };
         (idx, &self.source[idx].text)
