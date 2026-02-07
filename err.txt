@@ -1,0 +1,6 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.05s
+     Running `target/debug/gem`
+
+thread 'main' (124581) panicked at src/text.rs:149:19:
+cannot remove a char from the end of a string
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

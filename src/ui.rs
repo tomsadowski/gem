@@ -299,8 +299,9 @@ impl TabView {
         let (tab, msg) = Tab::init(dscr, &cfg.init_url, cfg);
         let tabview = Self {
             hdr_text: 
-                Self::get_hdr_text(dscr.outer.w, &cfg, 0, 1, &cfg.init_url),
-            hdr_line: Self::get_hdr_line(dscr.outer.w, &cfg),
+                Self::get_hdr_text
+                    (dscr.outer.x.len16(), &cfg, 0, 1, &cfg.init_url),
+            hdr_line: Self::get_hdr_line(dscr.outer.x.len16(), &cfg),
             dscr:     dscr.clone(),
             tabs:     vec![tab],
             idx:      0,
@@ -310,7 +311,7 @@ impl TabView {
     // adjust length of banner line, resize all tabs
     pub fn resize(&mut self, dscr: &DataScreen, cfg: &Config) {
         self.dscr     = dscr.clone();
-        self.hdr_line = Self::get_hdr_line(self.dscr.outer.w, &cfg);
+        self.hdr_line = Self::get_hdr_line(self.dscr.outer.x.len16(), &cfg);
         for tab in self.tabs.iter_mut() {
             tab.resize(&self.dscr);
         }
@@ -356,12 +357,12 @@ impl TabView {
             let url = &self.tabs[self.idx].url;
             self.hdr_text = 
                 Self::get_hdr_text(
-                    self.dscr.outer.w, 
+                    self.dscr.outer.x.len16(), 
                     cfg, 
                     self.idx, 
                     len, 
                     &url);
-            self.hdr_line = Self::get_hdr_line(self.dscr.outer.w, cfg);
+            self.hdr_line = Self::get_hdr_line(self.dscr.outer.x.len16(), cfg);
             viewmsg
         } else {
             None
@@ -370,10 +371,10 @@ impl TabView {
     // display banner and reader
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
         stdout
-            .queue(MoveTo(self.dscr.outer.x, 0))?
+            .queue(MoveTo(self.dscr.outer.x.start, 0))?
             .queue(SetForegroundColor(self.hdr_text.color))?
             .queue(Print(&self.hdr_text.text))?
-            .queue(MoveTo(self.dscr.outer.x, 1))?
+            .queue(MoveTo(self.dscr.outer.x.start, 1))?
             .queue(SetForegroundColor(self.hdr_line.color))?
             .queue(Print(&self.hdr_line.text))?;
         self.tabs[self.idx].view(stdout)
@@ -382,12 +383,12 @@ impl TabView {
         self.dscr     = dscr.clone();
         self.hdr_text = 
             Self::get_hdr_text(
-                self.dscr.outer.w, 
+                self.dscr.outer.x.len16(), 
                 cfg, 
                 self.idx, 
                 self.tabs.len(), 
                 &self.tabs[self.idx].url);
-        self.hdr_line = Self::get_hdr_line(self.dscr.outer.w, cfg);
+        self.hdr_line = Self::get_hdr_line(self.dscr.outer.x.len16(), cfg);
         for tab in self.tabs.iter_mut() {
             tab.update_cfg(&self.dscr, cfg);
         }
@@ -681,17 +682,23 @@ impl Dialog {
     }
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
         stdout
-            .queue(MoveTo(self.dscr.outer.x, self.dscr.outer.y + 4))?
+            .queue(MoveTo(
+                    self.dscr.outer.x.start, 
+                    self.dscr.outer.y.start + 4))?
             .queue(Print(&self.prompt))?;
         match &self.input_type {
             InputType::Ack(ack) => {
                 stdout
-                    .queue(MoveTo(self.dscr.outer.x, self.dscr.outer.y + 8))?
+                    .queue(MoveTo(
+                            self.dscr.outer.x.start, 
+                            self.dscr.outer.y.start + 8))?
                     .queue(Print(&format!("|{}| acknowledge", ack)))?;
             }
             InputType::Ask(yes, no) => {
                 stdout
-                    .queue(MoveTo(self.dscr.outer.x, self.dscr.outer.y + 8))?
+                    .queue(MoveTo(
+                            self.dscr.outer.x.start, 
+                            self.dscr.outer.y.start + 8))?
                     .queue(Print(&format!("|{}| yes |{}| no", yes, no)))?;
             }
             InputType::Text(editor) => {

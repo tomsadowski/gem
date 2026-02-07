@@ -6,8 +6,8 @@ pub fn u16_or_0(u: usize) -> u16 {
 }
 #[derive(Clone, Debug)]
 pub struct ScreenRange {
-    pub start: u16, 
-    pub end: u16
+    pub start:  u16, 
+    pub end:    u16
 }
 impl ScreenRange {
     // if for some reason a > b, just swap them
@@ -21,20 +21,23 @@ impl ScreenRange {
     pub fn contains(&self, n: u16) -> bool {
         self.start <= n && n <= self.end
     }
+    pub fn len16(&self) -> u16 {
+        self.end.saturating_sub(self.start)
+    }
     pub fn len(&self) -> usize {
-        usize::from(self.end.saturating_sub(self.start))
+        usize::from(self.len16())
     }
 }
 #[derive(Clone, Debug)]
 pub struct Screen {
-    pub x: u16, 
-    pub y: u16,
-    pub w: u16, 
-    pub h: u16
+    pub x: ScreenRange,
+    pub y: ScreenRange,
 }
 impl Screen {
     pub fn origin(w: u16, h: u16) -> Screen {
-        Screen {x: 0, y: 0, w: w, h: h}
+        Screen {
+            x: ScreenRange::new(0, w), 
+            y: ScreenRange::new(0, h)}
     }
     pub fn crop_y(&self, step: u16) -> Screen {
         let screen = self.clone();
@@ -46,42 +49,31 @@ impl Screen {
     }
     pub fn crop_south(&self, step: u16) -> Screen {
         let mut screen = self.clone();
-        if step < screen.h {
-            screen.h -= step;
+        if step < screen.y.len16() {
+            screen.y.end -= step;
         }
         screen
     }
     pub fn crop_east(&self, step: u16) -> Screen {
         let mut screen = self.clone();
-        if step < screen.w {
-            screen.w -= step;
+        if step < screen.x.len16() {
+            screen.x.end -= step;
         }
         screen
     }
     pub fn crop_north(&self, step: u16) -> Screen {
         let mut screen = self.clone();
-        if usize::from(step) * 2 < screen.get_y_rng().len() {
-            screen.y += step;
-            screen.h -= step;
+        if step * 2 < screen.y.len16() {
+            screen.y.start += step;
         }
         screen
     }
     pub fn crop_west(&self, step: u16) -> Screen {
         let mut screen = self.clone();
-        if usize::from(step) * 2 < screen.get_x_rng().len() {
-            screen.x += step;
-            screen.w -= step;
+        if step * 2 < screen.x.len16() {
+            screen.x.start += step;
         }
         screen
-    }
-    pub fn get_rngs(&self) -> (ScreenRange, ScreenRange) {
-        (self.get_x_rng(), self.get_y_rng())
-    }
-    pub fn get_x_rng(&self) -> ScreenRange {
-        ScreenRange {start: self.x, end: self.x + self.w}
-    }
-    pub fn get_y_rng(&self) -> ScreenRange {
-        ScreenRange {start: self.y, end: self.y + self.h}
     }
 }
 #[derive(Clone, Debug)]
@@ -103,14 +95,14 @@ impl DataScreen {
     }
     pub fn get_x_rng(&self) -> DataScreenRange {
         DataScreenRange {
-            inner: self.inner.get_x_rng(), 
-            outer: self.outer.get_x_rng()
+            inner: self.inner.x.clone(), 
+            outer: self.outer.x.clone()
         }
     }
     pub fn get_y_rng(&self) -> DataScreenRange {
         DataScreenRange {
-            inner: self.inner.get_y_rng(), 
-            outer: self.outer.get_y_rng()
+            inner: self.inner.y.clone(), 
+            outer: self.outer.y.clone()
         }
     }
 }
@@ -120,11 +112,14 @@ pub struct PosCol {
     pub scroll: usize
 }
 impl PosCol {
+    pub fn origin(rng: &ScreenRange) -> PosCol {
+        PosCol {cursor: rng.start, scroll: 0}
+    }
     // index of cursor within its range
     pub fn data_idx(&self, rng: &ScreenRange) -> usize {
         if self.cursor > rng.start {
-            let diff = usize::from(self.cursor.saturating_sub(rng.start));
-            self.scroll + diff
+            let p = self.cursor.saturating_sub(rng.start);
+            self.scroll + usize::from(p)
         } else {
             self.scroll
         }
@@ -141,7 +136,6 @@ impl PosCol {
     pub fn fit(rng: &ScreenRange, idx: usize, len: usize) -> PosCol {
         let rng_len = rng.len();
         let max_scroll = len.saturating_sub(rng_len);
-
         if idx < rng_len {
             let cursor = rng.start + u16_or_0(idx);
             PosCol {
@@ -181,15 +175,16 @@ impl PosCol {
             self.cursor = end;
         }
     }
-    pub fn move_backward(&mut self, dscr: &DataScreenRange, step: u16) -> bool
+    pub fn move_backward(   &mut self, 
+                            dscr: &DataScreenRange, 
+                            mut step: u16) -> bool
     {
-        let mut step = step;
         match (self.cursor == dscr.outer.start, self.scroll == usize::MIN) {
             // nowhere to go, nothing to change
             (true, true) => {
                 return false
             }
-            // move data point
+            // move scroll
             (true, false) => {
                 if usize::from(step) < self.scroll  {
                     self.scroll -= usize::from(step);
@@ -197,7 +192,7 @@ impl PosCol {
                     self.scroll = usize::MIN;
                 }
             }
-            // move screen point
+            // move cursor
             (false, true) => {
                 if dscr.outer.start + step <= self.cursor {
                     self.cursor -= step;
@@ -205,6 +200,7 @@ impl PosCol {
                     self.cursor = dscr.outer.start;
                 }
             }
+            // move cursor and maybe scroll
             (false, false) => {
                 if dscr.inner.start + step <= self.cursor {
                     self.cursor -= step;
@@ -217,7 +213,7 @@ impl PosCol {
                         self.move_backward(dscr, step);
                     }
                 } else {
-                    step -= self.cursor - dscr.inner.start;
+                    step -= self.cursor.saturating_sub(dscr.inner.start);
                     self.cursor = dscr.inner.start;
                     self.move_backward(dscr, step);
                 }
@@ -226,16 +222,14 @@ impl PosCol {
         return true
     }
     pub fn move_forward(    &mut self,
-                            dscr:       &DataScreenRange, 
-                            dlength:    usize,
-                            step:       u16 ) -> bool
+                            dscr: &DataScreenRange, 
+                            dlen: usize,
+                            mut step: u16 ) -> bool
     {
         let screen_data_end = u16_or_0(min(
-            usize::from(dscr.outer.start) + dlength, 
+            usize::from(dscr.outer.start) + dlen, 
             usize::from(dscr.outer.end)));
-        let mut step = step;
-        let screen_len = dscr.outer.len();
-        let max_scroll = dlength.saturating_sub(screen_len);
+        let max_scroll = dlen.saturating_sub(dscr.outer.len());
         match (self.cursor == screen_data_end, self.scroll == max_scroll) {
             // nowhere to go, nothing to change
             (true, true) => {
@@ -268,13 +262,13 @@ impl PosCol {
                             u16_or_0(max_scroll.saturating_sub(self.scroll));
                         step = step.saturating_sub(diff);
                         self.scroll = max_scroll;
-                        self.move_forward(dscr, dlength, step);
+                        self.move_forward(dscr, dlen, step);
                     }
                 } else {
                     let diff = dscr.inner.end.saturating_sub(self.cursor);
                     step = step.saturating_sub(diff);
                     self.cursor = dscr.inner.end;
-                    self.move_forward(dscr, dlength, step);
+                    self.move_forward(dscr, dlen, step);
                 }
             }
         }
@@ -283,133 +277,67 @@ impl PosCol {
 }
 #[derive(Clone, Debug)]
 pub struct Pos {
-    pub x_cursor: u16, 
-    pub y_cursor: u16,
-    pub x_scroll: usize, 
-    pub y_scroll: usize
+    pub x: PosCol,
+    pub y: PosCol, 
 }
 impl Pos {
     pub fn origin(screen: &Screen) -> Pos {
         Pos {
-            x_cursor: screen.x, 
-            y_cursor: screen.y, 
-            x_scroll: 0, 
-            y_scroll: 0
-        }
-    }
-    pub fn from_cols(x: &PosCol, y: &PosCol) -> Pos {
-        Pos {
-            x_cursor: x.cursor, 
-            y_cursor: y.cursor,
-            x_scroll: x.scroll, 
-            y_scroll: y.scroll,
-        }
-    }
-    pub fn get_x_col(&self) -> PosCol {
-        PosCol {
-            cursor: self.x_cursor, 
-            scroll: self.x_scroll
-        }
-    }
-    pub fn get_y_col(&self) -> PosCol {
-        PosCol {
-            cursor: self.y_cursor, 
-            scroll: self.y_scroll
-        }
-    }
-    pub fn get_cols(&self) -> (PosCol, PosCol) {
-        (self.get_x_col(), self.get_y_col())
-    }
-    pub fn set_y_col(&mut self, y_col: &PosCol) {
-        self.y_cursor = y_col.cursor;
-        self.y_scroll = y_col.scroll;
-    }
-    pub fn set_x_col(&mut self, x_col: &PosCol) {
-        self.x_cursor = x_col.cursor;
-        self.x_scroll = x_col.scroll;
+            x: PosCol::origin(&screen.x),
+            y: PosCol::origin(&screen.y)}
     }
     pub fn move_left(&mut self, dscr: &DataScreen, step: u16) -> bool {
-        let mut x_col   = self.get_x_col();
-        let     x_rng   = dscr.get_x_rng();
-        if x_col.move_backward(&x_rng, step) {
-            self.set_x_col(&x_col); 
-            true
-        } else {false}
+        self.x.move_backward(&dscr.get_x_rng(), step)
     }
     pub fn move_right(  &mut self,
-                        dscr:   &DataScreen, 
-                        data:   &Vec<usize>,
-                        step:   u16 ) -> bool
+                        dscr: &DataScreen, 
+                        data: &Vec<usize>,
+                        step: u16 ) -> bool
     {
-        let (mut x_col, y_col)  = self.get_cols();
-        let y_outer             = &dscr.outer.get_y_rng();
-        let x_rng               = dscr.get_x_rng();
         let x_len = {
-            let idx = y_col.data_idx(&y_outer);
+            let idx = self.y.data_idx(&dscr.outer.y);
             if idx >= data.len() {0} 
             else {data[idx]}
         };
-        if x_col.move_forward(&x_rng, x_len, step) {
-            self.set_x_col(&x_col); true
-        } else {false}
+        self.x.move_forward(&dscr.get_x_rng(), x_len, step)
     }
     pub fn move_up( &mut self,
-                    dscr:   &DataScreen, 
-                    data:   &Vec<usize>,
-                    step:   u16 ) -> bool
+                    dscr: &DataScreen, 
+                    data: &Vec<usize>,
+                    step: u16 ) -> bool
     {
-        let mut y_col   = self.get_y_col();
-        let     y_rng   = dscr.get_y_rng();
-        if y_col.move_backward(&y_rng, step) {
-            self.set_y_col(&y_col);
-            self.move_into_x(dscr, data);
-            true
+        if self.y.move_backward(&dscr.get_y_rng(), step) {
+            self.move_into_x(dscr, data); true
         } else {false}
     }
     pub fn move_down(   &mut self,
-                        dscr:   &DataScreen, 
-                        data:   &Vec<usize>,
-                        step:   u16 ) -> bool
+                        dscr: &DataScreen, 
+                        data: &Vec<usize>,
+                        step: u16 ) -> bool
     {
-        let mut y_col   = self.get_y_col();
-        let     y_rng   = dscr.get_y_rng();
-        let     len     = data.len();
-        if y_col.move_forward(&y_rng, len, step) {
-            self.set_y_col(&y_col);
-            self.move_into_x(dscr, data);
-            true
+        if self.y.move_forward(&dscr.get_y_rng(), data.len(), step) {
+            self.move_into_x(dscr, data); true
         } else {false}
     }
     pub fn move_into_x(&mut self, dscr: &DataScreen, data: &Vec<usize>) {
-        let (mut x_col, y_col) = self.get_cols();
         let idx = {
-            let y_outer = dscr.outer.get_y_rng();
-            let idx1    = y_col.data_idx(&y_outer);
-            let idx2    = data.len().saturating_sub(1);
+            let idx1 = self.y.data_idx(&dscr.outer.y);
+            let idx2 = data.len().saturating_sub(1);
             min(idx1, idx2)
         };
-        let x_rng = dscr.get_x_rng();
-        x_col.move_into(&x_rng, data[idx]);
-        self.set_x_col(&x_col);
+        self.x.move_into(&dscr.get_x_rng(), data[idx]);
     }
     pub fn move_into_y(&mut self, dscr: &DataScreen, data: &Vec<usize>) {
-        let mut y_col = self.get_y_col();
-        let     y_len = data.len();
-        let     y_rng = dscr.get_y_rng();
-        y_col.move_into(&y_rng, y_len);
-        self.set_y_col(&y_col);
+        self.y.move_into(&dscr.get_y_rng(), data.len());
     }
     pub fn get_ranges(&self, dscr: &DataScreen, data: &Vec<usize>) 
         -> Vec<(u16, usize, usize, usize)>
     {
-        let (x_col,     y_col)      = self.get_cols();
-        let (x_outer,   y_outer)    = dscr.outer.get_rngs();
-        let len                     = data.len();
-        let (start, end)            = y_col.data_range(&y_outer, len);
         let mut vec: Vec<(u16, usize, usize, usize)> = vec![];
+        let (start, end) = self.y.data_range(&dscr.outer.y, data.len());
         for (e, i) in (start..end).into_iter().enumerate() {
-            let (a, b)  = x_col.data_range(&x_outer, data[i]);
-            let scr_idx = y_outer.start + (e as u16);
+            let (a, b)  = self.x.data_range(&dscr.outer.x, data[i]);
+            let scr_idx = dscr.outer.y.start + (e as u16);
             vec.push((scr_idx, i, a, b));
         }
         vec
