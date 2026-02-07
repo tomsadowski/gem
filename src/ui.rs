@@ -3,7 +3,7 @@
 use crate::{
     config::{self, Config, ColorParams},
     gemini::{GemType, GemDoc, Scheme},
-    text::{Reader, Editor, ColoredText},
+    text::{Reader, Editor, DisplayText},
     screen::{Screen, DataScreen},
 };
 use crossterm::{
@@ -122,9 +122,16 @@ impl UI {
     }
     // resize all views, maybe do this in parallel?
     fn resize(&mut self, w: u16, h: u16) {
+        let x_margin = self.cfg.format.margin;
+        let y_margin = self.cfg.format.margin;
+        let x_scroll = self.cfg.scroll_at;
+        let y_scroll = self.cfg.scroll_at;
+        let scr = Screen::origin(w, h).crop_x(x_margin).crop_y(y_margin);
+        let dscr = DataScreen::new(&scr, x_scroll, y_scroll);
         self.scr = Screen::origin(w, h);
+        self.dscr = dscr;
         self.tabs.resize(&self.dscr, &self.cfg);
-       self.msg.resize(&self.dscr);
+        self.msg.resize(&self.dscr);
     }
     // display the current view
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
@@ -289,8 +296,8 @@ impl MessageView {
 }
 pub struct TabView {
     dscr:     DataScreen,
-    hdr_text: ColoredText,
-    hdr_line: ColoredText,
+    hdr_text: DisplayText,
+    hdr_line: DisplayText,
     tabs:     Vec<Tab>,
     idx:      usize,
 }
@@ -317,7 +324,9 @@ impl TabView {
         }
     }
     // send keycode to current tab and process response
-    pub fn update(&mut self, keycode: &KeyCode, cfg: &Config) -> Option<ViewMsg> {
+    pub fn update(&mut self, keycode: &KeyCode, cfg: &Config) 
+        -> Option<ViewMsg> 
+    {
         let response = self.tabs[self.idx].update(keycode, cfg);
         if let Some(msg) = response {
             let mut viewmsg: Option<ViewMsg> = Some(ViewMsg::Default);
@@ -397,19 +406,21 @@ impl TabView {
                         cfg:        &Config,
                         idx:        usize, 
                         total_tab:  usize, 
-                        path:       &str    ) -> ColoredText 
+                        path:       &str    ) -> DisplayText 
     {
         let text = &format!("{}/{}: {}", idx + 1, total_tab, path);
         let width = std::cmp::min(usize::from(w), text.len());
-        ColoredText::new(
+        DisplayText::new(
                 &text[..usize::from(width)],
-                cfg.colors.get_banner()
+                cfg.colors.get_banner(),
+                false
             )
     }
-    fn get_hdr_line(w: u16, cfg: &Config) -> ColoredText {
-        ColoredText::new(
+    fn get_hdr_line(w: u16, cfg: &Config) -> DisplayText {
+        DisplayText::new(
                 &String::from("-").repeat(usize::from(w)),
-                cfg.colors.get_banner()
+                cfg.colors.get_banner(),
+                false
             )
     }
 }

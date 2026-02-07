@@ -2,7 +2,7 @@
 
 use crate::{
     gemini::{GemType, GemDoc, Scheme},
-    text::{ColoredText},
+    text::{DisplayText},
 };
 use crossterm::{
     style::{self, Color},
@@ -144,7 +144,6 @@ impl ColorParams {
             background: (205, 205, 205),
             dialog:     (  0,   0,   0),
             banner:     (  0,   0,   0),
-
             text:       (  0,   0,   0),
             heading1:   (  0,   0,   0),
             heading2:   (  0,   0,   0),
@@ -177,50 +176,77 @@ impl ColorParams {
             b: self.background.2,
         }
     }
-    pub fn from_gem_doc(&self, doc: &GemDoc) -> Vec<ColoredText> {
+    pub fn from_gem_doc(&self, doc: &GemDoc) -> Vec<DisplayText> {
         doc.doc.iter()
             .map(|(gem_type, text)| self.from_gem_type(gem_type, &text))
             .collect()
     }
-    pub fn from_gem_type(&self, gem: &GemType, text: &str) -> ColoredText {
-        let color = match gem {
-            GemType::HeadingOne => Color::Rgb {
+    pub fn from_gem_type(&self, gem: &GemType, text: &str) -> DisplayText {
+        let (color, wrap) = match gem {
+            GemType::HeadingOne => {
+                let color = Color::Rgb {
                     r: self.heading1.0, 
                     g: self.heading1.1, 
-                    b: self.heading1.2},
-            GemType::HeadingTwo => Color::Rgb {
+                    b: self.heading1.2};
+                (color, true)
+            }
+            GemType::HeadingTwo => {
+                let color = Color::Rgb {
                     r: self.heading2.0, 
                     g: self.heading2.1, 
-                    b: self.heading2.2},
-            GemType::HeadingThree => Color::Rgb {
+                    b: self.heading2.2};
+                (color, true)
+            }
+            GemType::HeadingThree => {
+                let color = Color::Rgb {
                     r: self.heading3.0, 
                     g: self.heading3.1, 
-                    b: self.heading3.2},
-            GemType::Text => Color::Rgb {
+                    b: self.heading3.2};
+                (color, true)
+            }
+            GemType::Text => {
+                let color = Color::Rgb {
                     r: self.text.0, 
                     g: self.text.1, 
-                    b: self.text.2},
-            GemType::Quote => Color::Rgb {
+                    b: self.text.2};
+                (color, true)
+            }
+            GemType::Quote => {
+                let color = Color::Rgb {
                     r: self.quote.0, 
                     g: self.quote.1, 
-                    b: self.quote.2},
-            GemType::ListItem => Color::Rgb {
+                    b: self.quote.2};
+                (color, true)
+            }
+            GemType::ListItem => {
+                let color = Color::Rgb {
                     r: self.list.0, 
                     g: self.list.1, 
-                    b: self.list.2},
-            GemType::PreFormat => Color::Rgb {
+                    b: self.list.2};
+                (color, true)
+            }
+            GemType::PreFormat => {
+                let color = Color::Rgb {
                     r: self.preformat.0, 
                     g: self.preformat.1, 
-                    b: self.preformat.2},
-            GemType::Link(_, _) => Color::Rgb {
+                    b: self.preformat.2};
+                (color, false)
+            }
+            GemType::Link(_, _) => {
+                let color = Color::Rgb {
                     r: self.link.0, 
                     g: self.link.1, 
-                    b: self.link.2},
-            GemType::BadLink(_) => Color::Rgb {
+                    b: self.link.2};
+                (color, true)
+            }
+            GemType::BadLink(_) => {
+                let color = Color::Rgb {
                     r: self.badlink.0, 
                     g: self.badlink.1, 
-                    b: self.badlink.2},
+                    b: self.badlink.2};
+                (color, true)
+            }
         };
-        ColoredText::new(text, color)
+        DisplayText::new(text, color, wrap)
     }
 }

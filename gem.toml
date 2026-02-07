@@ -1,23 +1,33 @@
-#init_url  = "gemini://geminiprotocol.net/"
+init_url  = "gemini://geminiprotocol.net/"
 #init_url = "gemini://medusae.space"
-init_url = "gemini://datapulp.smol.pub/"
-#init_url = "gemini///:::datapulp.smol.pub/"
-scroll_at = 3
+#init_url = "gemini://datapulp.smol.pub/"
+
+scroll_at = 6
+
 [colors]
-background = [ 24,  24,  24]
-dialog     = [ 80, 180, 180]
-banner     = [ 80, 180, 180]
-link       = [100, 200, 200]
-text       = [200, 200, 200]
-preformat  = [200, 200, 200]
-quote      = [200, 200, 200]
-heading1   = [240, 100, 120]
-heading2   = [240, 100, 120]
-heading3   = [240, 100, 120]
+# black
+background = [ 32,  38,  38]
+# grey
+dialog     = [100, 110, 110]
+banner     = [100, 110, 110]
+# cyan
+link       = [ 64, 200, 200]
+# white
+text       = [220, 240, 240]
+# yellow
+preformat  = [200, 200, 100]
+quote      = [200, 200, 100]
+# green
 list       = [100, 200, 100]
-badlink    = [ 60,  60, 200]
+# red
+badlink    = [240, 100, 100]
+# magenta
+heading1   = [200, 140, 200]
+heading2   = [200, 140, 200]
+heading3   = [200, 140, 200]
+
 [format]
-margin      = 2
+margin      = 4
 list_prefix = " - "
 heading3    = [3, 2]
 heading2    = [2, 1]

@@ -18,6 +18,14 @@ impl ScreenRange {
             ScreenRange {start: start, end: end}
         }
     }
+    pub fn get_data_end(&self, dlen: usize) -> u16 {
+        let data_end = usize::from(self.start) + dlen.saturating_sub(1);
+        let scr_end  = usize::from(self.end).saturating_sub(1);
+        u16_or_0(min(data_end, scr_end))
+    }
+    pub fn get_max_scroll(&self, dlen: usize) -> usize {
+        dlen.saturating_sub(self.len())
+    }
     pub fn contains(&self, n: u16) -> bool {
         self.start <= n && n <= self.end
     }
@@ -81,6 +89,14 @@ pub struct DataScreenRange {
     pub inner: ScreenRange,
     pub outer: ScreenRange,
 }
+impl DataScreenRange {
+    pub fn get_data_end(&self, dlen: usize) -> u16 {
+        self.outer.get_data_end(dlen)
+    }
+    pub fn get_max_scroll(&self, dlen: usize) -> usize {
+        self.outer.get_max_scroll(dlen)
+    }
+}
 #[derive(Clone, Debug)]
 pub struct DataScreen {
     pub inner: Screen,
@@ -114,6 +130,16 @@ pub struct PosCol {
 impl PosCol {
     pub fn origin(rng: &ScreenRange) -> PosCol {
         PosCol {cursor: rng.start, scroll: 0}
+    }
+    // index of cursor within its range
+    pub fn data_idx_cap(&self, rng: &ScreenRange, max: usize) -> usize {
+        let idx = if self.cursor > rng.start {
+            let p = self.cursor.saturating_sub(rng.start);
+            self.scroll + usize::from(p)
+        } else {
+            self.scroll
+        };
+        min(idx, max)
     }
     // index of cursor within its range
     pub fn data_idx(&self, rng: &ScreenRange) -> usize {
@@ -226,10 +252,8 @@ impl PosCol {
                             dlen: usize,
                             mut step: u16 ) -> bool
     {
-        let screen_data_end = u16_or_0(min(
-            usize::from(dscr.outer.start) + dlen.saturating_sub(1), 
-            usize::from(dscr.outer.end)));
-        let max_scroll = dlen.saturating_sub(dscr.outer.len());
+        let screen_data_end = dscr.get_data_end(dlen);
+        let max_scroll      = dscr.get_max_scroll(dlen);
         match (self.cursor == screen_data_end, self.scroll == max_scroll) {
             // nowhere to go, nothing to change
             (true, true) => {

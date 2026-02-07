@@ -27,19 +27,6 @@ pub fn split_whitespace_once(source: &str) -> (&str, &str) {
     };
     (a, b)
 }
-// call wrap for each element in the list
-pub fn wrap_list(lines: &Vec<String>, w: u16) 
-    -> Vec<(usize, String)> 
-{
-    let mut display: Vec<(usize, String)> = vec![];
-    for (i, l) in lines.iter().enumerate() {
-        let v = wrap(l, w);
-        for s in v.iter() {
-            display.push((i, s.to_string()));
-        }
-    }
-    display
-}
 // wrap text in terminal
 pub fn wrap(line: &str, screenwidth: u16) -> Vec<String> {
     let width = usize::from(screenwidth);
@@ -96,26 +83,23 @@ impl Editor {
         }
     }
     pub fn resize(&mut self, dscr: &DataScreen) {
-//        self.pcol.resize(self.text.len(), &range);
         self.dscr = dscr.clone();
     }
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
         stdout.queue(cursor::Hide)?;
         let text = {
-            let (a, b) = self.pcol.data_range(
-                    &self.dscr.get_x_rng().outer, 
+            let (a, b) = 
+                self.pcol.data_range(
+                    &self.dscr.outer.x, 
                     self.text.len());
-                &self.text[a..b]
+            let a = self.text.ceil_char_boundary(a);
+            let b = self.text.floor_char_boundary(b);
+            &self.text[a..b]
         };
         stdout
             .queue(MoveTo(self.dscr.outer.x.start, 8))?
             .queue(SetForegroundColor(self.color))?
             .queue(Print(text))?
-            .queue(MoveTo(self.dscr.outer.x.start, self.dscr.outer.y.end))?
-            .queue(Print(format!(
-                        "{:?} {:?}", 
-                        self.pcol, 
-                        self.pcol.data_idx(&self.dscr.outer.x))))?
             .queue(MoveTo(self.pcol.cursor, 8))?
             .queue(cursor::Show)?
             .flush()
@@ -141,10 +125,10 @@ impl Editor {
         true
     }
     pub fn backspace(&mut self) -> bool {
-        let idx = self.pcol.data_idx(&self.dscr.outer.x);
-        if idx == 0 {
+        if self.text.len() == 0 {
             return false
-        } 
+        }
+        let idx = self.pcol.data_idx(&self.dscr.outer.x);
         self.pcol.move_backward(&self.dscr.get_x_rng(), 1);
         self.text.remove(idx);
         if self.pcol.cursor + 1 != self.dscr.outer.x.end {
@@ -164,18 +148,35 @@ impl Editor {
     }
 }
 #[derive(Clone, Debug)]
-pub struct ColoredText {
+pub struct DisplayText {
     pub color: Color,
     pub text:  String,
+    pub wrap:  bool,
 }
-impl ColoredText {
-    pub fn from_vec(vec: &Vec<&str>, color: Color) -> Vec<Self> {
-        vec.iter().map(|s| Self::new(s, color)).collect()
+impl DisplayText {
+    // call wrap for each element in the list
+    pub fn wrap_list(lines: &Vec<DisplayText>, w: u16) 
+        -> Vec<(usize, String)> 
+    {
+        let mut display: Vec<(usize, String)> = vec![];
+        for (i, l) in lines.iter().enumerate() {
+            let v = 
+                if l.wrap {wrap(&l.text, w)} 
+                else {vec![l.text.clone()]};
+            for s in v.iter() {
+                display.push((i, s.to_string()));
+            }
+        }
+        display
     }
-    pub fn new(text: &str, color: Color) -> Self {
+    pub fn from_vec(vec: &Vec<&str>, color: Color) -> Vec<Self> {
+        vec.iter().map(|s| Self::new(s, color, true)).collect()
+    }
+    pub fn new(text: &str, color: Color, wrap: bool) -> Self {
         Self {
             color: color,
             text: text.into(),
+            wrap: wrap,
         }
     }
     pub fn getcolor(&self) -> Color {
@@ -184,62 +185,49 @@ impl ColoredText {
 }
 #[derive(Clone, Debug)]
 pub struct Reader {
-    dscr:       DataScreen,
-    pos:        Pos,
-    source:     Vec<ColoredText>,
-    display:    Vec<(usize, String)>,
-    bounds:     Vec<usize>,
+    dscr: DataScreen,
+    pos:  Pos,
+    ctxt: Vec<DisplayText>,
+    dsp:  Vec<(usize, String)>,
+    bnd:  Vec<usize>,
 } 
 impl Reader {
     pub fn one_color(   dscr: &DataScreen, 
-                        source: &Vec<String>, 
+                        txt: &Vec<String>, 
                         color: Color    ) -> Self 
     {
-        let text = source.iter().map(|s| ColoredText::new(s, color));
+        let text = txt.iter().map(|s| DisplayText::new(s, color, true));
         Self::new(dscr, &text.collect())
     }
-    pub fn new(dscr: &DataScreen, colored_text: &Vec<ColoredText>) -> Self {
-        let display = wrap_list(
-            &colored_text.iter().map(|ct| ct.text.clone()).collect(),
-            dscr.outer.x.len16());
-        let bounds = display.iter().map(|(_, s)| s.len());
+    pub fn new(dscr: &DataScreen, colored_text: &Vec<DisplayText>) -> Self {
+        let dsp = DisplayText::wrap_list(colored_text, dscr.outer.x.len16());
+        let bnd = dsp.iter().map(|(_, s)| s.len());
         Self {
-            dscr:    dscr.clone(),
-            pos:     Pos::origin(&dscr.outer),
-            source:  colored_text.clone(),
-            bounds:  bounds.collect(),
-            display: display,
+            dscr: dscr.clone(),
+            pos:  Pos::origin(&dscr.outer),
+            ctxt: colored_text.clone(),
+            bnd:  bnd.collect(),
+            dsp:  dsp,
         }
     }
     pub fn resize(&mut self, dscr: &DataScreen) {
-        self.dscr    = dscr.clone();
-        self.display = wrap_list(
-            &self.source.iter().map(|ct| ct.text.clone()).collect(),
-            dscr.outer.x.len16());
-//      self.pcol.resize(
-//          self.display.len(), 
-//          &Range::verticle(rect));
+        self.dsp  = DisplayText::wrap_list(&self.ctxt, dscr.outer.x.len16());
+        self.bnd  = self.dsp.iter().map(|(_, s)| s.len()).collect();
+        self.dscr = dscr.clone();
     }
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
         stdout.queue(cursor::Hide)?;
-        let rngs = self.pos.get_ranges(&self.dscr, &self.bounds);
+        let rngs = self.pos.get_ranges(&self.dscr, &self.bnd);
         for (scr_idx, idx, start, end) in rngs {
-            let (key, text) = &self.display[idx];
+            let (key, text) = &self.dsp[idx];
+            let start = text.ceil_char_boundary(start);
+            let end   = text.floor_char_boundary(end);
             stdout
                 .queue(MoveTo(self.dscr.outer.x.start, scr_idx))?
-                .queue(SetForegroundColor(self.source[*key].color))?
+                .queue(SetForegroundColor(self.ctxt[*key].color))?
                 .queue(Print(&text[start..end]))?;
         }
         stdout
-                .queue(MoveTo(self.dscr.outer.x.start, self.dscr.outer.y.end - 1))?
-                .queue(Print(format!(
-                            "{:?}",
-                            self.dscr)))?
-                .queue(MoveTo(self.dscr.outer.x.start, self.dscr.outer.y.end))?
-                .queue(Print(format!(
-                            "{:?} {:?}",
-                            self.pos,
-                            self.pos.y.data_idx(&self.dscr.outer.y))))?
             .queue(MoveTo(self.pos.x.cursor, self.pos.y.cursor))?
             .queue(cursor::Show)?
             .flush()
@@ -248,21 +236,22 @@ impl Reader {
         self.pos.move_left(&self.dscr, step)
     }
     pub fn move_right(&mut self, step: u16) -> bool {
-        self.pos.move_right(&self.dscr, &self.bounds, step)
+        self.pos.move_right(&self.dscr, &self.bnd, step)
     }
     pub fn move_up(&mut self, step: u16) -> bool {
-        self.pos.move_up(&self.dscr, &self.bounds, step)
+        self.pos.move_up(&self.dscr, &self.bnd, step)
     }
     pub fn move_down(&mut self, step: u16) -> bool {
-        self.pos.move_down(&self.dscr, &self.bounds, step)
+        self.pos.move_down(&self.dscr, &self.bnd, step)
     }
     pub fn select(&self) -> (usize, &str) {
         let idx = {
-            let y_rng = self.dscr.outer.y.clone();
-            let y_col = self.pos.y.clone();
-            let idx = y_col.data_idx(&y_rng);
-            self.display[idx].0
+            let idx = 
+                self.pos.y.data_idx_cap(
+                    &self.dscr.outer.y, 
+                    self.bnd.len() - 1);
+            self.dsp[idx].0
         };
-        (idx, &self.source[idx].text)
+        (idx, &self.ctxt[idx].text)
     }
 } 
