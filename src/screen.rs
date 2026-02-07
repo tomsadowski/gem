@@ -227,7 +227,7 @@ impl PosCol {
                             mut step: u16 ) -> bool
     {
         let screen_data_end = u16_or_0(min(
-            usize::from(dscr.outer.start) + dlen, 
+            usize::from(dscr.outer.start) + dlen.saturating_sub(1), 
             usize::from(dscr.outer.end)));
         let max_scroll = dlen.saturating_sub(dscr.outer.len());
         match (self.cursor == screen_data_end, self.scroll == max_scroll) {
