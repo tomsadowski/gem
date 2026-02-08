@@ -80,8 +80,11 @@ impl DisplayText {
         let mut display: Vec<(usize, String)> = vec![];
         for (i, l) in lines.iter().enumerate() {
             let v = 
-                if l.wrap {wrap(&l.text, w)} 
-                else {vec![l.text.clone()]};
+                if l.wrap {
+                    wrap(&l.text, w)
+                } else {
+                    vec![l.text.clone()]
+                };
             for s in v.iter() {
                 display.push((i, s.to_string()));
             }
