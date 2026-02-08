@@ -11,7 +11,7 @@ use crossterm::{
     style::{self, Color, SetForegroundColor, Print},
 };
 use std::{
-    io::{self, Stdout, Write},
+    io::{self, Stdout, Write, Read, Result},
 };
 
 pub fn split_whitespace_once(source: &str) -> (&str, &str) {
@@ -65,87 +65,6 @@ pub fn wrap(line: &str, screenwidth: u16) -> Vec<String> {
         wrapped.push(String::from(line[start..].trim()));
     }
     wrapped
-}
-#[derive(Clone, Debug)]
-pub struct Editor {
-    dscr:   DataScreen,
-    pcol:   PosCol,
-    text:   String,
-    color:  Color,
-}
-impl Editor {
-    pub fn new(dscr: &DataScreen, source: &str, color: Color) -> Self {
-        Self {
-            color:  color,
-            pcol:   PosCol::origin(&dscr.outer.x),
-            text:   source.into(),
-            dscr:   dscr.clone(),
-        }
-    }
-    pub fn resize(&mut self, dscr: &DataScreen) {
-        self.dscr = dscr.clone();
-    }
-    pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
-        stdout.queue(cursor::Hide)?;
-        let text = {
-            let (a, b) = 
-                self.pcol.data_range(
-                    &self.dscr.outer.x, 
-                    self.text.len());
-            let a = self.text.ceil_char_boundary(a);
-            let b = self.text.floor_char_boundary(b);
-            &self.text[a..b]
-        };
-        stdout
-            .queue(MoveTo(self.dscr.outer.x.start, 8))?
-            .queue(SetForegroundColor(self.color))?
-            .queue(Print(text))?
-            .queue(MoveTo(self.pcol.cursor, 8))?
-            .queue(cursor::Show)?
-            .flush()
-    }
-    pub fn get_text(&self) -> String {
-        self.text.clone()
-    }
-    pub fn move_left(&mut self, step: u16) -> bool {
-        self.pcol.move_backward(&self.dscr.get_x_rng(), step)
-    }
-    pub fn move_right(&mut self, step: u16) -> bool {
-        self.pcol.move_forward(&self.dscr.get_x_rng(), self.text.len(), step)
-    }
-    pub fn delete(&mut self) -> bool {
-        let idx = self.pcol.data_idx(&self.dscr.outer.x);
-        if idx >= self.text.len() || self.text.len() == 0 {
-            return false
-        }
-        self.text.remove(idx);
-        if self.pcol.cursor + 1 != self.dscr.outer.x.end {
-            self.pcol.move_forward(&self.dscr.get_x_rng(), self.text.len(), 1);
-        }
-        true
-    }
-    pub fn backspace(&mut self) -> bool {
-        if self.text.len() == 0 {
-            return false
-        }
-        let idx = self.pcol.data_idx(&self.dscr.outer.x);
-        self.pcol.move_backward(&self.dscr.get_x_rng(), 1);
-        self.text.remove(idx);
-        if self.pcol.cursor + 1 != self.dscr.outer.x.end {
-            self.pcol.move_forward(&self.dscr.get_x_rng(), self.text.len(), 1);
-        }
-        true
-    }
-    pub fn insert(&mut self, c: char) -> bool {
-        let idx = self.pcol.data_idx(&self.dscr.outer.x) + 1;
-        if idx >= self.text.len() || self.text.len() == 0 {
-            self.text.push(c);
-        } else {
-            self.text.insert(idx, c);
-        }
-        self.pcol.move_forward(&self.dscr.get_x_rng(), self.text.len(), 1);
-        true
-    }
 }
 #[derive(Clone, Debug)]
 pub struct DisplayText {
@@ -255,3 +174,84 @@ impl Reader {
         (idx, &self.ctxt[idx].text)
     }
 } 
+#[derive(Clone, Debug)]
+pub struct Editor {
+    dscr:   DataScreen,
+    pcol:   PosCol,
+    text:   String,
+    color:  Color,
+}
+impl Editor {
+    pub fn new(dscr: &DataScreen, source: &str, color: Color) -> Self {
+        Self {
+            color:  color,
+            pcol:   PosCol::origin(&dscr.outer.x),
+            text:   source.into(),
+            dscr:   dscr.clone(),
+        }
+    }
+    pub fn resize(&mut self, dscr: &DataScreen) {
+        self.dscr = dscr.clone();
+    }
+    pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
+        stdout.queue(cursor::Hide)?;
+        let text = {
+            let (a, b) = 
+                self.pcol.data_range(
+                    &self.dscr.outer.x, 
+                    self.text.len());
+            let a = self.text.ceil_char_boundary(a);
+            let b = self.text.floor_char_boundary(b);
+            &self.text[a..b]
+        };
+        stdout
+            .queue(MoveTo(self.dscr.outer.x.start, 8))?
+            .queue(SetForegroundColor(self.color))?
+            .queue(Print(text))?
+            .queue(MoveTo(self.pcol.cursor, 8))?
+            .queue(cursor::Show)?
+            .flush()
+    }
+    pub fn get_text(&self) -> String {
+        self.text.clone()
+    }
+    pub fn move_left(&mut self, step: u16) -> bool {
+        self.pcol.move_backward(&self.dscr.get_x_rng(), step)
+    }
+    pub fn move_right(&mut self, step: u16) -> bool {
+        self.pcol.move_forward(&self.dscr.get_x_rng(), self.text.len(), step)
+    }
+    pub fn delete(&mut self) -> bool {
+        let idx = self.pcol.data_idx(&self.dscr.outer.x);
+        if idx >= self.text.len() || self.text.len() == 0 {
+            return false
+        }
+        self.text.remove(idx);
+        if self.pcol.cursor + 1 != self.dscr.outer.x.end {
+            self.pcol.move_forward(&self.dscr.get_x_rng(), self.text.len(), 1);
+        }
+        true
+    }
+    pub fn backspace(&mut self) -> bool {
+        if self.text.len() == 0 {
+            return false
+        }
+        let idx = self.pcol.data_idx(&self.dscr.outer.x);
+        self.pcol.move_backward(&self.dscr.get_x_rng(), 1);
+        self.text.remove(idx);
+        if self.pcol.cursor + 1 != self.dscr.outer.x.end {
+            self.pcol.move_forward(&self.dscr.get_x_rng(), self.text.len(), 1);
+        }
+        true
+    }
+    pub fn insert(&mut self, c: char) -> bool {
+        let idx = self.pcol.data_idx(&self.dscr.outer.x) + 1;
+        if idx >= self.text.len() || self.text.len() == 0 {
+            self.text.push(c);
+        } else {
+            self.text.insert(idx, c);
+        }
+        self.pcol.move_forward(&self.dscr.get_x_rng(), self.text.len(), 1);
+        true
+    }
+}
