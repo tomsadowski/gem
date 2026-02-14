@@ -20,11 +20,11 @@ use std::{
 use url::{Url};
 
 pub struct Tab {
-    pub url:    String,
     pub pos:    Pos,
     pub scr:    Screen,
-    pub doc:    Option<GemDoc>,
+    pub url:    String,
     pub dlg:    Option<(ViewMsg, Dialog)>,
+    pub doc:    Option<GemDoc>,
     pub ddoc:   DisplayDoc,
 } 
 impl Tab {
@@ -35,11 +35,12 @@ impl Tab {
         let ddoc = Self::get_ddoc(scr, &doc, cfg);
         let pos = Pos::origin(&scr.outer);
         let scr = scr.clone();
-        Self {
+        let tab = Self {
             url:  String::from(url_str),
             dlg:  None,
             ddoc, doc, pos, scr,
-        }
+        };
+        tab
     }
 
     // resize ddoc and dialog
@@ -161,14 +162,13 @@ impl Tab {
         } else {None}
     }
 
-    pub fn update_cfg(&mut self, scr: &Screen, cfg: &Config) {
-        self.scr = scr.clone();
+    pub fn update_cfg(&mut self, cfg: &Config) {
         self.ddoc = Self::get_ddoc(&self.scr, &self.doc, cfg);
     }
 
     // show dialog if there's a dialog, otherwise show ddoc
     pub fn view(&mut self, writer: &mut impl Write) -> io::Result<()> {
-        if let Some((_, d)) = &self.dlg {
+        if let Some((_, d)) = &mut self.dlg {
             d.view(writer)?;
         } else {
             self.ddoc.update_view(&self.pos)?;

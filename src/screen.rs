@@ -71,7 +71,7 @@ impl Rect {
 
     pub fn crop_north(&self, step: u16) -> Self {
         let mut rect = self.clone();
-        if step * 2 < rect.y {
+        if usize::from(step) * 2 < rect.h {
             rect.y += step;
             rect.h -= usize::from(step);
         }
@@ -80,9 +80,7 @@ impl Rect {
 
     pub fn crop_west(&self, step: u16) -> Self {
         let mut rect = self.clone();
-        if usize::from(step) * 2 < 
-            rect.w.saturating_sub(usize::from(rect.x)) 
-        {
+        if usize::from(step) * 2 < rect.w {
             rect.x += step;
             rect.w -= usize::from(step);
         }
@@ -188,9 +186,9 @@ impl Screen {
         writer.queue(MoveTo(self.outer.x, y))?;
         for row in &self.buf {
             if let Ok(c) = std::str::from_utf8(&row) {
+                y += 1;
                 writer.queue(Print(c))?
                     .queue(MoveTo(self.outer.x, y))?;
-                y += 1;
             }
         }
         writer.flush()

@@ -16,7 +16,7 @@ use std::{
 pub struct Editor {
     scr:    Screen,
     pcol:   PosCol,
-    txt:   String,
+    txt:    String,
     color:  Color,
 }
 impl Editor {

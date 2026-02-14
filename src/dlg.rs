@@ -103,13 +103,13 @@ impl Dialog {
                                         cfg.keys.dialog.no  ),
         }
     }
-    pub fn view(&self, stdout: &mut impl Write) -> io::Result<()> {
+    pub fn view(&mut self, stdout: &mut impl Write) -> io::Result<()> {
         stdout
             .queue(cursor::MoveTo(
                     self.dscr.outer.x().start, 
                     self.dscr.outer.y().start + 4))?
             .queue(Print(&self.prompt))?;
-        match &self.input_type {
+        match &mut self.input_type {
             InputType::Ack(ack) => {
                 stdout.queue(cursor::MoveTo(
                             self.dscr.outer.x().start, 
@@ -123,6 +123,7 @@ impl Dialog {
                     .queue(Print(&format!("|{}| yes |{}| no", yes, no)))?;
             }
             InputType::Text(editor) => {
+                editor.update_view()?;
                 editor.view(stdout)?;
             }
         }
