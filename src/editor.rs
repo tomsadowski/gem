@@ -2,25 +2,22 @@
 
 use crate::{
     pos::{PosCol},
-    screen::{Screen},
+    screen::{Frame, Page},
 };
 use crossterm::{
     QueueableCommand,
     style::{Color, SetForegroundColor, Print},
 };
-use std::{
-    io::{self, Write},
-};
 
 #[derive(Clone)]
 pub struct Editor {
-    scr:    Screen,
+    scr:    Frame,
     pcol:   PosCol,
     txt:    String,
     color:  Color,
 }
 impl Editor {
-    pub fn new(scr: &Screen, txt: &str, color: Color) -> Self {
+    pub fn new(scr: &Frame, txt: &str, color: Color) -> Self {
         Self {
             color:  color,
             pcol:   PosCol::origin(&scr.outer.x()),
@@ -29,21 +26,17 @@ impl Editor {
         }
     }
 
-    pub fn resize(&mut self, scr: &Screen) {
+    pub fn resize(&mut self, scr: &Frame) {
         self.scr = scr.clone();
     }
 
-    pub fn update_view(&mut self) -> io::Result<()> {
+    pub fn get_page(&self) -> Page {
         let scroll = self.pcol.scroll;
-        self.scr.clear();
-        (&mut self.scr.buf[0])
-            .queue(SetForegroundColor(self.color))?
-            .queue(Print(&self.txt[scroll..]))?;
-        Ok(())
-    }
-
-    pub fn view(&self, writer: &mut impl Write) -> io::Result<()> {
-        self.scr.view(writer)
+        let mut page = self.scr.get_page();
+        (&mut page.buf[0])
+            .queue(SetForegroundColor(self.color)).unwrap()
+            .queue(Print(&self.txt[scroll..])).unwrap();
+        page
     }
 
     pub fn get_text(&self) -> String {

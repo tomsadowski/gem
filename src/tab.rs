@@ -5,7 +5,7 @@ use crate::{
     util::{Scheme},
     gem::{GemDoc, GemType},
     reader::{DisplayDoc},
-    screen::{Screen},
+    screen::{Frame},
     pos::{Pos},
     msg::{ViewMsg, InputMsg},
     dlg::{Dialog},
@@ -21,14 +21,14 @@ use url::{Url};
 
 pub struct Tab {
     pub pos:    Pos,
-    pub scr:    Screen,
+    pub scr:    Frame,
     pub url:    String,
     pub dlg:    Option<(ViewMsg, Dialog)>,
     pub doc:    Option<GemDoc>,
     pub ddoc:   DisplayDoc,
 } 
 impl Tab {
-    pub fn init(scr: &Screen, url_str: &str, cfg: &Config) -> Self {
+    pub fn init(scr: &Frame, url_str: &str, cfg: &Config) -> Self {
         let doc = Url::parse(url_str).ok()
             .map(|url| GemDoc::new(&url).ok())
             .flatten();
@@ -44,7 +44,7 @@ impl Tab {
     }
 
     // resize ddoc and dialog
-    pub fn resize(&mut self, scr: &Screen) {
+    pub fn resize(&mut self, scr: &Frame) {
         self.scr = scr.clone();
         self.ddoc.resize(scr);
         if let Some((_, d)) = &mut self.dlg {
@@ -167,18 +167,18 @@ impl Tab {
     }
 
     // show dialog if there's a dialog, otherwise show ddoc
-    pub fn view(&mut self, writer: &mut impl Write) -> io::Result<()> {
-        if let Some((_, d)) = &mut self.dlg {
+    pub fn view(&self, writer: &mut impl Write) -> io::Result<()> {
+        if let Some((_, d)) = &self.dlg {
             d.view(writer)?;
         } else {
-            self.ddoc.update_view(&self.pos)?;
-            self.ddoc.view(writer)?;
+            self.ddoc.get_page(Some(&self.pos)).view(writer)?;
+            writer.queue(cursor::MoveTo
+                (self.pos.x.cursor, self.pos.y.cursor))?;
         }
-        writer.queue(cursor::MoveTo(self.pos.x.cursor, self.pos.y.cursor))?;
         Ok(())
     }
 
-    fn get_ddoc(scr: &Screen, doc: &Option<GemDoc>, cfg: &Config) 
+    fn get_ddoc(scr: &Frame, doc: &Option<GemDoc>, cfg: &Config) 
         -> DisplayDoc 
     {
         let txt = if let Some(gemdoc) = &doc {

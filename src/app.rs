@@ -2,9 +2,8 @@
 
 use crate::{
     cfg::{self, Config},
-    screen::{Screen, Rect},
+    screen::{Frame, Rect},
     msg::{Focus, ViewMsg},
-    pos::{Pos},
     reader::{DisplayDoc, DisplayText},
     tab::Tab,
 };
@@ -21,9 +20,9 @@ use std::{
 pub struct App {
     pub bg:         Color,
     pub hdr:        DisplayDoc,
-    pub hdr_scr:    Screen,
+    pub hdr_scr:    Frame,
     pub tabs:       Vec<Tab>,
-    pub tab_scr:    Screen,
+    pub tab_scr:    Frame,
     pub idx:        usize,
     pub cfg_path:   String,
     pub cfg:        Config,
@@ -52,12 +51,12 @@ impl App {
         app
     }
 
-    pub fn view(&mut self, writer: &mut impl Write) -> io::Result<()> { 
+    pub fn view(&self, writer: &mut impl Write) -> io::Result<()> { 
         writer
             .queue(Clear(ClearType::All))?
             .queue(cursor::Hide)?;
 
-        self.hdr.view(writer)?;
+        self.hdr.get_page(None).view(writer)?;
         self.tabs[self.idx].view(writer)?;
 
         writer
@@ -105,7 +104,7 @@ impl App {
         }
     }
 
-    fn get_screens(w: u16, h: u16, cfg: &Config) -> (Screen, Screen) {
+    fn get_screens(w: u16, h: u16, cfg: &Config) -> (Frame, Frame) {
         let x_margin = cfg.format.margin;
         let y_margin = cfg.format.margin;
         let x_scroll = cfg.scroll_at;
@@ -113,8 +112,8 @@ impl App {
         let rect = Rect::new(w, h).crop_x(x_margin).crop_y(y_margin);
         let tab_rect = rect.crop_north(2);
         let hdr_rect = rect.crop_south(h - 2);
-        let tab_scr = Screen::new(&tab_rect, x_scroll, y_scroll);
-        let hdr_scr = Screen::new(&hdr_rect, 0, 0);
+        let tab_scr = Frame::new(&tab_rect, x_scroll, y_scroll);
+        let hdr_scr = Frame::new(&hdr_rect, 0, 0);
         (hdr_scr, tab_scr)
     }
 
@@ -181,7 +180,6 @@ impl App {
             DisplayText::new(
                 &String::from("-").repeat(width), color, false)];
         self.hdr = DisplayDoc::new(vec, &self.hdr_scr);
-        self.hdr.update_view(&Pos::origin(&self.hdr_scr.outer)).unwrap();
     }
 
     fn update_cfg(&mut self, cfg: Config) {

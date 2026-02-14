@@ -2,7 +2,7 @@
 
 use crate::{
     util::{u16_or_0},
-    screen::{Rect, Screen, ScreenRange, Range16},
+    screen::{Rect, Frame, ScreenRange, Range16},
     reader::{TextDim},
 };
 use std::{
@@ -204,11 +204,11 @@ impl Pos {
         self.y.clone()
     }
 
-    pub fn move_left(&mut self, scr: &Screen, step: u16) -> bool {
+    pub fn move_left(&mut self, scr: &Frame, step: u16) -> bool {
         self.x.move_backward(&scr.x(), step)
     }
 
-    pub fn move_right<T>(&mut self, scr: &Screen, data: &T, step: u16) -> bool
+    pub fn move_right<T>(&mut self, scr: &Frame, data: &T, step: u16) -> bool
     where T: TextDim
     {
         let idx = self.y.data_idx(&scr.outer.y());
@@ -218,7 +218,7 @@ impl Pos {
         }
     }
 
-    pub fn move_up<T>(&mut self, scr: &Screen, data: &T, step: u16) -> bool
+    pub fn move_up<T>(&mut self, scr: &Frame, data: &T, step: u16) -> bool
     where T: TextDim
     {
         if self.y.move_backward(&scr.y(), step) {
@@ -226,7 +226,7 @@ impl Pos {
         } else {false}
     }
 
-    pub fn move_down<T>(&mut self, scr: &Screen, data: &T, step: u16) -> bool
+    pub fn move_down<T>(&mut self, scr: &Frame, data: &T, step: u16) -> bool
     where T: TextDim
     {
         if self.y.move_forward(&scr.y(), data.y_len(), step) {
@@ -234,7 +234,7 @@ impl Pos {
         } else {false}
     }
 
-    pub fn move_into_x<T>(&mut self, scr: &Screen, data: &T) 
+    pub fn move_into_x<T>(&mut self, scr: &Frame, data: &T) 
     where T: TextDim
     {
         let idx = {
@@ -245,7 +245,7 @@ impl Pos {
         data.x_len(idx).inspect(|d| self.x.move_into(&scr.x(), *d));
     }
 
-    pub fn move_into_y(&mut self, scr: &Screen, data: &Vec<usize>) {
+    pub fn move_into_y(&mut self, scr: &Frame, data: &Vec<usize>) {
         self.y.move_into(&scr.y(), data.len());
     }
 }

@@ -86,6 +86,10 @@ impl Rect {
         }
         rect
     }
+
+    pub fn get_page(&self) -> Page {
+        Page::new(self)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -142,17 +146,15 @@ impl ScreenRange {
 }
 
 #[derive(Clone)]
-pub struct Screen {
+pub struct Frame {
     pub inner:  Rect, 
     pub outer:  Rect,
-    pub buf:    Vec<Vec<u8>>
 } 
-impl Screen {
-    pub fn new(rect: &Rect, x: u16, y: u16) -> Screen {
+impl Frame {
+    pub fn new(rect: &Rect, x: u16, y: u16) -> Frame {
         let outer = rect.clone();
         let inner = outer.crop_x(x).crop_y(y);
         Self {
-            buf: vec![vec![u8::MIN; outer.w]; outer.h], 
             outer, inner,
         }
     }
@@ -171,24 +173,31 @@ impl Screen {
         }
     }
 
-    pub fn clear(&mut self) {
-        self.buf = vec![vec![u8::MIN; self.outer.w]; self.outer.h];
+    pub fn get_page(&self) -> Page {
+        Page::new(&self.outer)
     }
+}
 
-    pub fn resize(&mut self, w: usize, h: usize, x: u16, y: u16) {
-        self.buf = vec![vec![u8::MIN; w]; h];
-        self.outer.resize(w, h);
-        self.inner = self.outer.crop_x(x).crop_y(y);
+#[derive(Clone)]
+pub struct Page {
+    pub rect: Rect,
+    pub buf:  Vec<Vec<u8>>
+} 
+impl Page {
+    pub fn new(rect: &Rect) -> Page {
+        Self {
+            buf: vec![vec![u8::MIN; rect.w]; rect.h], 
+            rect: rect.clone(),
+        }
     }
-
     pub fn view(&self, writer: &mut impl Write) -> io::Result<()> {
-        let mut y = self.outer.y;
-        writer.queue(MoveTo(self.outer.x, y))?;
+        let mut y = self.rect.y;
+        writer.queue(MoveTo(self.rect.x, y))?;
         for row in &self.buf {
             if let Ok(c) = std::str::from_utf8(&row) {
                 y += 1;
                 writer.queue(Print(c))?
-                    .queue(MoveTo(self.outer.x, y))?;
+                    .queue(MoveTo(self.rect.x, y))?;
             }
         }
         writer.flush()

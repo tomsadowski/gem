@@ -1,16 +1,13 @@
 // src/reader.rs
 
 use crate::{
-    screen::{Screen},
+    screen::{Frame, Page},
     pos::{Pos},
     util::{wrap},
 };
 use crossterm::{
     QueueableCommand,
     style::{Color, SetForegroundColor, Print},
-};
-use std::{
-    io::{self, Write},
 };
 
 pub struct DisplayText {
@@ -33,7 +30,7 @@ pub trait TextDim {
 }
 
 pub struct DisplayDoc {
-    pub scr: Screen,
+    pub scr: Frame,
     pub src: Vec<DisplayText>,
     pub txt: Vec<(usize, String)>,
 } 
@@ -47,16 +44,16 @@ impl TextDim for DisplayDoc {
     }
 }
 impl DisplayDoc {
-    pub fn new(src: Vec<DisplayText>, scr: &Screen) -> Self {
+    pub fn new(src: Vec<DisplayText>, scr: &Frame) -> Self {
         let txt = wrap_list(&src, scr.outer.w);
         Self {txt, src, scr: scr.clone()}
     }
 
-    pub fn default(scr: &Screen) -> Self {
+    pub fn default(scr: &Frame) -> Self {
         Self {src: vec![], txt: vec![], scr: scr.clone()}
     }
 
-    pub fn resize(&mut self, scr: &Screen) {
+    pub fn resize(&mut self, scr: &Frame) {
         self.scr = scr.clone();
         self.txt = wrap_list(&self.src, self.scr.outer.w);
     }
@@ -66,20 +63,16 @@ impl DisplayDoc {
         self.txt.get(idx).map(|(u, _)| *u)
     }
 
-    pub fn update_view(&mut self, pos: &Pos) -> io::Result<()> {
-        let scroll = pos.y().scroll;
-        self.scr.clear();
+    pub fn get_page(&self, pos: Option<&Pos>) -> Page {
+        let scroll = if let Some(p) = pos {p.y().scroll} else {0};
+        let mut page = self.scr.get_page();
         for ((idx, txt), line) in 
-            (&self.txt[scroll..]).iter().zip(&mut self.scr.buf) 
+            (&self.txt[scroll..]).iter().zip(&mut page.buf) 
         {
-            line.queue(SetForegroundColor(self.src[*idx].color))?
-                .queue(Print(txt))?;
+            line.queue(SetForegroundColor(self.src[*idx].color)).unwrap()
+                .queue(Print(txt)).unwrap();
         }
-        Ok(())
-    }
-
-    pub fn view(&self, writer: &mut impl Write) -> io::Result<()> {
-        self.scr.view(writer)
+        page
     }
 } 
 pub fn wrap_list(lines: &Vec<DisplayText>, w: usize) -> Vec<(usize, String)> {

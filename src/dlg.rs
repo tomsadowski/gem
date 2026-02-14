@@ -2,12 +2,12 @@
 
 use crate::{
     cfg::{Config},
-    screen::{Screen},
+    screen::{Frame},
     editor::{Editor},
     msg::{InputMsg},
 };
 use crossterm::{
-    QueueableCommand, cursor,
+    QueueableCommand,
     style::{Print},
     event::{KeyCode},
 };
@@ -75,12 +75,12 @@ impl InputType {
 }
 #[derive(Clone)]
 pub struct Dialog {
-    dscr:       Screen,
+    dscr:       Frame,
     prompt:     String,
     input_type: InputType,
 } 
 impl Dialog {
-    pub fn text(dscr: &Screen, cfg: &Config, prompt: &str) -> Self {
+    pub fn text(dscr: &Frame, cfg: &Config, prompt: &str) -> Self {
         Self {
             dscr:       dscr.clone(),
             prompt:     prompt.into(), 
@@ -88,14 +88,14 @@ impl Dialog {
                 Editor::new(dscr, "", cfg.colors.get_dialog())),
         }
     }
-    pub fn ack(dscr: &Screen, cfg: &Config, prompt: &str) -> Self {
+    pub fn ack(dscr: &Frame, cfg: &Config, prompt: &str) -> Self {
         Self {
             dscr:       dscr.clone(),
             prompt:     prompt.into(), 
             input_type: InputType::Ack(cfg.keys.dialog.ack),
         }
     }
-    pub fn ask(dscr: &Screen, cfg: &Config, prompt: &str ) -> Self {
+    pub fn ask(dscr: &Frame, cfg: &Config, prompt: &str ) -> Self {
         Self {
             dscr:       dscr.clone(),
             prompt:     prompt.into(), 
@@ -103,33 +103,27 @@ impl Dialog {
                                         cfg.keys.dialog.no  ),
         }
     }
-    pub fn view(&mut self, stdout: &mut impl Write) -> io::Result<()> {
-        stdout
-            .queue(cursor::MoveTo(
-                    self.dscr.outer.x().start, 
-                    self.dscr.outer.y().start + 4))?
-            .queue(Print(&self.prompt))?;
-        match &mut self.input_type {
+    pub fn view(&self, writer: &mut impl Write) -> io::Result<()> {
+        let mut page = self.dscr.get_page();
+        (&mut page.buf[0]).queue(Print(&self.prompt))?;
+        match &self.input_type {
             InputType::Ack(ack) => {
-                stdout.queue(cursor::MoveTo(
-                            self.dscr.outer.x().start, 
-                            self.dscr.outer.y().start + 8))?
+                (&mut page.buf[3])
                     .queue(Print(&format!("|{}| acknowledge", ack)))?;
             }
             InputType::Ask(yes, no) => {
-                stdout.queue(cursor::MoveTo(
-                            self.dscr.outer.x().start, 
-                            self.dscr.outer.y().start + 8))?
+                (&mut page.buf[3])
                     .queue(Print(&format!("|{}| yes |{}| no", yes, no)))?;
             }
             InputType::Text(editor) => {
-                editor.update_view()?;
-                editor.view(stdout)?;
+                let mut epage = editor.get_page();
+                epage.rect = epage.rect.crop_north(5);
+                epage.view(writer)?;
             }
         }
-        Ok(())
+        page.view(writer)
     }
-    pub fn resize(&mut self, dscr: &Screen) {
+    pub fn resize(&mut self, dscr: &Frame) {
         self.dscr = dscr.clone();
         match &mut self.input_type {
             InputType::Text(editor) => {
