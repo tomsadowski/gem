@@ -2,7 +2,7 @@
 
 use crate::{
     screen::{Frame, Page},
-    pos::{Pos},
+    pos::{Pos, TextDim},
     util::{wrap},
 };
 use crossterm::{
@@ -24,13 +24,8 @@ impl DisplayText {
     }
 }
 
-pub trait TextDim {
-    fn y_len(&self) -> usize;
-    fn x_len(&self, y: usize) -> Option<usize>;
-}
-
 pub struct DisplayDoc {
-    pub scr: Frame,
+    pub frame: Frame,
     pub src: Vec<DisplayText>,
     pub txt: Vec<(usize, String)>,
 } 
@@ -44,28 +39,31 @@ impl TextDim for DisplayDoc {
     }
 }
 impl DisplayDoc {
-    pub fn new(src: Vec<DisplayText>, scr: &Frame) -> Self {
-        let txt = wrap_list(&src, scr.outer.w);
-        Self {txt, src, scr: scr.clone()}
+    pub fn new(src: Vec<DisplayText>, frame: &Frame) -> Self {
+        let txt = wrap_list(&src, frame.outer.w);
+        Self {txt, src, frame: frame.clone()}
     }
 
-    pub fn default(scr: &Frame) -> Self {
-        Self {src: vec![], txt: vec![], scr: scr.clone()}
+    pub fn default(frame: &Frame) -> Self {
+        Self {src: vec![], txt: vec![], frame: frame.clone()}
     }
 
-    pub fn resize(&mut self, scr: &Frame) {
-        self.scr = scr.clone();
-        self.txt = wrap_list(&self.src, self.scr.outer.w);
+    pub fn resize(&mut self, frame: &Frame) {
+        self.frame = frame.clone();
+        self.txt = wrap_list(&self.src, self.frame.outer.w);
     }
 
     pub fn select(&self, pos: &Pos) -> Option<usize> {
-        let idx = pos.y().data_idx(&self.scr.outer.y());
+        let idx = pos.y().data_idx(&self.frame.outer.y());
         self.txt.get(idx).map(|(u, _)| *u)
     }
 
     pub fn get_page(&self, pos: Option<&Pos>) -> Page {
-        let scroll = if let Some(p) = pos {p.y().scroll} else {0};
-        let mut page = self.scr.get_page();
+        let scroll = 
+            if let Some(p) = pos {
+                p.y().scroll
+            } else {0};
+        let mut page = self.frame.get_page();
         for ((idx, txt), line) in 
             (&self.txt[scroll..]).iter().zip(&mut page.buf) 
         {

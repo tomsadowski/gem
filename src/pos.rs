@@ -3,11 +3,15 @@
 use crate::{
     util::{u16_or_0},
     screen::{Rect, Frame, ScreenRange, Range16},
-    reader::{TextDim},
 };
 use std::{
     cmp::min,
 };
+
+pub trait TextDim {
+    fn y_len(&self) -> usize;
+    fn x_len(&self, y: usize) -> Option<usize>;
+}
 
 #[derive(Clone, Debug)]
 pub struct PosCol {

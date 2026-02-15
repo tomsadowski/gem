@@ -5,6 +5,7 @@ use crate::{
 };
 use crossterm::{
     QueueableCommand,
+    terminal::{Clear, ClearType},
     cursor::{MoveTo},
     style::{Print},
 };
@@ -211,11 +212,13 @@ impl Page {
         writer.queue(MoveTo(self.rect.x, y))?;
         for row in &self.buf {
             if let Ok(c) = std::str::from_utf8(&row) {
+                writer
+                    .queue(MoveTo(self.rect.x, y))?
+                    .queue(Clear(ClearType::CurrentLine))?
+                    .queue(Print(c))?;
                 y += 1;
-                writer.queue(Print(c))?
-                    .queue(MoveTo(self.rect.x, y))?;
             }
         }
-        writer.flush()
+        Ok(())
     }
 }

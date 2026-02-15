@@ -3,11 +3,13 @@
 use crate::{
     cfg::{Config},
     screen::{Frame},
+    pos::{Pos},
     editor::{Editor},
     msg::{InputMsg},
 };
 use crossterm::{
     QueueableCommand,
+    cursor::{MoveTo},
     style::{Print},
     event::{KeyCode},
 };
@@ -19,30 +21,110 @@ use std::{
 pub enum InputType {
     Ack(char),
     Ask(char, char),
-    Text(Editor),
+    Text(Editor, Pos),
 }
-impl InputType {
+#[derive(Clone)]
+pub struct Dialog {
+    pub prompt_frame:   Frame,
+    pub input_frame:    Frame,
+    pub prompt:         String,
+    pub input_type:     InputType,
+} 
+impl Dialog {
+    fn new(frame: &Frame, prompt: &str) -> Self {
+        Self {
+            prompt_frame:   frame.row(3),
+            input_frame:    frame.row(6),
+            prompt:         prompt.into(), 
+            input_type:     InputType::Ack('a'),
+        }
+    }
+
+    pub fn text(frame: &Frame, cfg: &Config, prompt: &str) -> Self {
+        let mut dlg     = Self::new(frame, prompt);
+        let pos         = Pos::origin(&dlg.input_frame.outer);
+        let editor      = Editor::new("", cfg.colors.get_dialog());
+        dlg.input_type  = InputType::Text(editor, pos);
+        dlg
+    }
+
+    pub fn ack(frame: &Frame, cfg: &Config, prompt: &str) -> Self {
+        let mut dlg     = Self::new(frame, prompt);
+        dlg.input_type  = InputType::Ack(cfg.keys.dialog.ack);
+        dlg
+    }
+
+    pub fn ask(frame: &Frame, cfg: &Config, prompt: &str ) -> Self {
+        let mut dlg     = Self::new(frame, prompt);
+        dlg.input_type  = InputType::Ask
+            (cfg.keys.dialog.yes, cfg.keys.dialog.no);
+        dlg
+    }
+
+    pub fn view(&self, writer: &mut impl Write) -> io::Result<()> {
+        let mut prompt_page = self.prompt_frame.get_page();
+        let mut input_page  = self.input_frame.get_page();
+        (prompt_page.buf[0]).queue(Print(&self.prompt))?;
+        match &self.input_type {
+            InputType::Ack(ack) => {
+                (input_page.buf[0])
+                    .queue(Print(&format!("|{}| acknowledge", ack)))?;
+                prompt_page.view(writer)?;
+                input_page.view(writer)?;
+            }
+            InputType::Ask(yes, no) => {
+                (input_page.buf[0])
+                    .queue(Print(&format!("|{}| yes |{}| no", yes, no)))?;
+                prompt_page.view(writer)?;
+                input_page.view(writer)?;
+            }
+            InputType::Text(editor, pos) => {
+                input_page = editor.get_page(&self.input_frame, &pos);
+                prompt_page.view(writer)?;
+                input_page.view(writer)?;
+                writer.queue(MoveTo(pos.x.cursor, pos.y.cursor))?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn resize(&mut self, frame: &Frame) {
+        self.prompt_frame   = frame.row(3);
+        self.input_frame    = frame.row(6);
+    }
+
     pub fn update(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
-        match self {
-            InputType::Text(editor) => {
+        match keycode {
+            KeyCode::Esc => Some(InputMsg::Cancel),
+            _ => self.update_input(keycode)
+        }
+    }
+
+    fn update_input(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
+        match &mut self.input_type {
+            InputType::Text(editor, pos) => {
                 match keycode {
                     KeyCode::Enter => {
-                        Some(InputMsg::Text(editor.get_text()))
+                        Some(InputMsg::Text(editor.txt.clone()))
                     }
                     KeyCode::Left => {
-                        editor.move_left(1).then_some(InputMsg::Default)
+                        pos.move_left(&self.input_frame, 1)
+                            .then_some(InputMsg::Default)
                     }
                     KeyCode::Right => {
-                        editor.move_right(1).then_some(InputMsg::Default)
+                        pos.move_right(&self.input_frame, editor, 1)
+                            .then_some(InputMsg::Default)
                     }
                     KeyCode::Delete => {
-                        editor.delete().then_some(InputMsg::Default)
+                        editor.delete(&self.input_frame, pos)
+                            .then_some(InputMsg::Default)
                     }
                     KeyCode::Backspace => {
-                        editor.backspace().then_some(InputMsg::Default)
+                        editor.backspace(&self.input_frame, pos)
+                            .then_some(InputMsg::Default)
                     }
                     KeyCode::Char(c) => {
-                        editor.insert(*c);
+                        editor.insert(&self.input_frame, pos, *c);
                         Some(InputMsg::Default)
                     }
                     _ => None
@@ -70,72 +152,6 @@ impl InputType {
                     _ => None,
                 }
             }
-        }
-    }
-}
-#[derive(Clone)]
-pub struct Dialog {
-    dscr:       Frame,
-    prompt:     String,
-    input_type: InputType,
-} 
-impl Dialog {
-    pub fn text(dscr: &Frame, cfg: &Config, prompt: &str) -> Self {
-        Self {
-            dscr:       dscr.clone(),
-            prompt:     prompt.into(), 
-            input_type: InputType::Text(
-                Editor::new(dscr, "", cfg.colors.get_dialog())),
-        }
-    }
-    pub fn ack(dscr: &Frame, cfg: &Config, prompt: &str) -> Self {
-        Self {
-            dscr:       dscr.clone(),
-            prompt:     prompt.into(), 
-            input_type: InputType::Ack(cfg.keys.dialog.ack),
-        }
-    }
-    pub fn ask(dscr: &Frame, cfg: &Config, prompt: &str ) -> Self {
-        Self {
-            dscr:       dscr.clone(),
-            prompt:     prompt.into(), 
-            input_type: InputType::Ask( cfg.keys.dialog.yes, 
-                                        cfg.keys.dialog.no  ),
-        }
-    }
-    pub fn view(&self, writer: &mut impl Write) -> io::Result<()> {
-        let mut page = self.dscr.get_page();
-        (&mut page.buf[0]).queue(Print(&self.prompt))?;
-        match &self.input_type {
-            InputType::Ack(ack) => {
-                (&mut page.buf[3])
-                    .queue(Print(&format!("|{}| acknowledge", ack)))?;
-            }
-            InputType::Ask(yes, no) => {
-                (&mut page.buf[3])
-                    .queue(Print(&format!("|{}| yes |{}| no", yes, no)))?;
-            }
-            InputType::Text(editor) => {
-                let mut epage = editor.get_page();
-                epage.rect = epage.rect.crop_north(5);
-                epage.view(writer)?;
-            }
-        }
-        page.view(writer)
-    }
-    pub fn resize(&mut self, dscr: &Frame) {
-        self.dscr = dscr.clone();
-        match &mut self.input_type {
-            InputType::Text(editor) => {
-                editor.resize(&self.dscr)
-            }
-            _ => {}
-        }
-    }
-    pub fn update(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
-        match keycode {
-            KeyCode::Esc => Some(InputMsg::Cancel),
-            _ => self.input_type.update(keycode)
         }
     }
 }
