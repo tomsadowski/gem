@@ -27,6 +27,15 @@ impl Rect {
         Self {x: 0, y: 0, w, h}
     }
 
+    pub fn row(&self, r: u16) -> Rect {
+        Rect {
+            x: self.x, 
+            y: self.y + r,
+            h: 1,
+            w: self.w
+        }
+    }
+
     pub fn x(&self) -> Range16 {
         Range16 {
             start: self.x, end: self.x + u16_or_0(self.w)
@@ -158,6 +167,13 @@ impl Frame {
             outer, inner,
         }
     }
+
+    pub fn row(&self, r: u16) -> Frame {
+        let inner = self.inner.row(r);
+        let outer = self.outer.row(r);
+        Frame {inner, outer}
+    }
+
 
     pub fn x(&self) -> ScreenRange {
         ScreenRange {
