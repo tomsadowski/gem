@@ -22,7 +22,7 @@ use url::{Url};
 pub struct Tab {
     pub pos:    Pos,
     pub frame:  Frame,
-    pub name:    String,
+    pub name:   String,
     pub dlg:    Option<(ViewMsg, Dialog)>,
     pub doc:    Option<GemDoc>,
     pub ddoc:   Doc,
@@ -33,21 +33,18 @@ impl Tab {
         self.dlg = match gemdoc.status {
             Status::InputExpected |
             Status::InputExpectedSensitive => {
-                let dlg = 
-                    Dialog::text(&self.frame, cfg, &gemdoc.msg);
+                let dlg = Dialog::text(&self.frame, cfg, &gemdoc.msg);
                 Some((ViewMsg::Reply, dlg))
             }
             Status::RedirectTemporary |
             Status::RedirectPermanent => {
-                let dlg = 
-                    Dialog::ask(&self.frame, cfg, &gemdoc.msg);
+                let dlg = Dialog::ask(&self.frame, cfg, &gemdoc.msg);
                 Some((ViewMsg::Go(gemdoc.msg.clone()), dlg))
             }
             Status::CertRequiredClient |
             Status::CertRequiredTransient |
             Status::CertRequiredAuthorized => {
-                let dlg = 
-                    Dialog::ack(&self.frame, cfg, &gemdoc.msg);
+                let dlg = Dialog::ack(&self.frame, cfg, &gemdoc.msg);
                 Some((ViewMsg::Default, dlg))
             }
             _ => {None}
@@ -214,8 +211,8 @@ impl Tab {
         } else {None}
     }
 
-    pub fn update_cfg(&mut self, cfg: &Config) {
-        self.ddoc = Self::get_ddoc(&self.frame, &self.doc, cfg);
+    pub fn update_cfg(&mut self, _cfg: &Config) {
+//        self.ddoc = Self::get_ddoc(&self.frame, &self.doc, cfg);
     }
 
     // show dialog if there's a dialog, otherwise show ddoc
@@ -228,19 +225,5 @@ impl Tab {
                 (self.pos.x.cursor, self.pos.y.cursor))?;
         }
         Ok(())
-    }
-
-    fn get_ddoc(frame: &Frame, doc: &Option<GemDoc>, cfg: &Config) 
-        -> Doc 
-    {
-        let txt = if let Some(gemdoc) = &doc {
-            cfg.colors.from_gem_doc(&gemdoc) 
-        } else {
-            vec![
-                cfg.colors.from_gem_type(
-                    &GemType::Text, 
-                    "Nothing to display")]
-        };
-        Doc::new(txt, frame)
     }
 }

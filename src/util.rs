@@ -116,21 +116,20 @@ pub fn get_data(url: &Url) -> Result<(String, String), String> {
     stream.write_all(format!("{}\r\n", url).as_bytes())
         .map_err(|e| e.to_string())?;
     
-    // initialize response vector
+    // read into response vector
     let mut response = vec![];
-
-    // load response vector from stream
     stream.read_to_end(&mut response).map_err(|e| e.to_string())?;
 
-    // find clrf in response vector
-    let Some(clrf_idx) = find_clrf(&response) 
-        else {return Err("Could not find the clrf".to_string())};
-
     // separate response from content
-    let content = response.split_off(clrf_idx + 2);
+    let clrf = b"\r\n";
+    let content = response
+        .windows(clrf.len())
+        .position(|window| window == clrf)
+        .map(|idx| response.split_off(idx + 2))
+        .map(|content| String::from_utf8_lossy(&content).to_string())
+        .unwrap_or(String::from("no content"));
 
     // convert to String
-    let content  = String::from_utf8_lossy(&content).to_string();
     let response = String::from_utf8_lossy(&response).to_string();
 
     Ok((response, content))
