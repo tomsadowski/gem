@@ -2,7 +2,7 @@
 
 use crate::{
     gem::{GemDoc, GemType},
-    reader::{DisplayText},
+    text::{Text},
 };
 use crossterm::{
     style::{Color},
@@ -160,12 +160,12 @@ impl ColorParams {
     pub fn get_background(&self) -> Color {
         let (r, g, b) = self.background; Color::Rgb {r, g, b}
     }
-    pub fn from_gem_doc(&self, doc: &GemDoc) -> Vec<DisplayText> {
+    pub fn from_gem_doc(&self, doc: &GemDoc) -> Vec<Text> {
         doc.doc.iter()
             .map(|(gem_type, text)| self.from_gem_type(gem_type, &text))
             .collect()
     }
-    pub fn from_gem_type(&self, gem: &GemType, text: &str) -> DisplayText {
+    pub fn from_gem_type(&self, gem: &GemType, text: &str) -> Text {
         let ((r, g, b), wrap) = match gem {
             GemType::HeadingOne     => (self.heading1, true),
             GemType::HeadingTwo     => (self.heading2, true),
@@ -177,6 +177,6 @@ impl ColorParams {
             GemType::Link(_, _)     => (self.link, true),
             GemType::BadLink(_)     => (self.badlink, true),
         };
-        DisplayText::new(text, Color::Rgb {r, g, b}, wrap)
+        Text::new(text, Color::Rgb {r, g, b}, wrap)
     }
 }

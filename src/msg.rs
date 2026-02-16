@@ -11,6 +11,7 @@ pub enum ViewMsg {
     CycleRight, 
     DeleteMe, 
     NewTab, 
+    Reply,
     Go(String), 
 }
 #[derive(Clone, Debug)]

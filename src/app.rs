@@ -4,7 +4,7 @@ use crate::{
     cfg::{self, Config},
     screen::{Frame, Rect},
     msg::{Focus, ViewMsg},
-    reader::{DisplayDoc, DisplayText},
+    text::{Doc, Text},
     tab::Tab,
 };
 use crossterm::{
@@ -19,7 +19,7 @@ use std::{
 
 pub struct App {
     pub bg:         Color,
-    pub hdr:        DisplayDoc,
+    pub hdr:        Doc,
     pub tabs:       Vec<Tab>,
     pub hdr_frame:  Frame,
     pub tab_frame:  Frame,
@@ -42,7 +42,7 @@ impl App {
             quit: false, 
             focus: Focus::Tab,
             idx: 0,
-            hdr: DisplayDoc::default(&hdr_frame),
+            hdr: Doc::default(),
             clr_scr: false,
             hdr_frame, tab_frame,
             tabs,
@@ -60,7 +60,7 @@ impl App {
             writer.queue(Clear(ClearType::All))?;
         }
 
-        self.hdr.get_page(None).view(writer)?;
+        self.hdr.get_page(&self.hdr_frame, None).view(writer)?;
         self.tabs[self.idx].view(writer)?;
 
         writer
@@ -188,10 +188,10 @@ impl App {
         let width = self.hdr_frame.outer.w;
         let color = self.cfg.colors.get_banner();
         let vec = vec![
-            DisplayText::new(&text, color, false),
-            DisplayText::new(
+            Text::new(&text, color, false),
+            Text::new(
                 &String::from("-").repeat(width), color, false)];
-        self.hdr = DisplayDoc::new(vec, &self.hdr_frame);
+        self.hdr = Doc::new(vec, &self.hdr_frame);
     }
 
     fn update_cfg(&mut self, cfg: Config) {

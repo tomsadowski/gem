@@ -15,8 +15,7 @@ impl GemDoc {
     pub fn new(url: &Url) -> Result<Self, String> {
         let (response, content) = get_data(url)
             .map_err(|e| e.to_string())?;
-        let (status, msg) = parse_status(&response)
-            .map_err(|e| e.to_string())?;
+        let (status, msg) = parse_status(&response);
         let doc = match status {
             Status::Success => parse_doc(&content, url),
             _ => {
@@ -71,6 +70,8 @@ pub enum Status {
     CertNotAccepted,         
     FutureCertRejected,      
     ExpiredCertRejected,     
+    Unknown(u8),
+    Junk(String),
 }
 
 pub fn parse_doc(text_str: &str, source: &Url) -> Vec<(GemType, String)> {
@@ -123,36 +124,38 @@ fn parse_formatted(line: &str, source: &Url) -> (GemType, String) {
     return (GemType::Text, line.into())
 }
 
-pub fn parse_status(line: &str) -> Result<(Status, String), String> {
+pub fn parse_status(line: &str) -> (Status, String) {
     let (code_str, msg) = split_whitespace_once(line);
-    let code = code_str.parse::<u8>().map_err(|e| e.to_string())?;
-    let status = get_status(code)?;
-    Ok((status, msg.into()))
+    let status = get_status(code_str);
+    (status, msg.into())
 }
 
-fn get_status(code: u8) -> Result<Status, String> {
-    match code {
-        10 | 12..=19 => Ok(Status::InputExpected),
-        11 =>           Ok(Status::InputExpectedSensitive),
-        20..=29 =>      Ok(Status::Success),
-        30 | 32..=39 => Ok(Status::RedirectTemporary),
-        31 =>           Ok(Status::RedirectPermanent),
-        41 =>           Ok(Status::FailServerUnavailable),
-        40 | 45..=49 => Ok(Status::FailTemporary),
-        42 =>           Ok(Status::FailCGIError),
-        43 =>           Ok(Status::FailProxyError),
-        44 =>           Ok(Status::FailSlowDown),
-        50 | 54..=58 => Ok(Status::FailPermanent),
-        51 =>           Ok(Status::FailNotFound),
-        52 =>           Ok(Status::FailGone),
-        53 =>           Ok(Status::FailProxyRequestRefused),
-        59 =>           Ok(Status::FailBadRequest),
-        60 | 66..=69 => Ok(Status::CertRequiredClient),
-        61 =>           Ok(Status::CertRequiredTransient),
-        62 =>           Ok(Status::CertRequiredAuthorized),
-        63 =>           Ok(Status::CertNotAccepted),
-        64 =>           Ok(Status::FutureCertRejected),
-        65 =>           Ok(Status::ExpiredCertRejected),
-        _ =>            Err(format!("invalid status number: {}", code)),
+fn get_status(code_str: &str) -> Status {
+    match code_str.parse::<u8>().map_err(|e| e.to_string()) {
+        Ok(u) => match u {
+            10 | 12..=19 => Status::InputExpected,
+            11 =>           Status::InputExpectedSensitive,
+            20..=29 =>      Status::Success,
+            30 | 32..=39 => Status::RedirectTemporary,
+            31 =>           Status::RedirectPermanent,
+            41 =>           Status::FailServerUnavailable,
+            40 | 45..=49 => Status::FailTemporary,
+            42 =>           Status::FailCGIError,
+            43 =>           Status::FailProxyError,
+            44 =>           Status::FailSlowDown,
+            50 | 54..=58 => Status::FailPermanent,
+            51 =>           Status::FailNotFound,
+            52 =>           Status::FailGone,
+            53 =>           Status::FailProxyRequestRefused,
+            59 =>           Status::FailBadRequest,
+            60 | 66..=69 => Status::CertRequiredClient,
+            61 =>           Status::CertRequiredTransient,
+            62 =>           Status::CertRequiredAuthorized,
+            63 =>           Status::CertNotAccepted,
+            64 =>           Status::FutureCertRejected,
+            65 =>           Status::ExpiredCertRejected,
+            u =>            Status::Unknown(u),
+        } 
+        Err(e) => Status::Junk(e.to_string())
     }
 }

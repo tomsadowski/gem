@@ -4,7 +4,7 @@ use crate::{
     cfg::{Config},
     screen::{Frame},
     pos::{Pos},
-    editor::{Editor},
+    text::{Editor},
     msg::{InputMsg},
 };
 use crossterm::{
