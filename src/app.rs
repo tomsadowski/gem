@@ -183,8 +183,8 @@ impl App {
     fn update_hdr_text(&mut self) {
         let len = self.tabs.len();
         let idx = self.idx;
-        let url = &self.tabs[idx].url;
-        let text = &format!("{}/{}: {}", idx + 1, len, url);
+        let name = &self.tabs[idx].name;
+        let text = &format!("{}/{}: {}", idx + 1, len, name);
         let width = self.hdr_frame.outer.w;
         let color = self.cfg.colors.get_banner();
         let vec = vec![

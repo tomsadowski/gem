@@ -22,7 +22,7 @@ use url::{Url};
 pub struct Tab {
     pub pos:    Pos,
     pub frame:  Frame,
-    pub url:    String,
+    pub name:    String,
     pub dlg:    Option<(ViewMsg, Dialog)>,
     pub doc:    Option<GemDoc>,
     pub ddoc:   Doc,
@@ -41,7 +41,7 @@ impl Tab {
             Status::RedirectPermanent => {
                 let dlg = 
                     Dialog::ask(&self.frame, cfg, &gemdoc.msg);
-                Some((ViewMsg::NewTab, dlg))
+                Some((ViewMsg::Go(gemdoc.msg.clone()), dlg))
             }
             Status::CertRequiredClient |
             Status::CertRequiredTransient |
@@ -56,15 +56,16 @@ impl Tab {
         self.ddoc = Doc::new(text, &self.frame);
         self.doc = Some(gemdoc);
     }
+
     // display dialog
     fn none_gem_doc(&mut self, cfg: &Config, msg: &str) {
-        let dlg  = Dialog::ack(&self.frame, cfg, msg);
         self.doc = None;
-        self.dlg = Some((ViewMsg::Default, dlg));
+        let dlg  = Dialog::ack(&self.frame, cfg, msg);
+        self.dlg = Some((ViewMsg::DeleteMe, dlg));
     }
-    fn make_request(&mut self, cfg: &Config) {
-        let url = Url::parse(&self.url);
-        match url {
+
+    fn make_request(&mut self, cfg: &Config, url_str: &str) {
+        match Url::parse(url_str) {
             Ok(url) => match GemDoc::new(&url) {
                 Ok(gemdoc) => {
                     self.some_gem_doc(cfg, gemdoc);
@@ -78,18 +79,17 @@ impl Tab {
             }
         }
     }
+
     pub fn init(frame: &Frame, url_str: &str, cfg: &Config) -> Self {
-        let pos = Pos::origin(&frame.outer);
-        let frame = frame.clone();
         let mut tab = Self {
-            url:  url_str.into(),
-            dlg:  None,
-            ddoc: Doc::default(), 
-            doc: None,
-            pos, 
-            frame: frame.clone(),
+            dlg:    None,
+            doc:    None,
+            ddoc:   Doc::default(), 
+            pos:    Pos::origin(&frame.outer),
+            frame:  frame.clone(),
+            name:   url_str.into(),
         };
-        tab.make_request(cfg);
+        tab.make_request(cfg, url_str);
         tab
     }
 

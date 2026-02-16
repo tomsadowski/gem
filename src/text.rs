@@ -59,7 +59,8 @@ impl Doc {
     pub fn get_page(&self, frame: &Frame, pos: Option<&Pos>) -> Page {
         let scroll = 
             if let Some(p) = pos {
-                p.y().scroll
+                // TODO, figure out how not to require this check
+                std::cmp::min(p.y().scroll, self.txt.len() - 1)
             } else {0};
         let mut page = frame.get_page();
         for ((idx, txt), line) in 
