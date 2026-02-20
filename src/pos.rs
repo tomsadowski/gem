@@ -171,13 +171,16 @@ impl PosCol {
                         self.scroll += usize::from(step);
                     } else {
                         let diff = 
-                            u16_or_0(max_scroll.saturating_sub(self.scroll));
+                            u16_or_0(max_scroll
+                            .saturating_sub(self.scroll));
                         step = step.saturating_sub(diff);
                         self.scroll = max_scroll;
                         self.move_forward(dscr, dlen, step);
                     }
                 } else {
-                    let diff = dscr.inner.end.saturating_sub(self.cursor);
+                    let diff = 
+                        dscr.inner.end
+                        .saturating_sub(self.cursor);
                     step = step.saturating_sub(diff);
                     self.cursor = dscr.inner.end;
                     self.move_forward(dscr, dlen, step);
@@ -212,34 +215,61 @@ impl Pos {
         self.x.move_backward(&scr.x(), step)
     }
 
-    pub fn move_right<T>(&mut self, scr: &Frame, data: &T, step: u16) -> bool
-    where T: TextDim
+    pub fn move_right<T>(
+        &mut self, 
+        scr: &Frame, 
+        data: &T, 
+        step: u16
+        ) -> bool
+        where T: TextDim
     {
         let idx = self.y.data_idx(&scr.outer.y());
         match data.x_len(idx) {
-            Some(x_len) => self.x.move_forward(&scr.x(), x_len, step),
-            None => false
+            Some(x_len) => 
+                self.x.move_forward(&scr.x(), x_len, step),
+            None => 
+                false
         }
     }
 
-    pub fn move_up<T>(&mut self, scr: &Frame, data: &T, step: u16) -> bool
-    where T: TextDim
+    pub fn move_up<T>(
+        &mut self, 
+        scr: &Frame, 
+        data: &T, 
+        step: u16
+        ) -> bool
+        where T: TextDim
     {
         if self.y.move_backward(&scr.y(), step) {
-            self.move_into_x(scr, data); true
-        } else {false}
+            self.move_into_x(scr, data); 
+            true
+        } else {
+            false
+        }
     }
 
-    pub fn move_down<T>(&mut self, scr: &Frame, data: &T, step: u16) -> bool
-    where T: TextDim
+    pub fn move_down<T>(
+        &mut self, 
+        scr: &Frame, 
+        data: &T, 
+        step: u16
+        ) -> bool
+        where T: TextDim
     {
         if self.y.move_forward(&scr.y(), data.y_len(), step) {
-            self.move_into_x(scr, data); true
-        } else {false}
+            self.move_into_x(scr, data); 
+            true
+        } else {
+            false
+        }
     }
 
-    pub fn move_into_x<T>(&mut self, scr: &Frame, data: &T) 
-    where T: TextDim
+    pub fn move_into_x<T>(
+        &mut self, 
+        scr: &Frame, 
+        data: &T
+        ) 
+        where T: TextDim
     {
         let idx = {
             let idx1 = self.y.data_idx(&scr.outer.y());

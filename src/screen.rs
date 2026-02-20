@@ -1,18 +1,23 @@
 // src/screen.rs
 
 use crate::{
-    util::{u16_or_0},
+    util,
 };
 use crossterm::{
     QueueableCommand,
     terminal::{Clear, ClearType},
     cursor::{MoveTo},
-    style::{Print},
+    style::{Print, Color, SetForegroundColor},
 };
 use std::{
     io::{self, Write},
     cmp::min,
 };
+
+pub trait Dim {
+    fn w(&self) -> usize;
+    fn h(&self) -> usize;
+}
 
 #[derive(Clone)]
 pub struct Rect {
@@ -20,6 +25,14 @@ pub struct Rect {
     pub y: u16,
     pub w: usize,
     pub h: usize,
+}
+impl Dim for Rect {
+    fn w(&self) -> usize {
+        self.w
+    }
+    fn h(&self) -> usize {
+        self.h
+    }
 }
 impl Rect {
     pub fn new(w: u16, h: u16) -> Self {
@@ -39,13 +52,13 @@ impl Rect {
 
     pub fn x(&self) -> Range16 {
         Range16 {
-            start: self.x, end: self.x + u16_or_0(self.w)
+            start: self.x, end: self.x + util::u16_or_0(self.w)
         }
     }
 
     pub fn y(&self) -> Range16 {
         Range16 {
-            start: self.y, end: self.y + u16_or_0(self.h)
+            start: self.y, end: self.y + util::u16_or_0(self.h)
         }
     }
 
@@ -96,10 +109,6 @@ impl Rect {
         }
         rect
     }
-
-    pub fn get_page(&self) -> Page {
-        Page::new(self)
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -120,7 +129,7 @@ impl Range16 {
     pub fn get_data_end(&self, dlen: usize) -> u16 {
         let data_end = usize::from(self.start) + dlen.saturating_sub(1);
         let scr_end  = usize::from(self.end).saturating_sub(1);
-        u16_or_0(min(data_end, scr_end))
+        util::u16_or_0(min(data_end, scr_end))
     }
 
     pub fn get_max_scroll(&self, dlen: usize) -> usize {
@@ -160,6 +169,14 @@ pub struct Frame {
     pub inner:  Rect, 
     pub outer:  Rect,
 } 
+impl Dim for Frame {
+    fn w(&self) -> usize {
+        self.outer.w
+    }
+    fn h(&self) -> usize {
+        self.outer.h
+    }
+}
 impl Frame {
     pub fn new(rect: &Rect, x: u16, y: u16) -> Frame {
         let outer = rect.clone();
@@ -188,37 +205,5 @@ impl Frame {
             inner: self.inner.y(), 
             outer: self.outer.y()
         }
-    }
-
-    pub fn get_page(&self) -> Page {
-        Page::new(&self.outer)
-    }
-}
-
-#[derive(Clone)]
-pub struct Page {
-    pub rect: Rect,
-    pub buf:  Vec<Vec<u8>>
-} 
-impl Page {
-    pub fn new(rect: &Rect) -> Page {
-        Self {
-            buf: vec![vec![u8::MIN; rect.w]; rect.h], 
-            rect: rect.clone(),
-        }
-    }
-    pub fn view(&self, writer: &mut impl Write) -> io::Result<()> {
-        let mut y = self.rect.y;
-        writer.queue(MoveTo(self.rect.x, y))?;
-        for row in &self.buf {
-            if let Ok(c) = std::str::from_utf8(&row) {
-                writer
-                    .queue(MoveTo(self.rect.x, y))?
-                    .queue(Clear(ClearType::CurrentLine))?
-                    .queue(Print(c))?;
-                y += 1;
-            }
-        }
-        Ok(())
     }
 }

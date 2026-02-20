@@ -1,14 +1,16 @@
 // src/text.rs
 
 use crate::{
-    screen::{Frame, Page},
+    screen::{Frame, Dim, Range16},
     pos::{Pos, TextDim},
-    util::{wrap},
+    util::{self, wrap},
 };
 use crossterm::{
     QueueableCommand,
     style::{Color, SetForegroundColor, Print},
+    cursor::MoveTo,
 };
+use std::io::{self, Write};
 
 pub struct Text {
     pub color: Color,
@@ -52,33 +54,76 @@ impl Doc {
     }
 
     pub fn select(&self, frame: &Frame, pos: &Pos) -> Option<usize> {
-        let idx = pos.y().data_idx(&frame.outer.y());
+        let idx = pos.y.data_idx(&frame.outer.y());
         self.txt.get(idx).map(|(u, _)| *u)
     }
 
-    pub fn get_page(&self, frame: &Frame, pos: Option<&Pos>) -> Page {
-        let scroll = 
-            if let Some(p) = pos {
-                // TODO, figure out how not to require this check
-                std::cmp::min(p.y().scroll, self.txt.len() - 1)
-            } else {0};
-        let mut page = frame.get_page();
-        for ((idx, txt), line) in 
-            (&self.txt[scroll..]).iter().zip(&mut page.buf) 
-        {
-            line.queue(SetForegroundColor(self.src[*idx].color)).unwrap()
-                .queue(Print(txt)).unwrap();
+    pub fn view(    &self, 
+                    frm: &Frame, 
+                    pos: Option<&Pos>,
+                    wrt: &mut impl Write) -> io::Result<()> 
+    {
+        let (x_scroll, y_scroll) = pos
+            .map(|p| (p.x.scroll, p.y.scroll))
+            .unwrap_or((0, 0));
+
+        let y_start = self.txt.len().saturating_sub(1).min(y_scroll);
+        let y_end   = {
+            let a = y_start.saturating_add(frm.outer.h);
+            let b = y_start.saturating_add(self.txt.len());
+            a.min(b)
+        };
+
+        for (y, (i, l)) in self.txt[y_start..y_end].iter().enumerate() {
+
+            wrt.queue(SetForegroundColor(self.src[*i].color))?;
+            let y_pos     = util::u16_or_0(y) + frm.outer.y;
+            let x_scroll  = l.len().saturating_sub(1).min(x_scroll);
+            let mut chars = l.chars().skip(x_scroll);
+            let Range16 {start: x_start, end: x_end} = frm.outer.x();
+
+            for x_pos in x_start..x_end {
+                let c = chars.next().unwrap_or(' ');
+                wrt.queue(MoveTo(x_pos, y_pos))?.queue(Print(c))?;
+            }
         }
-        page
+        Ok(())
     }
 } 
-pub fn wrap_list(lines: &Vec<Text>, w: usize) -> Vec<(usize, String)> {
+
+pub fn wrap_list(lines: &Vec<Text>, w: usize) 
+    -> Vec<(usize, String)> 
+{
     let mut display: Vec<(usize, String)> = vec![];
     for (i, l) in lines.iter().enumerate() {
-        let v = if l.wrap {wrap(&l.text, w)} else {vec![l.text.clone()]};
-        for s in v.iter() {display.push((i, s.to_string()));}
+        let v = 
+            if l.wrap {
+                wrap(&l.text, w)
+            } else {
+                vec![l.text.clone()]
+            };
+        for s in v.iter() {
+            display.push((i, s.to_string()));
+        }
     }
     display
+}
+
+pub fn view_line(   txt: &str,
+                    col: Color,
+                    frm: &Frame, 
+                    y: u16,
+                    wrt: &mut impl Write) -> io::Result<()> 
+{
+    wrt.queue(SetForegroundColor(col))?;
+    let mut chars = txt.chars();
+    let Range16 {start: x_start, end: x_end} = frm.outer.x();
+
+    for x_pos in x_start..x_end {
+        let c = chars.next().unwrap_or(' ');
+        wrt.queue(MoveTo(x_pos, y))?.queue(Print(c))?;
+    }
+    Ok(())
 }
 
 #[derive(Clone)]
@@ -100,13 +145,24 @@ impl Editor {
         }
     }
 
-    pub fn get_page(&self, frame: &Frame, pos: &Pos) -> Page {
-        let scroll = pos.x.scroll;
-        let mut page = frame.get_page();
-        (&mut page.buf[0])
-            .queue(SetForegroundColor(self.color)).unwrap()
-            .queue(Print(&self.txt[scroll..])).unwrap();
-        page
+    pub fn view(    &self, 
+                    frm: &Frame, 
+                    pos: &Pos,
+                    wrt: &mut impl Write) -> io::Result<()> 
+    {
+        let x_scroll = pos.x.scroll;
+        let y_pos    = pos.y.cursor;
+
+        wrt.queue(SetForegroundColor(self.color))?;
+        let x_scroll  = self.txt.len().saturating_sub(1).min(x_scroll);
+        let mut chars = self.txt.chars().skip(x_scroll);
+        let Range16 {start: x_start, end: x_end} = frm.outer.x();
+
+        for x_pos in x_start..x_end {
+            let c = chars.next().unwrap_or(' ');
+            wrt.queue(MoveTo(x_pos, y_pos))?.queue(Print(c))?;
+        }
+        Ok(())
     }
 
     pub fn delete(&mut self, frame: &Frame, pos: &mut Pos) -> bool {
@@ -118,11 +174,17 @@ impl Editor {
         self.txt.remove(idx);
         if pos.x.cursor + 1 != outer.end {
             pos.x.move_forward(&frame.x(), self.txt.len(), 1)
-        } else {false}
+        } else {
+            false
+        }
     }
 
-    pub fn backspace(&mut self, frame: &Frame, pos: &mut Pos) -> bool {
-        if self.txt.len() == 0 {return false}
+    pub fn backspace(&mut self, frame: &Frame, pos: &mut Pos) 
+        -> bool 
+    {
+        if self.txt.len() == 0 {
+            return false
+        }
         let idx = pos.x.data_idx(&frame.outer.x());
         pos.x.move_backward(&frame.x(), 1);
         self.txt.remove(idx);
@@ -132,7 +194,9 @@ impl Editor {
         true
     }
 
-    pub fn insert(&mut self, frame: &Frame, pos: &mut Pos, c: char) -> bool {
+    pub fn insert(&mut self, frame: &Frame, pos: &mut Pos, c: char) 
+        -> bool 
+    {
         let idx = pos.x.data_idx(&frame.outer.x()) + 1;
         if idx >= self.txt.len() || self.txt.len() == 0 {
             self.txt.push(c);

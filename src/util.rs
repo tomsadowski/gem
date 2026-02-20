@@ -13,6 +13,9 @@ use native_tls::TlsConnector;
 pub fn u16_or_0(u: usize) -> u16 {
     u16::try_from(u).unwrap_or(u16::MIN)
 }
+pub fn u16_or_max(u: usize) -> u16 {
+    u16::try_from(u).unwrap_or(u16::MAX)
+}
 
 pub fn split_whitespace_once(source: &str) -> (&str, &str) {
     let line = source.trim();
@@ -58,7 +61,9 @@ pub fn wrap(line: &str, width: usize) -> Vec<String> {
     wrapped
 }
 
-pub fn join_if_relative(base: &Url, url_str: &str) -> Result<Url, ParseError> {
+pub fn join_if_relative(base: &Url, url_str: &str) 
+    -> Result<Url, ParseError> 
+{
     Url::parse(url_str).or_else(|e|
         if let ParseError::RelativeUrlWithoutBase = e {
             base.join(url_str)

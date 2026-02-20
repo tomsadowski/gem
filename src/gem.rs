@@ -1,7 +1,10 @@
 // src/gem.rs
 
-use crate::util::{
-    get_data, split_whitespace_once, Scheme, parse_scheme, join_if_relative,
+use crate::{
+    util::{
+        get_data, split_whitespace_once, Scheme, parse_scheme, 
+        join_if_relative,
+    },
 };
 use url::{Url};
 
@@ -74,7 +77,9 @@ pub enum Status {
     Junk(String),
 }
 
-pub fn parse_doc(text_str: &str, source: &Url) -> Vec<(GemType, String)> {
+pub fn parse_doc(text_str: &str, source: &Url) 
+    -> Vec<(GemType, String)> 
+{
     let mut vec = vec![];
     let mut preformat = false;
     for line in text_str.lines() {
@@ -90,7 +95,9 @@ pub fn parse_doc(text_str: &str, source: &Url) -> Vec<(GemType, String)> {
     vec
 }
 
-fn parse_formatted(line: &str, source: &Url) -> (GemType, String) {
+fn parse_formatted(line: &str, source: &Url) 
+    -> (GemType, String) 
+{
     // look for 3 character symbols
     if let Some(("###", text)) = line.split_at_checked(3) {
         return (GemType::HeadingThree, text.into())
@@ -105,7 +112,9 @@ fn parse_formatted(line: &str, source: &Url) -> (GemType, String) {
                         GemType::Link(parse_scheme(&url), url), 
                         link_str.into()),
                 Err(s) => 
-                    return (GemType::BadLink(s.to_string()), link_str.into())
+                    return (GemType::BadLink(
+                            s.to_string()), 
+                            link_str.into())
             }
         } else if symbol == "##" {
             return (GemType::HeadingTwo, text.into())

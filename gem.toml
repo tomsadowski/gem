@@ -1,6 +1,6 @@
-init_url  = "gemini://geminiprotocol.net/"
+#init_url  = "gemini://geminiprotocol.net/"
 #init_url = "gemini://medusae.space"
-#init_url = "gemini://datapulp.smol.pub/"
+init_url = "gemini://datapulp.smol.pub/"
 
 scroll_at = 6
 

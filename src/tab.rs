@@ -220,7 +220,7 @@ impl Tab {
         if let Some((_, d)) = &self.dlg {
             d.view(writer)?;
         } else {
-            self.ddoc.get_page(&self.frame, Some(&self.pos)).view(writer)?;
+            self.ddoc.view(&self.frame, Some(&self.pos), writer)?;
             writer.queue(cursor::MoveTo
                 (self.pos.x.cursor, self.pos.y.cursor))?;
         }

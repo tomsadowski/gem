@@ -60,7 +60,7 @@ impl App {
             writer.queue(Clear(ClearType::All))?;
         }
 
-        self.hdr.get_page(&self.hdr_frame, None).view(writer)?;
+        self.hdr.view(&self.hdr_frame, None, writer)?;
         self.tabs[self.idx].view(writer)?;
 
         writer
@@ -202,7 +202,9 @@ impl App {
         }
     }
 
-    fn update_global(&mut self, keycode: &KeyCode) -> Option<ViewMsg> {
+    fn update_global(&mut self, keycode: &KeyCode) 
+        -> Option<ViewMsg> 
+    {
         match keycode {
             KeyCode::Esc => {
                 self.focus = Focus::Tab;

@@ -4,13 +4,13 @@ use crate::{
     cfg::{Config},
     screen::{Frame},
     pos::{Pos},
-    text::{Editor},
+    text::{self, Editor},
     msg::{InputMsg},
 };
 use crossterm::{
     QueueableCommand,
     cursor::{MoveTo},
-    style::{Print},
+    style::{Print, Color},
     event::{KeyCode},
 };
 use std::{
@@ -62,26 +62,35 @@ impl Dialog {
     }
 
     pub fn view(&self, writer: &mut impl Write) -> io::Result<()> {
-        let mut prompt_page = self.prompt_frame.get_page();
-        let mut input_page  = self.input_frame.get_page();
-        (prompt_page.buf[0]).queue(Print(&self.prompt))?;
+        text::view_line(
+            &self.prompt,
+            Color::White,
+            &self.prompt_frame, 
+            self.prompt_frame.outer.y,
+            writer)?;
         match &self.input_type {
             InputType::Ack(ack) => {
-                (input_page.buf[0])
-                    .queue(Print(&format!("|{}| acknowledge", ack)))?;
-                prompt_page.view(writer)?;
-                input_page.view(writer)?;
+                text::view_line(
+                    &format!("|{}| acknowledge", ack),
+                    Color::White,
+                    &self.input_frame, 
+                    self.input_frame.outer.y,
+                    writer)?;
             }
             InputType::Ask(yes, no) => {
-                (input_page.buf[0])
-                    .queue(Print(&format!("|{}| yes |{}| no", yes, no)))?;
-                prompt_page.view(writer)?;
-                input_page.view(writer)?;
+                text::view_line(
+                    &format!("|{}| yes |{}| no", yes, no),
+                    Color::White,
+                    &self.input_frame, 
+                    self.input_frame.outer.y,
+                    writer)?;
             }
             InputType::Text(editor, pos) => {
-                input_page = editor.get_page(&self.input_frame, &pos);
-                prompt_page.view(writer)?;
-                input_page.view(writer)?;
+                editor.view(
+                    &self.input_frame, 
+                    &pos,
+                    writer,
+                    )?;
                 writer.queue(MoveTo(pos.x.cursor, pos.y.cursor))?;
             }
         }
