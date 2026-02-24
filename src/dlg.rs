@@ -4,7 +4,7 @@ use crate::{
     cfg::{Config},
     screen::{Frame},
     pos::{Pos},
-    text::{self, Editor},
+    text::{self, white_line, Editor},
     msg::{InputMsg},
 };
 use crossterm::{
@@ -27,70 +27,57 @@ pub enum InputType {
 pub struct Dialog {
     pub prompt_frame:   Frame,
     pub input_frame:    Frame,
-    pub prompt:         String,
+    pub prompt_text:    String,
     pub input_type:     InputType,
 } 
 impl Dialog {
-    fn new(frame: &Frame, prompt: &str) -> Self {
+    fn new(frame: &Frame, prompt_text: &str) -> Self {
         Self {
             prompt_frame:   frame.row(3),
             input_frame:    frame.row(6),
-            prompt:         prompt.into(), 
+            prompt_text:    prompt_text.into(), 
             input_type:     InputType::Ack('a'),
         }
     }
 
-    pub fn text(frame: &Frame, cfg: &Config, prompt: &str) -> Self {
-        let mut dlg     = Self::new(frame, prompt);
-        let pos         = Pos::origin(&dlg.input_frame.outer);
+    pub fn text(frame: &Frame, cfg: &Config, prompt_text: &str) -> Self {
+        let mut dlg     = Self::new(frame, prompt_text);
+        let pos         = dlg.input_frame.pos();
         let editor      = Editor::new("", cfg.colors.get_dialog());
         dlg.input_type  = InputType::Text(editor, pos);
         dlg
     }
 
-    pub fn ack(frame: &Frame, cfg: &Config, prompt: &str) -> Self {
-        let mut dlg     = Self::new(frame, prompt);
+    pub fn ack(frame: &Frame, cfg: &Config, prompt_text: &str) -> Self {
+        let mut dlg     = Self::new(frame, prompt_text);
         dlg.input_type  = InputType::Ack(cfg.keys.dialog.ack);
         dlg
     }
 
-    pub fn ask(frame: &Frame, cfg: &Config, prompt: &str ) -> Self {
-        let mut dlg     = Self::new(frame, prompt);
+    pub fn ask(frame: &Frame, cfg: &Config, prompt_text: &str ) -> Self {
+        let mut dlg     = Self::new(frame, prompt_text);
         dlg.input_type  = InputType::Ask
             (cfg.keys.dialog.yes, cfg.keys.dialog.no);
         dlg
     }
 
-    pub fn view(&self, writer: &mut impl Write) -> io::Result<()> {
-        text::view_line(
-            &self.prompt,
-            Color::White,
-            &self.prompt_frame, 
-            self.prompt_frame.outer.y,
-            writer)?;
+    pub fn view<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        white_line(&self.prompt_text, &self.prompt_frame, writer)?;
         match &self.input_type {
             InputType::Ack(ack) => {
-                text::view_line(
+                white_line(
                     &format!("|{}| acknowledge", ack),
-                    Color::White,
                     &self.input_frame, 
-                    self.input_frame.outer.y,
                     writer)?;
             }
             InputType::Ask(yes, no) => {
-                text::view_line(
+                white_line(
                     &format!("|{}| yes |{}| no", yes, no),
-                    Color::White,
                     &self.input_frame, 
-                    self.input_frame.outer.y,
                     writer)?;
             }
             InputType::Text(editor, pos) => {
-                editor.view(
-                    &self.input_frame, 
-                    &pos,
-                    writer,
-                    )?;
+                editor.view(&self.input_frame, &pos, writer)?;
                 writer.queue(MoveTo(pos.x.cursor, pos.y.cursor))?;
             }
         }
@@ -141,9 +128,8 @@ impl Dialog {
             }
             InputType::Ack(ack) => {
                 match keycode {
-                    KeyCode::Char(c) => {
-                        (ack ==  c).then_some(InputMsg::Ack)
-                    }
+                    KeyCode::Char(c) => 
+                        (ack ==  c).then_some(InputMsg::Ack),
                     _ => None,
                 }
             }

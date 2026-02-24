@@ -77,9 +77,7 @@ pub enum Status {
     Junk(String),
 }
 
-pub fn parse_doc(text_str: &str, source: &Url) 
-    -> Vec<(GemType, String)> 
-{
+pub fn parse_doc(text_str: &str, source: &Url) -> Vec<(GemType, String)> {
     let mut vec = vec![];
     let mut preformat = false;
     for line in text_str.lines() {
@@ -95,9 +93,7 @@ pub fn parse_doc(text_str: &str, source: &Url)
     vec
 }
 
-fn parse_formatted(line: &str, source: &Url) 
-    -> (GemType, String) 
-{
+fn parse_formatted(line: &str, source: &Url) -> (GemType, String) {
     // look for 3 character symbols
     if let Some(("###", text)) = line.split_at_checked(3) {
         return (GemType::HeadingThree, text.into())
@@ -165,6 +161,6 @@ fn get_status(code_str: &str) -> Status {
             65 =>           Status::ExpiredCertRejected,
             u =>            Status::Unknown(u),
         } 
-        Err(e) => Status::Junk(e.to_string())
+        Err(e) => Status::Junk(e)
     }
 }

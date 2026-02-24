@@ -64,16 +64,10 @@ impl Tab {
     fn make_request(&mut self, cfg: &Config, url_str: &str) {
         match Url::parse(url_str) {
             Ok(url) => match GemDoc::new(&url) {
-                Ok(gemdoc) => {
-                    self.some_gem_doc(cfg, gemdoc);
-                }
-                Err(e) => {
-                    self.none_gem_doc(cfg, &e)
-                }
+                Ok(gemdoc)  => self.some_gem_doc(cfg, gemdoc),
+                Err(e)      => self.none_gem_doc(cfg, &e),
             }
-            Err(e) => {
-                self.none_gem_doc(cfg, &e.to_string())
-            }
+            Err(e) => self.none_gem_doc(cfg, &e.to_string()),
         }
     }
 
@@ -167,41 +161,50 @@ impl Tab {
             // make a dialog
             else if c == &cfg.keys.tab.delete_tab {
                 let dialog = Dialog::ask(
-                    &self.frame, cfg, "Delete current tab?");
+                    &self.frame, 
+                    cfg, 
+                    "Delete current tab?");
                 self.dlg = Some((ViewMsg::DeleteMe, dialog));
                 Some(ViewMsg::Default)
             }
             else if c == &cfg.keys.tab.new_tab {
                 let dialog = Dialog::text(
-                    &self.frame, cfg, "enter path: ");
+                    &self.frame, 
+                    cfg, 
+                    "enter path: ");
                 self.dlg = Some((ViewMsg::NewTab, dialog));
                 Some(ViewMsg::Default)
             }
             else if c == &cfg.keys.tab.inspect {
                 let gemtype = match &self.doc {
                     Some(doc) => {
-                        let idx = 
-                            self.ddoc.select(&self.frame, &self.pos)
-                                .unwrap_or(0);
+                        let idx = self.ddoc
+                            .select(&self.frame, &self.pos)
+                            .unwrap_or(0);
                         doc.doc[idx].0.clone()
                     }
                     None => GemType::Text,
                 };
                 let dialog_tuple = match gemtype {
                     GemType::Link(Scheme::Gemini, url) => {
-                        let msg = &format!("go to {}?", url);
-                        let dialog = Dialog::ask(&self.frame, cfg, &msg);
+                        let dialog = Dialog::ask(
+                            &self.frame, 
+                            cfg, 
+                            &format!("go to {}?", url));
                         (ViewMsg::Go(url.into()), dialog)
                     }
                     GemType::Link(_, url) => {
-                        let msg = 
-                            format!("Protocol {} not yet supported", url);
-                        let dialog = Dialog::ack(&self.frame, cfg, &msg);
+                        let dialog = Dialog::ack(
+                            &self.frame, 
+                            cfg, 
+                            &format!("Protocol {} not yet supported", url));
                         (ViewMsg::Default, dialog)
                     }
                     gemtext => {
-                        let msg = format!("you've selected {:?}", gemtext);
-                        let dialog = Dialog::ack(&self.frame, cfg, &msg);
+                        let dialog = Dialog::ack(
+                            &self.frame, 
+                            cfg, 
+                            &format!("you've selected {:?}", gemtext));
                         (ViewMsg::Default, dialog)
                     }
                 };
@@ -211,16 +214,14 @@ impl Tab {
         } else {None}
     }
 
-    pub fn update_cfg(&mut self, _cfg: &Config) {
-//        self.ddoc = Self::get_ddoc(&self.frame, &self.doc, cfg);
-    }
+    pub fn update_cfg(&mut self, _cfg: &Config) {}
 
     // show dialog if there's a dialog, otherwise show ddoc
     pub fn view(&self, writer: &mut impl Write) -> io::Result<()> {
         if let Some((_, d)) = &self.dlg {
             d.view(writer)?;
         } else {
-            self.ddoc.view(&self.frame, Some(&self.pos), writer)?;
+            self.ddoc.view(&self.frame, &self.pos, writer)?;
             writer.queue(cursor::MoveTo
                 (self.pos.x.cursor, self.pos.y.cursor))?;
         }

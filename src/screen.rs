@@ -2,6 +2,7 @@
 
 use crate::{
     util,
+    pos::{Pos},
 };
 use crossterm::{
     QueueableCommand,
@@ -39,6 +40,10 @@ impl Rect {
         let w = usize::from(w);
         let h = usize::from(h);
         Self {x: 0, y: 0, w, h}
+    }
+
+    pub fn pos(&self) -> Pos {
+        Pos::origin(&self)
     }
 
     pub fn row(&self, r: u16) -> Rect {
@@ -184,6 +189,10 @@ impl Frame {
         Self {
             outer, inner,
         }
+    }
+
+    pub fn pos(&self) -> Pos {
+        Pos::origin(&self.outer)
     }
 
     pub fn row(&self, r: u16) -> Frame {

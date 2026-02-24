@@ -18,7 +18,6 @@ use std::{
 };
 
 pub struct App {
-    pub bg:         Color,
     pub hdr:        Doc,
     pub tabs:       Vec<Tab>,
     pub hdr_frame:  Frame,
@@ -34,35 +33,29 @@ impl App {
     pub fn new(path: &str, w: u16, h: u16) -> Self {
         let cfg = cfg::load_config(path);
         let (hdr_frame, tab_frame) = Self::get_frames(w, h, &cfg);
-        let tabs = vec![Tab::init(&tab_frame, &cfg.init_url, &cfg)];
-
         let mut app = Self {
-            bg: cfg.colors.get_background(),
-            cfg_path: path.into(),
-            quit: false, 
-            focus: Focus::Tab,
-            idx: 0,
-            hdr: Doc::default(),
-            clr_scr: false,
-            hdr_frame, tab_frame,
-            tabs,
+            cfg_path:   path.into(),
+            quit:       false, 
+            focus:      Focus::Tab,
+            idx:        0,  
+            hdr:        Doc::default(),
+            clr_scr:    false,
+            tabs:       vec![Tab::init(&tab_frame, &cfg.init_url, &cfg)],
+            hdr_frame, 
+            tab_frame,
             cfg,
         };
-
         app.update_hdr_text();
         app
     }
 
     pub fn view(&self, writer: &mut impl Write) -> io::Result<()> { 
         writer.queue(cursor::Hide)?;
-
         if self.clr_scr {
             writer.queue(Clear(ClearType::All))?;
         }
-
-        self.hdr.view(&self.hdr_frame, None, writer)?;
+        self.hdr.view(&self.hdr_frame, &self.hdr_frame.pos(), writer)?;
         self.tabs[self.idx].view(writer)?;
-
         writer
             .queue(cursor::Show)?
             .flush()
@@ -93,10 +86,8 @@ impl App {
                 }
             ) => {
                 let response = match &self.focus {
-                    Focus::Global => 
-                        self.update_global(&kc),
-                    Focus::Tab => 
-                        self.tabs[self.idx].update(&kc, &self.cfg),
+                    Focus::Global => self.update_global(&kc),
+                    Focus::Tab => self.tabs[self.idx].update(&kc, &self.cfg),
                 }; 
                 if let Some(msg) = response { 
                     self.process_view_msg(msg);
@@ -111,16 +102,15 @@ impl App {
     }
 
     fn get_frames(w: u16, h: u16, cfg: &Config) -> (Frame, Frame) {
-        let x_margin = cfg.format.margin;
-        let y_margin = cfg.format.margin;
-        let x_scroll = cfg.scroll_at;
-        let y_scroll = cfg.scroll_at;
-        let rect = Rect::new(w, h).crop_x(x_margin).crop_y(y_margin);
-        let tab_rect = rect.crop_north(2);
-        let hdr_rect = rect.crop_south(h - 2);
-        let tab_frame = Frame::new(&tab_rect, x_scroll, y_scroll);
-        let hdr_frame = Frame::new(&hdr_rect, 0, 0);
-        (hdr_frame, tab_frame)
+        let (hdr_rect, tab_rect) = {
+            let rect = Rect::new(w, h)
+                .crop_x(cfg.format.margin)
+                .crop_y(cfg.format.margin);
+            (rect.crop_south(h - 2), rect.crop_north(2))
+        };
+        let hdr = Frame::new(&hdr_rect, 0, 0);
+        let tab = Frame::new(&tab_rect, cfg.scroll_at, cfg.scroll_at);
+        (hdr, tab)
     }
 
     fn process_view_msg(&mut self, msg: ViewMsg) {
@@ -181,30 +171,38 @@ impl App {
     }
 
     fn update_hdr_text(&mut self) {
-        let len = self.tabs.len();
-        let idx = self.idx;
-        let name = &self.tabs[idx].name;
-        let text = &format!("{}/{}: {}", idx + 1, len, name);
-        let width = self.hdr_frame.outer.w;
         let color = self.cfg.colors.get_banner();
-        let vec = vec![
-            Text::new(&text, color, false),
-            Text::new(
-                &String::from("-").repeat(width), color, false)];
-        self.hdr = Doc::new(vec, &self.hdr_frame);
+        self.hdr = Doc::new(
+            vec![
+                Text::new(
+                    &format!(
+                        "{}/{}: {}", 
+                        self.idx + 1, 
+                        self.tabs.len(), 
+                        &self.tabs[self.idx].name
+                    ),
+                    color, 
+                    false
+                ),
+                Text::new(
+                    &String::from("-")
+                        .repeat(self.hdr_frame.outer.w), 
+                    color, 
+                    false
+                )
+            ],
+            &self.hdr_frame
+        );
     }
 
     fn update_cfg(&mut self, cfg: Config) {
         self.cfg = cfg;
-        self.bg = self.cfg.colors.get_background();
         for t in self.tabs.iter_mut() {
             t.update_cfg(&self.cfg);
         }
     }
 
-    fn update_global(&mut self, keycode: &KeyCode) 
-        -> Option<ViewMsg> 
-    {
+    fn update_global(&mut self, keycode: &KeyCode) -> Option<ViewMsg> {
         match keycode {
             KeyCode::Esc => {
                 self.focus = Focus::Tab;

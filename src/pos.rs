@@ -24,20 +24,13 @@ impl PosCol {
     }
 
     // index of cursor within its range
-    pub fn data_idx_cap(&self, rng: &Range16, max: usize) -> usize {
-        let idx = if self.cursor > rng.start {
-            let p = self.cursor.saturating_sub(rng.start);
-            self.scroll + usize::from(p)
-        } else {self.scroll};
-        min(idx, max)
-    }
-
-    // index of cursor within its range
     pub fn data_idx(&self, rng: &Range16) -> usize {
         if self.cursor > rng.start {
             let p = self.cursor.saturating_sub(rng.start);
             self.scroll + usize::from(p)
-        } else {self.scroll}
+        } else {
+            self.scroll
+        }
     }
 
     // returns the start and end of displayable text
@@ -46,37 +39,11 @@ impl PosCol {
         else {(self.scroll, min(self.scroll + rng.len(), len))}
     }
 
-    // called when screen resizes
-    pub fn fit(rng: &Range16, idx: usize, len: usize) -> PosCol {
-        let rng_len = rng.len();
-        let max_scroll = len.saturating_sub(rng_len);
-        if idx < rng_len {
-            let cursor = rng.start + u16_or_0(idx);
-            PosCol {cursor, scroll: 0}
-        } else if idx > max_scroll {
-            let cursor = rng.start + 
-                u16_or_0(idx.saturating_sub(max_scroll));
-            PosCol {
-                cursor: cursor, 
-                scroll: max_scroll
-            }
-        } else {
-            let scroll = idx.saturating_sub(rng_len / 2);
-            let cursor = rng.start + 
-                u16_or_0(idx.saturating_sub(scroll));
-            PosCol {
-                cursor: cursor, 
-                scroll: scroll
-            }
-        }
-    }
-
     pub fn move_into(&mut self, dscr: &ScreenRange, len: usize) {
         let (start, end) = 
             if len < dscr.outer.len() {
                 self.scroll = 0;
-                let len = u16_or_0(len);
-                (dscr.outer.start, dscr.outer.start + len)
+                (dscr.outer.start, dscr.outer.start + u16_or_0(len))
             } else {
                 (dscr.outer.start, dscr.inner.end)
             };
@@ -203,83 +170,47 @@ impl Pos {
             y: PosCol::origin(&rect.y())}
     }
 
-    pub fn x(&self) -> PosCol {
-        self.x.clone()
-    }
-
-    pub fn y(&self) -> PosCol {
-        self.y.clone()
-    }
-
     pub fn move_left(&mut self, scr: &Frame, step: u16) -> bool {
         self.x.move_backward(&scr.x(), step)
     }
 
-    pub fn move_right<T>(
-        &mut self, 
-        scr: &Frame, 
-        data: &T, 
-        step: u16
-        ) -> bool
-        where T: TextDim
+    pub fn move_right<T: TextDim>(  &mut self, 
+                                    scr: &Frame, 
+                                    data: &T, 
+                                    step: u16) -> bool
     {
-        let idx = self.y.data_idx(&scr.outer.y());
-        match data.x_len(idx) {
-            Some(x_len) => 
-                self.x.move_forward(&scr.x(), x_len, step),
-            None => 
-                false
+        match data.x_len(self.y.data_idx(&scr.outer.y())) {
+            Some(x_len) => self.x.move_forward(&scr.x(), x_len, step),
+            None        => false
         }
     }
 
-    pub fn move_up<T>(
-        &mut self, 
-        scr: &Frame, 
-        data: &T, 
-        step: u16
-        ) -> bool
-        where T: TextDim
+    pub fn move_up<T: TextDim>( &mut self, 
+                                scr: &Frame, 
+                                data: &T, 
+                                step: u16) -> bool
     {
         if self.y.move_backward(&scr.y(), step) {
-            self.move_into_x(scr, data); 
-            true
-        } else {
-            false
-        }
+            self.move_into_x(scr, data); true
+        } else {false}
     }
 
-    pub fn move_down<T>(
-        &mut self, 
-        scr: &Frame, 
-        data: &T, 
-        step: u16
-        ) -> bool
-        where T: TextDim
+    pub fn move_down<T: TextDim>(   &mut self, 
+                                    scr: &Frame, 
+                                    data: &T, 
+                                    step: u16) -> bool
     {
         if self.y.move_forward(&scr.y(), data.y_len(), step) {
-            self.move_into_x(scr, data); 
-            true
-        } else {
-            false
-        }
+            self.move_into_x(scr, data); true
+        } else {false}
     }
 
-    pub fn move_into_x<T>(
-        &mut self, 
-        scr: &Frame, 
-        data: &T
-        ) 
-        where T: TextDim
-    {
-        let idx = {
-            let idx1 = self.y.data_idx(&scr.outer.y());
-            let idx2 = data.y_len().saturating_sub(1);
-            min(idx1, idx2)
-        };
-        data.x_len(idx).inspect(|d| self.x.move_into(&scr.x(), *d));
-    }
-
-    pub fn move_into_y(&mut self, scr: &Frame, data: &Vec<usize>) {
-        self.y.move_into(&scr.y(), data.len());
+    pub fn move_into_x<T: TextDim>(&mut self, scr: &Frame, data: &T) {
+        let idx = self.y
+            .data_idx(&scr.outer.y())
+            .min(data.y_len().saturating_sub(1));
+        data
+            .x_len(idx)
+            .inspect(|d| self.x.move_into(&scr.x(), *d));
     }
 }

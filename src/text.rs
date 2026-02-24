@@ -3,7 +3,7 @@
 use crate::{
     screen::{Frame, Dim, Range16},
     pos::{Pos, TextDim},
-    util::{self, wrap},
+    util::{self, wrap, u16_or_0},
 };
 use crossterm::{
     QueueableCommand,
@@ -40,8 +40,8 @@ impl TextDim for Doc {
     }
 }
 impl Doc {
-    pub fn new(src: Vec<Text>, frame: &Frame) -> Self {
-        let txt = wrap_list(&src, frame.outer.w);
+    pub fn new(src: Vec<Text>, frm: &Frame) -> Self {
+        let txt = wrap_list(&src, frm.outer.w);
         Self {txt, src}
     }
 
@@ -58,42 +58,30 @@ impl Doc {
         self.txt.get(idx).map(|(u, _)| *u)
     }
 
-    pub fn view(    &self, 
-                    frm: &Frame, 
-                    pos: Option<&Pos>,
-                    wrt: &mut impl Write) -> io::Result<()> 
+    pub fn view<W: Write>(&self, frm: &Frame, pos: &Pos, wrt: &mut W) 
+        -> io::Result<()> 
     {
-        let (x_scroll, y_scroll) = pos
-            .map(|p| (p.x.scroll, p.y.scroll))
-            .unwrap_or((0, 0));
-
-        let y_start = self.txt.len().saturating_sub(1).min(y_scroll);
-        let y_end   = {
-            let a = y_start.saturating_add(frm.outer.h);
-            let b = y_start.saturating_add(self.txt.len());
-            a.min(b)
-        };
-
-        for (y, (i, l)) in self.txt[y_start..y_end].iter().enumerate() {
-
+        let y_start = self.txt.len().saturating_sub(1).min(pos.y.scroll);
+        let y_end = y_start
+            .saturating_add(frm.outer.h)
+            .min(y_start.saturating_add(self.txt.len()));
+        for (y, (i, line)) in self.txt[y_start..y_end].iter().enumerate() {
             wrt.queue(SetForegroundColor(self.src[*i].color))?;
-            let y_pos     = util::u16_or_0(y) + frm.outer.y;
-            let x_scroll  = l.len().saturating_sub(1).min(x_scroll);
-            let mut chars = l.chars().skip(x_scroll);
+            let mut chars = line
+                .chars()
+                .skip(line.len().saturating_sub(1).min(pos.x.scroll));
             let Range16 {start: x_start, end: x_end} = frm.outer.x();
-
             for x_pos in x_start..x_end {
-                let c = chars.next().unwrap_or(' ');
-                wrt.queue(MoveTo(x_pos, y_pos))?.queue(Print(c))?;
+                wrt
+                    .queue(MoveTo(x_pos, u16_or_0(y) + frm.outer.y))?
+                    .queue(Print(chars.next().unwrap_or(' ')))?;
             }
         }
         Ok(())
     }
 } 
 
-pub fn wrap_list(lines: &Vec<Text>, w: usize) 
-    -> Vec<(usize, String)> 
-{
+pub fn wrap_list(lines: &Vec<Text>, w: usize) -> Vec<(usize, String)> {
     let mut display: Vec<(usize, String)> = vec![];
     for (i, l) in lines.iter().enumerate() {
         let v = 
@@ -109,19 +97,16 @@ pub fn wrap_list(lines: &Vec<Text>, w: usize)
     display
 }
 
-pub fn view_line(   txt: &str,
-                    col: Color,
-                    frm: &Frame, 
-                    y: u16,
-                    wrt: &mut impl Write) -> io::Result<()> 
+pub fn white_line<W: Write>(txt: &str, frm: &Frame, wrt: &mut W) 
+    -> io::Result<()> 
 {
-    wrt.queue(SetForegroundColor(col))?;
+    wrt.queue(SetForegroundColor(Color::White))?;
     let mut chars = txt.chars();
     let Range16 {start: x_start, end: x_end} = frm.outer.x();
-
     for x_pos in x_start..x_end {
-        let c = chars.next().unwrap_or(' ');
-        wrt.queue(MoveTo(x_pos, y))?.queue(Print(c))?;
+        wrt
+            .queue(MoveTo(x_pos, frm.outer.y))?
+            .queue(Print(chars.next().unwrap_or(' ')))?;
     }
     Ok(())
 }
@@ -145,22 +130,17 @@ impl Editor {
         }
     }
 
-    pub fn view(    &self, 
-                    frm: &Frame, 
-                    pos: &Pos,
-                    wrt: &mut impl Write) -> io::Result<()> 
+    pub fn view<W: Write>(&self, frm: &Frame, pos: &Pos, wrt: &mut W) 
+        -> io::Result<()> 
     {
-        let x_scroll = pos.x.scroll;
-        let y_pos    = pos.y.cursor;
-
         wrt.queue(SetForegroundColor(self.color))?;
-        let x_scroll  = self.txt.len().saturating_sub(1).min(x_scroll);
-        let mut chars = self.txt.chars().skip(x_scroll);
+        let mut chars = self.txt
+            .chars()
+            .skip(self.txt.len().saturating_sub(1).min(pos.x.scroll));
         let Range16 {start: x_start, end: x_end} = frm.outer.x();
-
         for x_pos in x_start..x_end {
             let c = chars.next().unwrap_or(' ');
-            wrt.queue(MoveTo(x_pos, y_pos))?.queue(Print(c))?;
+            wrt.queue(MoveTo(x_pos, pos.y.cursor))?.queue(Print(c))?;
         }
         Ok(())
     }
@@ -179,9 +159,7 @@ impl Editor {
         }
     }
 
-    pub fn backspace(&mut self, frame: &Frame, pos: &mut Pos) 
-        -> bool 
-    {
+    pub fn backspace(&mut self, frame: &Frame, pos: &mut Pos) -> bool {
         if self.txt.len() == 0 {
             return false
         }
@@ -194,9 +172,7 @@ impl Editor {
         true
     }
 
-    pub fn insert(&mut self, frame: &Frame, pos: &mut Pos, c: char) 
-        -> bool 
-    {
+    pub fn insert(&mut self, frame: &Frame, pos: &mut Pos, c: char) -> bool {
         let idx = pos.x.data_idx(&frame.outer.x()) + 1;
         if idx >= self.txt.len() || self.txt.len() == 0 {
             self.txt.push(c);
