@@ -7,22 +7,41 @@ use crate::{
 };
 use crossterm::{
     QueueableCommand,
-    style::{Color, SetForegroundColor, Print},
+    style::{
+        Color, SetForegroundColor, SetBackgroundColor, Print, ResetColor},
     cursor::MoveTo,
 };
 use std::io::{self, Write};
 
 pub struct Text {
-    pub color: Color,
+    pub fg: Color,
+    pub bg: Color,
     pub text:  String,
     pub wrap:  bool,
 }
 impl Text {
-    pub fn new(text: &str, color: Color, wrap: bool) -> Self {
-        Self {text: text.into(), color, wrap}
+    pub fn new(text: &str) -> Self {
+        Self {
+            text:   text.into(), 
+            fg:     Color::White, 
+            bg:     Color::Rgb {r: 40, g: 40, b: 40},
+            wrap:   false,
+        }
+    }
+    pub fn fg(mut self, col: Color) -> Self {
+        self.fg = col;
+        self
+    }
+    pub fn bg(mut self, col: Color) -> Self {
+        self.bg = col;
+        self
+    }
+    pub fn wrap(mut self, b: bool) -> Self {
+        self.wrap = b;
+        self
     }
     pub fn default() -> Self {
-        Self {text: "".into(), color: Color::White, wrap: false}
+        Self::new("")
     }
 }
 
@@ -97,7 +116,9 @@ impl Doc {
             .saturating_add(frm.outer.h)
             .min(y_start.saturating_add(self.txt.len()));
         for (y, (i, line)) in self.txt[y_start..y_end].iter().enumerate() {
-            wrt.queue(SetForegroundColor(self.src[*i].color))?;
+            wrt
+                .queue(SetForegroundColor(self.src[*i].fg))?
+                .queue(SetBackgroundColor(self.src[*i].bg))?;
             let mut chars = line
                 .chars()
                 .skip(line.len().saturating_sub(1).min(self.pos.x.scroll));
@@ -108,7 +129,9 @@ impl Doc {
                     .queue(Print(chars.next().unwrap_or(' ')))?;
             }
         }
-        wrt.queue(MoveTo(self.pos.x.cursor, self.pos.y.cursor))?;
+        wrt
+            .queue(MoveTo(self.pos.x.cursor, self.pos.y.cursor))?
+            .queue(ResetColor)?;
         Ok(())
     }
 } 

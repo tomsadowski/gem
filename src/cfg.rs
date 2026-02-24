@@ -123,6 +123,7 @@ impl FormatParams {
 pub struct ColorParams {
     pub background: (u8, u8, u8),
     pub banner:     (u8, u8, u8),
+    pub border:     (u8, u8, u8),
     pub dialog:     (u8, u8, u8),
     pub text:       (u8, u8, u8),
     pub heading1:   (u8, u8, u8),
@@ -137,18 +138,19 @@ pub struct ColorParams {
 impl ColorParams {
     pub fn default() -> Self {
         Self {
-            background: (205, 205, 205),
-            dialog:     (  0,   0,   0),
-            banner:     (  0,   0,   0),
-            text:       (  0,   0,   0),
-            heading1:   (  0,   0,   0),
-            heading2:   (  0,   0,   0),
-            heading3:   (  0,   0,   0),
-            link:       (  0,   0,   0),
-            badlink:    (  0,   0,   0),
-            quote:      (  0,   0,   0),
-            list:       (  0,   0,   0),
-            preformat:  (  0,   0,   0),
+            background: ( 40,  40,  40),
+            border:     (128, 136, 144),
+            badlink:    (128, 136, 144),
+            banner:     (224, 240, 255),
+            dialog:     (224, 240, 255),
+            text:       (224, 240, 255),
+            list:       (224, 240, 255),
+            heading1:   (255, 144, 176),
+            heading2:   (255, 144, 176),
+            heading3:   (255, 144, 176),
+            link:       (128, 255, 208),
+            quote:      (255, 208, 160),
+            preformat:  (255, 208, 160),
         }
     }
     pub fn get_banner(&self) -> Color {
@@ -177,6 +179,8 @@ impl ColorParams {
             GemType::Link(_, _)     => (self.link, true),
             GemType::BadLink(_)     => (self.badlink, true),
         };
-        Text::new(text, Color::Rgb {r, g, b}, wrap)
+        Text::new(text)
+            .fg(Color::Rgb {r, g, b})
+            .wrap(wrap)
     }
 }

@@ -171,25 +171,16 @@ impl App {
     }
 
     fn update_hdr_text(&mut self) {
-        let color = self.cfg.colors.get_banner();
+        let fg = self.cfg.colors.get_banner();
+        let info = format!( "{}/{}: {}", 
+                            self.idx + 1, 
+                            self.tabs.len(), 
+                            &self.tabs[self.idx].name);
+        let line = &String::from("-").repeat(self.hdr_frame.outer.w);
         self.hdr = Doc::new(
             vec![
-                Text::new(
-                    &format!(
-                        "{}/{}: {}", 
-                        self.idx + 1, 
-                        self.tabs.len(), 
-                        &self.tabs[self.idx].name
-                    ),
-                    color, 
-                    false
-                ),
-                Text::new(
-                    &String::from("-")
-                        .repeat(self.hdr_frame.outer.w), 
-                    color, 
-                    false
-                )
+                Text::new(&info).fg(fg).wrap(true),
+                Text::new(&line).fg(fg), 
             ],
             &self.hdr_frame
         );

@@ -1,42 +1,43 @@
-#init_url  = "gemini://geminiprotocol.net/"
+init_url  = "gemini://geminiprotocol.net/"
 #init_url = "gemini://medusae.space"
-init_url = "gemini://datapulp.smol.pub/"
+#init_url = "gemini://datapulp.smol.pub/"
 
 scroll_at = 6
 
 [colors]
 # black
-background = [ 32,  38,  38]
+background = [ 40,  40,  40]
 # grey
-dialog     = [100, 110, 110]
-banner     = [100, 110, 110]
-# cyan
-link       = [ 64, 200, 200]
-# white
-text       = [220, 240, 240]
-# yellow
-preformat  = [200, 200, 100]
-quote      = [200, 200, 100]
+border     = [128, 136, 144]
+badlink    = [128, 136, 144]
 # green
-list       = [100, 200, 100]
+link       = [128, 255, 208]
+# white
+text       = [224, 240, 255]
+list       = [224, 240, 255]
+dialog     = [224, 240, 255]
+banner     = [224, 240, 255]
+# yellow
+preformat  = [255, 208, 160]
+quote      = [255, 208, 160]
 # red
-badlink    = [240, 100, 100]
-# magenta
-heading1   = [200, 140, 200]
-heading2   = [200, 140, 200]
-heading3   = [200, 140, 200]
+heading1   = [255, 144, 176]
+heading2   = [255, 144, 176]
+heading3   = [255, 144, 176]
 
 [format]
-margin      = 4
+margin      = 2
 list_prefix = " - "
 heading3    = [3, 2]
 heading2    = [2, 1]
 heading1    = [1, 0]
+
 [keys]
 global    = "g"
 msg_view  = "m"
 tab_view  = "t"
 load_cfg  = "c"
+
 [keys.tab]
 move_up      = "o"
 move_down    = "i"
@@ -47,6 +48,7 @@ cycle_right  = "N"
 inspect      = "w"
 delete_tab   = "v"
 new_tab      = "p"
+
 [keys.dialog]
 ack          = "y"
 yes          = "y"
