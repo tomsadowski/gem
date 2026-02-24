@@ -20,7 +20,6 @@ use std::{
 use url::{Url};
 
 pub struct Tab {
-    pub pos:    Pos,
     pub frame:  Frame,
     pub name:   String,
     pub dlg:    Option<(ViewMsg, Dialog)>,
@@ -76,7 +75,6 @@ impl Tab {
             dlg:    None,
             doc:    None,
             ddoc:   Doc::default(), 
-            pos:    Pos::origin(&frame.outer),
             frame:  frame.clone(),
             name:   url_str.into(),
         };
@@ -137,19 +135,23 @@ impl Tab {
                 Some(ViewMsg::Global)
             }
             else if c == &cfg.keys.tab.move_down {
-                self.pos.move_down(&self.frame, &self.ddoc, 1)
+                self.ddoc
+                    .move_down(&self.frame, 1)
                     .then_some(ViewMsg::Default)
             }
             else if c == &cfg.keys.tab.move_up {
-                self.pos.move_up(&self.frame, &self.ddoc, 1)
+                self.ddoc
+                    .move_up(&self.frame, 1)
                     .then_some(ViewMsg::Default)
             }
             else if c == &cfg.keys.tab.move_left {
-                self.pos.move_left(&self.frame, 1)
+                self.ddoc
+                    .move_left(&self.frame, 1)
                     .then_some(ViewMsg::Default)
             }
             else if c == &cfg.keys.tab.move_right {
-                self.pos.move_right(&self.frame, &self.ddoc, 1)
+                self.ddoc
+                    .move_right(&self.frame, 1)
                     .then_some(ViewMsg::Default)
             }
             else if c == &cfg.keys.tab.cycle_left {
@@ -179,7 +181,7 @@ impl Tab {
                 let gemtype = match &self.doc {
                     Some(doc) => {
                         let idx = self.ddoc
-                            .select(&self.frame, &self.pos)
+                            .select(&self.frame)
                             .unwrap_or(0);
                         doc.doc[idx].0.clone()
                     }
@@ -221,9 +223,7 @@ impl Tab {
         if let Some((_, d)) = &self.dlg {
             d.view(writer)?;
         } else {
-            self.ddoc.view(&self.frame, &self.pos, writer)?;
-            writer.queue(cursor::MoveTo
-                (self.pos.x.cursor, self.pos.y.cursor))?;
+            self.ddoc.view(&self.frame, writer)?;
         }
         Ok(())
     }

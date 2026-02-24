@@ -1,7 +1,7 @@
 // src/screen.rs
 
 use crate::{
-    util,
+    util::{self, u16_or_0},
     pos::{Pos},
 };
 use crossterm::{
@@ -57,13 +57,13 @@ impl Rect {
 
     pub fn x(&self) -> Range16 {
         Range16 {
-            start: self.x, end: self.x + util::u16_or_0(self.w)
+            start: self.x, end: self.x + u16_or_0(self.w)
         }
     }
 
     pub fn y(&self) -> Range16 {
         Range16 {
-            start: self.y, end: self.y + util::u16_or_0(self.h)
+            start: self.y, end: self.y + u16_or_0(self.h)
         }
     }
 
@@ -134,7 +134,7 @@ impl Range16 {
     pub fn get_data_end(&self, dlen: usize) -> u16 {
         let data_end = usize::from(self.start) + dlen.saturating_sub(1);
         let scr_end  = usize::from(self.end).saturating_sub(1);
-        util::u16_or_0(min(data_end, scr_end))
+        u16_or_0(min(data_end, scr_end))
     }
 
     pub fn get_max_scroll(&self, dlen: usize) -> usize {
@@ -186,9 +186,7 @@ impl Frame {
     pub fn new(rect: &Rect, x: u16, y: u16) -> Frame {
         let outer = rect.clone();
         let inner = outer.crop_x(x).crop_y(y);
-        Self {
-            outer, inner,
-        }
+        Self {outer, inner}
     }
 
     pub fn pos(&self) -> Pos {

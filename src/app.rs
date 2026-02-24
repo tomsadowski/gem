@@ -54,7 +54,7 @@ impl App {
         if self.clr_scr {
             writer.queue(Clear(ClearType::All))?;
         }
-        self.hdr.view(&self.hdr_frame, &self.hdr_frame.pos(), writer)?;
+        self.hdr.view(&self.hdr_frame, writer)?;
         self.tabs[self.idx].view(writer)?;
         writer
             .queue(cursor::Show)?

@@ -25,59 +25,59 @@ pub enum InputType {
 }
 #[derive(Clone)]
 pub struct Dialog {
-    pub prompt_frame:   Frame,
-    pub input_frame:    Frame,
-    pub prompt_text:    String,
-    pub input_type:     InputType,
+    pub p_frm:  Frame,
+    pub i_frm:  Frame,
+    pub p_txt:  String,
+    pub i_type: InputType,
 } 
 impl Dialog {
-    fn new(frame: &Frame, prompt_text: &str) -> Self {
+    fn new(frm: &Frame, p_txt: &str) -> Self {
         Self {
-            prompt_frame:   frame.row(3),
-            input_frame:    frame.row(6),
-            prompt_text:    prompt_text.into(), 
-            input_type:     InputType::Ack('a'),
+            p_frm:  frm.row(3),
+            i_frm:  frm.row(6),
+            p_txt:  p_txt.into(), 
+            i_type: InputType::Ack('a'),
         }
     }
 
-    pub fn text(frame: &Frame, cfg: &Config, prompt_text: &str) -> Self {
-        let mut dlg     = Self::new(frame, prompt_text);
-        let pos         = dlg.input_frame.pos();
-        let editor      = Editor::new("", cfg.colors.get_dialog());
-        dlg.input_type  = InputType::Text(editor, pos);
+    pub fn text(frm: &Frame, cfg: &Config, p_txt: &str) -> Self {
+        let mut dlg = Self::new(frm, p_txt);
+        let pos     = dlg.i_frm.pos();
+        let editor  = Editor::new(&dlg.i_frm, "", cfg.colors.get_dialog());
+        dlg.i_type  = InputType::Text(editor, pos);
         dlg
     }
 
-    pub fn ack(frame: &Frame, cfg: &Config, prompt_text: &str) -> Self {
-        let mut dlg     = Self::new(frame, prompt_text);
-        dlg.input_type  = InputType::Ack(cfg.keys.dialog.ack);
+    pub fn ack(frm: &Frame, cfg: &Config, p_txt: &str) -> Self {
+        let mut dlg = Self::new(frm, p_txt);
+        dlg.i_type  = InputType::Ack(cfg.keys.dialog.ack);
         dlg
     }
 
-    pub fn ask(frame: &Frame, cfg: &Config, prompt_text: &str ) -> Self {
-        let mut dlg     = Self::new(frame, prompt_text);
-        dlg.input_type  = InputType::Ask
+    pub fn ask(frame: &Frame, cfg: &Config, p_txt: &str ) -> Self {
+        let mut dlg = Self::new(frame, p_txt);
+        dlg.i_type  = InputType::Ask
             (cfg.keys.dialog.yes, cfg.keys.dialog.no);
         dlg
     }
 
     pub fn view<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        white_line(&self.prompt_text, &self.prompt_frame, writer)?;
-        match &self.input_type {
+        white_line(&self.p_txt, &self.p_frm, writer)?;
+        match &self.i_type {
             InputType::Ack(ack) => {
                 white_line(
                     &format!("|{}| acknowledge", ack),
-                    &self.input_frame, 
+                    &self.i_frm, 
                     writer)?;
             }
             InputType::Ask(yes, no) => {
                 white_line(
                     &format!("|{}| yes |{}| no", yes, no),
-                    &self.input_frame, 
+                    &self.i_frm, 
                     writer)?;
             }
             InputType::Text(editor, pos) => {
-                editor.view(&self.input_frame, &pos, writer)?;
+                editor.view(&self.i_frm, &pos, writer)?;
                 writer.queue(MoveTo(pos.x.cursor, pos.y.cursor))?;
             }
         }
@@ -85,8 +85,8 @@ impl Dialog {
     }
 
     pub fn resize(&mut self, frame: &Frame) {
-        self.prompt_frame   = frame.row(3);
-        self.input_frame    = frame.row(6);
+        self.p_frm  = frame.row(3);
+        self.i_frm  = frame.row(6);
     }
 
     pub fn update(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
@@ -97,30 +97,34 @@ impl Dialog {
     }
 
     fn update_input(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
-        match &mut self.input_type {
+        match &mut self.i_type {
             InputType::Text(editor, pos) => {
                 match keycode {
                     KeyCode::Enter => {
                         Some(InputMsg::Text(editor.txt.clone()))
                     }
                     KeyCode::Left => {
-                        pos.move_left(&self.input_frame, 1)
+                        editor
+                            .move_left(&self.i_frm, 1)
                             .then_some(InputMsg::Default)
                     }
                     KeyCode::Right => {
-                        pos.move_right(&self.input_frame, editor, 1)
+                        editor
+                            .move_right(&self.i_frm, 1)
                             .then_some(InputMsg::Default)
                     }
                     KeyCode::Delete => {
-                        editor.delete(&self.input_frame, pos)
+                        editor
+                            .delete(&self.i_frm, pos)
                             .then_some(InputMsg::Default)
                     }
                     KeyCode::Backspace => {
-                        editor.backspace(&self.input_frame, pos)
+                        editor
+                            .backspace(&self.i_frm, pos)
                             .then_some(InputMsg::Default)
                     }
                     KeyCode::Char(c) => {
-                        editor.insert(&self.input_frame, pos, *c);
+                        editor.insert(&self.i_frm, pos, *c);
                         Some(InputMsg::Default)
                     }
                     _ => None
