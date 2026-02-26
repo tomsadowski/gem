@@ -23,7 +23,7 @@ pub struct Tab {
     pub frame:  Frame,
     pub name:   String,
     pub dlg:    Option<(ViewMsg, Dialog)>,
-    pub doc:    Option<GemDoc>,
+    pub gdoc:   Option<GemDoc>,
     pub ddoc:   Doc,
 } 
 impl Tab {
@@ -50,12 +50,12 @@ impl Tab {
         };
         let text = cfg.colors.from_gem_doc(&gemdoc);
         self.ddoc = Doc::new(text, &self.frame);
-        self.doc = Some(gemdoc);
+        self.gdoc = Some(gemdoc);
     }
 
     // display dialog
     fn none_gem_doc(&mut self, cfg: &Config, msg: &str) {
-        self.doc = None;
+        self.gdoc = None;
         let dlg  = Dialog::ack(&self.frame, cfg, msg);
         self.dlg = Some((ViewMsg::DeleteMe, dlg));
     }
@@ -73,7 +73,7 @@ impl Tab {
     pub fn init(frame: &Frame, url_str: &str, cfg: &Config) -> Self {
         let mut tab = Self {
             dlg:    None,
-            doc:    None,
+            gdoc:    None,
             ddoc:   Doc::default(), 
             frame:  frame.clone(),
             name:   url_str.into(),
@@ -178,12 +178,12 @@ impl Tab {
                 Some(ViewMsg::Default)
             }
             else if c == &cfg.keys.tab.inspect {
-                let gemtype = match &self.doc {
-                    Some(doc) => {
+                let gemtype = match &self.gdoc {
+                    Some(gdoc) => {
                         let idx = self.ddoc
                             .select(&self.frame)
                             .unwrap_or(0);
-                        doc.doc[idx].0.clone()
+                        gdoc.doc[idx].0.clone()
                     }
                     None => GemType::Text,
                 };
