@@ -102,7 +102,8 @@ impl DialogKeyParams {
 }
 #[derive(Deserialize)]
 pub struct FormatParams {
-    pub margin:      u16,
+    pub x_margin:    u16,
+    pub y_margin:    u16,
     pub list_prefix: String,
     pub heading1:    (u8, u8),
     pub heading2:    (u8, u8),
@@ -111,7 +112,8 @@ pub struct FormatParams {
 impl FormatParams {
     pub fn default() -> Self {
         Self {
-            margin:      2,
+            x_margin:    4,
+            y_margin:    2,
             list_prefix: "- ".into(),
             heading1:    (3, 2),
             heading2:    (2, 1),

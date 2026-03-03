@@ -114,7 +114,7 @@ impl Doc {
         let y_start = self.txt.len().saturating_sub(1).min(self.pos.y.scroll);
         let y_end = y_start
             .saturating_add(frm.outer.h)
-            .min(y_start.saturating_add(self.txt.len()));
+            .min(self.txt.len());
         for (y, (i, line)) in self.txt[y_start..y_end].iter().enumerate() {
             wrt
                 .queue(SetForegroundColor(self.src[*i].fg))?

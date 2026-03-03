@@ -104,8 +104,8 @@ impl App {
     fn get_frames(w: u16, h: u16, cfg: &Config) -> (Frame, Frame) {
         let (hdr_rect, tab_rect) = {
             let rect = Rect::new(w, h)
-                .crop_x(cfg.format.margin)
-                .crop_y(cfg.format.margin);
+                .crop_x(cfg.format.x_margin)
+                .crop_y(cfg.format.y_margin);
             (rect.crop_south(h - 2), rect.crop_north(2))
         };
         let hdr = Frame::new(&hdr_rect, 0, 0);

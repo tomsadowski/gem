@@ -26,7 +26,8 @@ heading2   = [255, 144, 176]
 heading3   = [255, 144, 176]
 
 [format]
-margin      = 2
+x_margin    = 12
+y_margin    = 2
 list_prefix = " - "
 heading3    = [3, 2]
 heading2    = [2, 1]

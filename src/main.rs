@@ -26,13 +26,17 @@ use std::{
 };
 
 fn main() -> io::Result<()> {
-    let (w, h) = terminal::size()?;
-    let mut stdout = stdout();
     terminal::enable_raw_mode()?;
+
+    let mut stdout = stdout();
+
     stdout
         .queue(terminal::EnterAlternateScreen)?
         .queue(terminal::DisableLineWrap)?;
+
+    let (w, h) = terminal::size()?;
     let mut ui = App::new("gem.toml", w, h);
+
     ui.view(&mut stdout)?;
 
     while !ui.quit {

@@ -73,7 +73,7 @@ impl Tab {
     pub fn init(frame: &Frame, url_str: &str, cfg: &Config) -> Self {
         let mut tab = Self {
             dlg:    None,
-            gdoc:    None,
+            gdoc:   None,
             ddoc:   Doc::default(), 
             frame:  frame.clone(),
             name:   url_str.into(),
