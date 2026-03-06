@@ -13,11 +13,17 @@ pub struct PosCol {
     pub cursor: u16, 
     pub scroll: usize
 }
-impl PosCol {
-    pub fn origin(rng: &Range16) -> PosCol {
+impl Default for PosCol {
+    fn default() -> PosCol {
+        PosCol {cursor: 0, scroll: 0}
+    }
+}
+impl From<&Range16> for PosCol {
+    fn from(rng: &Range16) -> PosCol {
         PosCol {cursor: rng.start, scroll: 0}
     }
-
+}
+impl PosCol {
     // index of cursor within its range
     pub fn data_idx(&self, rng: &Range16) -> usize {
         if self.cursor > rng.start {
@@ -155,17 +161,19 @@ pub struct Pos {
     pub x: PosCol,
     pub y: PosCol, 
 }
-impl Pos {
-    pub fn default() -> Pos {
+impl Default for Pos {
+    fn default() -> Pos {
         Pos {
-            x: PosCol {cursor: 0, scroll: 0},
-            y: PosCol {cursor: 0, scroll: 0}
+            x: PosCol::default(),
+            y: PosCol::default()
         }
     }
-    pub fn origin(rect: &Rect) -> Pos {
+}
+impl From<&Rect> for Pos {
+    fn from(rect: &Rect) -> Pos {
         Pos {
-            x: PosCol::origin(&rect.x()),
-            y: PosCol::origin(&rect.y())
+            x: PosCol::from(&rect.x()),
+            y: PosCol::from(&rect.y())
         }
     }
 }

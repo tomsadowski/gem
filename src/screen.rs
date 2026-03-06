@@ -43,7 +43,7 @@ impl Rect {
     }
 
     pub fn pos(&self) -> Pos {
-        Pos::origin(&self)
+        Pos::from(self)
     }
 
     pub fn row(&self, r: u16) -> Rect {
@@ -190,7 +190,7 @@ impl Frame {
     }
 
     pub fn pos(&self) -> Pos {
-        Pos::origin(&self.outer)
+        Pos::from(&self.outer)
     }
 
     pub fn row(&self, r: u16) -> Frame {

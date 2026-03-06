@@ -14,17 +14,22 @@ use crossterm::{
 use std::io::{self, Write};
 
 pub struct Text {
-    pub fg: Color,
-    pub bg: Color,
-    pub text:  String,
-    pub wrap:  bool,
+    pub fg:     Color,
+    pub bg:     Color,
+    pub text:   String,
+    pub wrap:   bool,
+}
+impl Default for Text {
+    fn default() -> Self {
+        Self::new("")
+    }
 }
 impl Text {
     pub fn new(text: &str) -> Self {
         Self {
             text:   text.into(), 
             fg:     Color::White, 
-            bg:     Color::Rgb {r: 40, g: 40, b: 40},
+            bg:     Color::Black,
             wrap:   false,
         }
     }
@@ -40,42 +45,49 @@ impl Text {
         self.wrap = b;
         self
     }
-    pub fn default() -> Self {
-        Self::new("")
-    }
 }
 
 pub struct Doc {
-    pub pos: Pos,
-    pub src: Vec<Text>,
-    pub txt: Vec<(usize, String)>,
+    pub pos:    Pos,
+    pub text:   Vec<Text>,
+    pub lines:  Vec<(usize, String)>,
 } 
-impl Doc {
-    pub fn new(src: Vec<Text>, frm: &Frame) -> Self {
-        let txt = wrap_list(&src, frm.outer.w);
-        let pos = frm.pos();
-        Self {pos, txt, src}
+impl Default for Doc {
+    fn default() -> Self {
+        Self {
+            pos:    Pos::default(), 
+            text:   vec![], 
+            lines:  vec![]
+        }
     }
-
-    pub fn default() -> Self {
-        Self {pos: Pos::default(), src: vec![], txt: vec![]}
+}
+impl Doc {
+    pub fn new(text: Vec<Text>, frm: &Frame) -> Self {
+        let lines = wrap_list(&text, frm.outer.w);
+        let pos = frm.pos();
+        Self {pos, lines, text}
     }
 
     pub fn resize(&mut self, frm: &Frame) {
-        self.txt = wrap_list(&self.src, frm.outer.w);
+        self.lines = wrap_list(&self.text, frm.outer.w);
     }
 
     pub fn select(&self, frm: &Frame) -> Option<usize> {
-        let idx = self.pos.y.data_idx(&frm.outer.y());
-        self.txt.get(idx).map(|(u, _)| *u)
+        let line_idx = self.pos.y
+            .data_idx(&frm.outer.y());
+        self.lines
+            .get(line_idx)
+            .map(|(text_idx, _)| *text_idx)
     }
 
     fn y(&self) -> usize {
-        self.txt.len()
+        self.lines.len()
     }
 
     fn x(&self, y: usize) -> Option<usize> {
-        self.txt.get(y).map(|(_, txt)| txt.len())
+        self.lines
+            .get(y)
+            .map(|(_, lines)| lines.len())
     }
 
     pub fn move_left(&mut self, frm: &Frame, step: u16) -> bool {
@@ -83,10 +95,10 @@ impl Doc {
     }
 
     pub fn move_right(&mut self, frm: &Frame, step: u16) -> bool {
-        match self.x(self.pos.y.data_idx(&frm.outer.y())) {
-            Some(x) => self.pos.x.move_forward(&frm.x(), x, step),
-            None    => false
-        }
+        self
+            .x(self.pos.y.data_idx(&frm.outer.y()))
+            .map(|x| self.pos.x.move_forward(&frm.x(), x, step))
+            .unwrap_or(false)
     }
 
     pub fn move_up(&mut self, frm: &Frame, step: u16) -> bool {
@@ -110,54 +122,80 @@ impl Doc {
             .inspect(|d| self.pos.x.move_into(&frm.x(), *d));
     }
 
-    pub fn view<W: Write>(&self, frm: &Frame, wrt: &mut W) -> io::Result<()> {
-        let y_start = self.txt.len().saturating_sub(1).min(self.pos.y.scroll);
-        let y_end = y_start
+    pub fn view<W>(&self, frm: &Frame, wrt: &mut W) -> io::Result<()> 
+    where W: Write
+    {
+        let line_start = self.lines.len()
+            .saturating_sub(1)
+            .min(self.pos.y.scroll);
+
+        let line_end = line_start
             .saturating_add(frm.outer.h)
-            .min(self.txt.len());
-        for (y, (i, line)) in self.txt[y_start..y_end].iter().enumerate() {
+            .min(self.lines.len());
+
+        for (scr_idx, (text_idx, line)) in 
+            self.lines[line_start..line_end]
+                .iter()
+                .enumerate() 
+        {
             wrt
-                .queue(SetForegroundColor(self.src[*i].fg))?
-                .queue(SetBackgroundColor(self.src[*i].bg))?;
+                .queue(SetForegroundColor(self.text[*text_idx].fg))?
+                .queue(SetBackgroundColor(self.text[*text_idx].bg))?;
+
             let mut chars = line
                 .chars()
-                .skip(line.len().saturating_sub(1).min(self.pos.x.scroll));
+                .skip(line.len()
+                    .saturating_sub(1)
+                    .min(self.pos.x.scroll));
+
             let Range16 {start: x_start, end: x_end} = frm.outer.x();
+
             for x_pos in x_start..x_end {
                 wrt
-                    .queue(MoveTo(x_pos, u16_or_0(y) + frm.outer.y))?
+                    .queue(MoveTo(
+                            x_pos, u16_or_0(scr_idx) + frm.outer.y))?
                     .queue(Print(chars.next().unwrap_or(' ')))?;
             }
         }
+
         wrt
             .queue(MoveTo(self.pos.x.cursor, self.pos.y.cursor))?
             .queue(ResetColor)?;
+
         Ok(())
     }
 } 
 
 pub fn wrap_list(lines: &Vec<Text>, w: usize) -> Vec<(usize, String)> {
     let mut display: Vec<(usize, String)> = vec![];
+
     for (i, l) in lines.iter().enumerate() {
+
         let v = 
             if l.wrap {
                 wrap(&l.text, w)
             } else {
                 vec![l.text.clone()]
             };
+
         for s in v.iter() {
             display.push((i, s.to_string()));
         }
     }
+
     display
 }
 
-pub fn white_line<W: Write>(txt: &str, frm: &Frame, wrt: &mut W) 
-    -> io::Result<()> 
+pub fn white_line<W>(txt: &str, frm: &Frame, wrt: &mut W) -> io::Result<()> 
+where W: Write
 {
-    wrt.queue(SetForegroundColor(Color::White))?;
+    wrt
+        .queue(SetForegroundColor(Color::White))?;
+
     let mut chars = txt.chars();
+
     let Range16 {start: x_start, end: x_end} = frm.outer.x();
+
     for x_pos in x_start..x_end {
         wrt
             .queue(MoveTo(x_pos, frm.outer.y))?
@@ -189,17 +227,27 @@ impl Editor {
         self.pos.move_forward(&frm.x(), self.txt.len(), step)
     }
 
-    pub fn view<W: Write>(&self, frm: &Frame, pos: &Pos, wrt: &mut W) 
-        -> io::Result<()> 
+    pub fn view<W>(&self, frm: &Frame, pos: &Pos, wrt: &mut W) 
+    -> io::Result<()> 
+    where W: Write
     {
-        wrt.queue(SetForegroundColor(self.color))?;
+        wrt
+            .queue(SetForegroundColor(self.color))?;
+
         let mut chars = self.txt
             .chars()
-            .skip(self.txt.len().saturating_sub(1).min(pos.x.scroll));
+            .skip(self.txt.len()
+                .saturating_sub(1)
+                .min(pos.x.scroll));
+
         let Range16 {start: x_start, end: x_end} = frm.outer.x();
+
         for x_pos in x_start..x_end {
             let c = chars.next().unwrap_or(' ');
-            wrt.queue(MoveTo(x_pos, pos.y.cursor))?.queue(Print(c))?;
+
+            wrt
+                .queue(MoveTo(x_pos, pos.y.cursor))?
+                .queue(Print(c))?;
         }
         Ok(())
     }

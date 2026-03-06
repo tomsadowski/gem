@@ -61,7 +61,9 @@ impl Dialog {
         dlg
     }
 
-    pub fn view<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    pub fn view<W>(&self, writer: &mut W) -> io::Result<()> 
+    where W: Write
+    {
         white_line(&self.p_txt, &self.p_frm, writer)?;
         match &self.i_type {
             InputType::Ack(ack) => {

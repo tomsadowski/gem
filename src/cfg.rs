@@ -13,8 +13,10 @@ use serde::Deserialize;
 // return default config if error
 pub fn load_config(path: &str) -> Config {
     fs::read_to_string(path)
-        .ok().map(|txt| Config::parse(&txt).ok())
-        .flatten().unwrap_or(Config::default())
+        .ok()
+        .map(|txt| Config::parse(&txt).ok())
+        .flatten()
+        .unwrap_or_default()
 }
 #[derive(Deserialize)]
 pub struct Config {
@@ -24,14 +26,8 @@ pub struct Config {
     pub keys:      KeyParams,
     pub format:    FormatParams,
 } 
-impl Config {
-    pub fn parse(text: &str) -> Result<Self, String> {
-        toml::from_str(text).map_err(|e| e.to_string())
-    }
-    pub fn parse_or_default(text: &str) -> Self {
-        toml::from_str(text).unwrap_or(Self::default())
-    }
-    pub fn default() -> Self {
+impl Default for Config {
+    fn default() -> Self {
         Self {
             init_url: "gemini://datapulp.smol.pub/".into(),
             scroll_at: 3,
@@ -39,6 +35,11 @@ impl Config {
             keys:      KeyParams::default(),
             format:    FormatParams::default(),
         }
+    }
+}
+impl Config {
+    pub fn parse(text: &str) -> Result<Self, String> {
+        toml::from_str(text).map_err(|e| e.to_string())
     }
 }
 #[derive(Deserialize)]
@@ -50,8 +51,8 @@ pub struct KeyParams {
     pub dialog:     DialogKeyParams,
     pub tab:        TabKeyParams,
 } 
-impl KeyParams {
-    pub fn default() -> Self {
+impl Default for KeyParams {
+    fn default() -> Self {
         Self {
             global:     'g',
             load_cfg:   'c',
@@ -74,8 +75,8 @@ pub struct TabKeyParams {
     pub delete_tab:   char,
     pub new_tab:      char,
 } 
-impl TabKeyParams {
-    pub fn default() -> Self {
+impl Default for TabKeyParams {
+    fn default() -> Self {
         Self {
             move_up:      'o',
             move_down:    'i',
@@ -91,13 +92,17 @@ impl TabKeyParams {
 }
 #[derive(Deserialize)]
 pub struct DialogKeyParams {
-    pub ack: char, 
-    pub yes: char, 
-    pub no: char
+    pub ack:    char, 
+    pub yes:    char, 
+    pub no:     char
 } 
-impl DialogKeyParams {
-    pub fn default() -> Self {
-        Self {ack: 'y', yes: 'y', no: 'n'}
+impl Default for DialogKeyParams {
+    fn default() -> Self {
+        Self {
+            ack:    'y', 
+            yes:    'y', 
+            no:     'n'
+        }
     }
 }
 #[derive(Deserialize)]
@@ -109,8 +114,8 @@ pub struct FormatParams {
     pub heading2:    (u8, u8),
     pub heading3:    (u8, u8),
 } 
-impl FormatParams {
-    pub fn default() -> Self {
+impl Default for FormatParams {
+    fn default() -> Self {
         Self {
             x_margin:    4,
             y_margin:    2,
@@ -137,8 +142,8 @@ pub struct ColorParams {
     pub list:       (u8, u8, u8),
     pub preformat:  (u8, u8, u8),
 } 
-impl ColorParams {
-    pub fn default() -> Self {
+impl Default for ColorParams {
+    fn default() -> Self {
         Self {
             background: ( 40,  40,  40),
             border:     (128, 136, 144),
@@ -155,20 +160,29 @@ impl ColorParams {
             preformat:  (255, 208, 160),
         }
     }
+}
+impl ColorParams {
     pub fn get_banner(&self) -> Color {
-        let (r, g, b) = self.banner; Color::Rgb {r, g, b}
+        let (r, g, b) = self.banner; 
+        Color::Rgb {r, g, b}
     }
+
     pub fn get_dialog(&self) -> Color {
-        let (r, g, b) = self.dialog; Color::Rgb {r, g, b}
+        let (r, g, b) = self.dialog; 
+        Color::Rgb {r, g, b}
     }
+
     pub fn get_background(&self) -> Color {
-        let (r, g, b) = self.background; Color::Rgb {r, g, b}
+        let (r, g, b) = self.background; 
+        Color::Rgb {r, g, b}
     }
+
     pub fn from_gem_doc(&self, doc: &GemDoc) -> Vec<Text> {
         doc.doc.iter()
             .map(|(gem_type, text)| self.from_gem_type(gem_type, &text))
             .collect()
     }
+
     pub fn from_gem_type(&self, gem: &GemType, text: &str) -> Text {
         let ((r, g, b), wrap) = match gem {
             GemType::HeadingOne     => (self.heading1, true),
