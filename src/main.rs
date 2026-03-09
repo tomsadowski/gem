@@ -16,36 +16,36 @@ mod screen;
 mod msg;
 
 use crate::{
-    app::App,
+  app::App,
 };
 use crossterm::{
-    QueueableCommand, terminal, event,
+  QueueableCommand, terminal, event,
 };
 use std::{
-    io::{self, stdout, Write}
+  io::{self, stdout, Write}
 };
 
 fn main() -> io::Result<()> {
-    terminal::enable_raw_mode()?;
+  terminal::enable_raw_mode()?;
 
-    let mut stdout = stdout();
+  let mut stdout = stdout();
 
-    stdout
-        .queue(terminal::EnterAlternateScreen)?
-        .queue(terminal::DisableLineWrap)?;
+  stdout
+    .queue(terminal::EnterAlternateScreen)?
+    .queue(terminal::DisableLineWrap)?;
 
-    let (w, h) = terminal::size()?;
-    let mut ui = App::new("gem.toml", w, h);
+  let (w, h) = terminal::size()?;
+  let mut ui = App::new("gem.toml", w, h);
 
-    ui.view(&mut stdout)?;
+  ui.view(&mut stdout)?;
 
-    while !ui.quit {
-        if ui.update(event::read()?) {
-            ui.view(&mut stdout)?;
-        }
+  while !ui.quit {
+    if ui.update(event::read()?) {
+      ui.view(&mut stdout)?;
     }
+  }
 
-    terminal::disable_raw_mode()?;
-    stdout.queue(terminal::LeaveAlternateScreen)?;
-    stdout.flush()
+  terminal::disable_raw_mode()?;
+  stdout.queue(terminal::LeaveAlternateScreen)?;
+  stdout.flush()
 }

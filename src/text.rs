@@ -1,292 +1,288 @@
 // src/text.rs
 
 use crate::{
-    screen::{Frame, Dim, Range16},
-    pos::{Pos, PosCol},
-    util::{self, wrap, u16_or_0},
+  screen::{Frame, Dim, Range16},
+  pos::{Pos, PosCol},
+  util::{self, wrap, u16_or_0},
 };
 use crossterm::{
-    QueueableCommand,
-    style::{
-        Color, SetForegroundColor, SetBackgroundColor, Print, ResetColor},
-    cursor::MoveTo,
+  QueueableCommand,
+  style::{
+    Color, SetForegroundColor, SetBackgroundColor, Print, ResetColor},
+  cursor::MoveTo,
 };
 use std::io::{self, Write};
 
+#[derive(Clone)]
 pub struct Text {
-    pub fg:     Color,
-    pub bg:     Color,
-    pub text:   String,
-    pub wrap:   bool,
+  pub fg:     Color,
+  pub bg:     Color,
+  pub text:   String,
+  pub wrap:   bool,
+}
+impl From<&str> for Text {
+  fn from(item: &str) -> Self {
+    Self::new(item)
+  }
 }
 impl Default for Text {
-    fn default() -> Self {
-        Self::new("")
-    }
+  fn default() -> Self {
+    Self::new("")
+  }
 }
 impl Text {
-    pub fn new(text: &str) -> Self {
-        Self {
-            text:   text.into(), 
-            fg:     Color::White, 
-            bg:     Color::Black,
-            wrap:   false,
-        }
+  pub fn write_frame<W>(&self, frm: &Frame, wrt: &mut W) -> io::Result<()>
+  where W: Write
+  {
+    wrt
+      .queue(SetForegroundColor(Color::White))?;
+
+    let mut chars = self.text.chars();
+    let Range16 {start: x_start, end: x_end} = frm.outer.x();
+    for x_pos in x_start..x_end {
+      wrt
+        .queue(MoveTo(x_pos, frm.outer.y))?
+        .queue(Print(chars.next().unwrap_or(' ')))?;
     }
-    pub fn fg(mut self, col: Color) -> Self {
-        self.fg = col;
-        self
+    Ok(())
+  }
+
+  pub fn new(text: &str) -> Self {
+    Self {
+      text:   text.into(), 
+      fg:     Color::White, 
+      bg:     Color::Black,
+      wrap:   false,
     }
-    pub fn bg(mut self, col: Color) -> Self {
-        self.bg = col;
-        self
-    }
-    pub fn wrap(mut self, b: bool) -> Self {
-        self.wrap = b;
-        self
-    }
+  }
+  pub fn fg(mut self, col: Color) -> Self {
+    self.fg = col;
+    self
+  }
+  pub fn bg(mut self, col: Color) -> Self {
+    self.bg = col;
+    self
+  }
+  pub fn wrap(mut self, b: bool) -> Self {
+    self.wrap = b;
+    self
+  }
 }
 
 pub struct Doc {
-    pub pos:    Pos,
-    pub text:   Vec<Text>,
-    pub lines:  Vec<(usize, String)>,
+  pub pos:    Pos,
+  pub text:   Vec<Text>,
+  pub lines:  Vec<(usize, String)>,
 } 
 impl Default for Doc {
-    fn default() -> Self {
-        Self {
-            pos:    Pos::default(), 
-            text:   vec![], 
-            lines:  vec![]
-        }
+  fn default() -> Self {
+    Self {
+      pos:    Pos::default(), 
+      text:   vec![], 
+      lines:  vec![]
     }
+  }
 }
 impl Doc {
-    pub fn new(text: Vec<Text>, frm: &Frame) -> Self {
-        let lines = wrap_list(&text, frm.outer.w);
-        let pos = frm.pos();
-        Self {pos, lines, text}
-    }
+  pub fn new(text: Vec<Text>, frm: &Frame) -> Self {
+    let lines = Self::wrap_list(&text, frm.outer.w);
+    let pos = frm.pos();
+    Self {pos, lines, text}
+  }
 
-    pub fn resize(&mut self, frm: &Frame) {
-        self.lines = wrap_list(&self.text, frm.outer.w);
-    }
+  pub fn resize(&mut self, frm: &Frame) {
+    self.lines = Self::wrap_list(&self.text, frm.outer.w);
+  }
 
-    pub fn select(&self, frm: &Frame) -> Option<usize> {
-        let line_idx = self.pos.y
-            .data_idx(&frm.outer.y());
-        self.lines
-            .get(line_idx)
-            .map(|(text_idx, _)| *text_idx)
-    }
+  pub fn select(&self, frm: &Frame) -> Option<usize> {
+    let line_idx = self.pos.y
+      .data_idx(&frm.outer.y());
+    self.lines
+      .get(line_idx)
+      .map(|(text_idx, _)| *text_idx)
+  }
 
-    fn y(&self) -> usize {
-        self.lines.len()
-    }
+  fn y(&self) -> usize {
+    self.lines.len()
+  }
 
-    fn x(&self, y: usize) -> Option<usize> {
-        self.lines
-            .get(y)
-            .map(|(_, lines)| lines.len())
-    }
+  fn x(&self, y: usize) -> Option<usize> {
+    self.lines
+      .get(y)
+      .map(|(_, lines)| lines.len())
+  }
 
-    pub fn move_left(&mut self, frm: &Frame, step: u16) -> bool {
-        self.pos.x.move_backward(&frm.x(), step)
-    }
+  pub fn move_left(&mut self, frm: &Frame, step: u16) -> bool {
+    self.pos.x.move_backward(&frm.x(), step)
+  }
 
-    pub fn move_right(&mut self, frm: &Frame, step: u16) -> bool {
-        self
-            .x(self.pos.y.data_idx(&frm.outer.y()))
-            .map(|x| self.pos.x.move_forward(&frm.x(), x, step))
-            .unwrap_or(false)
-    }
+  pub fn move_right(&mut self, frm: &Frame, step: u16) -> bool {
+    self
+      .x(self.pos.y.data_idx(&frm.outer.y()))
+      .map(|x| self.pos.x.move_forward(&frm.x(), x, step))
+      .unwrap_or(false)
+  }
 
-    pub fn move_up(&mut self, frm: &Frame, step: u16) -> bool {
-        if self.pos.y.move_backward(&frm.y(), step) {
-            self.move_into_x(frm); true
-        } else {false}
-    }
+  pub fn move_up(&mut self, frm: &Frame, step: u16) -> bool {
+    if self.pos.y.move_backward(&frm.y(), step) {
+      self.move_into_x(frm); true
+    } else {false}
+  }
 
-    pub fn move_down(&mut self, frm: &Frame, step: u16) -> bool {
-        if self.pos.y.move_forward(&frm.y(), self.y(), step) {
-            self.move_into_x(frm); true
-        } else {false}
-    }
+  pub fn move_down(&mut self, frm: &Frame, step: u16) -> bool {
+    if self.pos.y.move_forward(&frm.y(), self.y(), step) {
+      self.move_into_x(frm); true
+    } else {false}
+  }
 
-    pub fn move_into_x(&mut self, frm: &Frame) {
-        let idx = self.pos.y
-            .data_idx(&frm.outer.y())
-            .min(self.y().saturating_sub(1));
-        self
-            .x(idx)
-            .inspect(|d| self.pos.x.move_into(&frm.x(), *d));
-    }
+  pub fn move_into_x(&mut self, frm: &Frame) {
+    let idx = self.pos.y
+      .data_idx(&frm.outer.y())
+      .min(self.y().saturating_sub(1));
+    self
+      .x(idx)
+      .inspect(|d| self.pos.x.move_into(&frm.x(), *d));
+  }
 
-    pub fn view<W>(&self, frm: &Frame, wrt: &mut W) -> io::Result<()> 
-    where W: Write
+  pub fn view<W>(&self, frm: &Frame, wrt: &mut W) -> io::Result<()> 
+  where W: Write
+  {
+    let line_start = self.lines.len()
+      .saturating_sub(1)
+      .min(self.pos.y.scroll);
+
+    let line_end = line_start
+      .saturating_add(frm.outer.h)
+      .min(self.lines.len());
+
+    for (scr_idx, (text_idx, line)) in 
+      self.lines[line_start..line_end].iter().enumerate() 
     {
-        let line_start = self.lines.len()
-            .saturating_sub(1)
-            .min(self.pos.y.scroll);
+      wrt
+        .queue(SetForegroundColor(self.text[*text_idx].fg))?
+        .queue(SetBackgroundColor(self.text[*text_idx].bg))?;
 
-        let line_end = line_start
-            .saturating_add(frm.outer.h)
-            .min(self.lines.len());
+      let mut chars = line
+        .chars()
+        .skip(line.len()
+          .saturating_sub(1)
+          .min(self.pos.x.scroll));
 
-        for (scr_idx, (text_idx, line)) in 
-            self.lines[line_start..line_end]
-                .iter()
-                .enumerate() 
-        {
-            wrt
-                .queue(SetForegroundColor(self.text[*text_idx].fg))?
-                .queue(SetBackgroundColor(self.text[*text_idx].bg))?;
+      let Range16 {start: x_start, end: x_end} = frm.outer.x();
 
-            let mut chars = line
-                .chars()
-                .skip(line.len()
-                    .saturating_sub(1)
-                    .min(self.pos.x.scroll));
-
-            let Range16 {start: x_start, end: x_end} = frm.outer.x();
-
-            for x_pos in x_start..x_end {
-                wrt
-                    .queue(MoveTo(
-                            x_pos, u16_or_0(scr_idx) + frm.outer.y))?
-                    .queue(Print(chars.next().unwrap_or(' ')))?;
-            }
-        }
-
+      for x_pos in x_start..x_end {
         wrt
-            .queue(MoveTo(self.pos.x.cursor, self.pos.y.cursor))?
-            .queue(ResetColor)?;
-
-        Ok(())
+          .queue(MoveTo(x_pos, u16_or_0(scr_idx) + frm.outer.y))?
+          .queue(Print(chars.next().unwrap_or(' ')))?;
+      }
     }
+
+    wrt
+        .queue(MoveTo(self.pos.x.cursor, self.pos.y.cursor))?
+        .queue(ResetColor)?;
+
+    Ok(())
+  }
+
+  fn wrap_list(lines: &Vec<Text>, w: usize) -> Vec<(usize, String)> {
+    let mut display: Vec<(usize, String)> = vec![];
+    for (i, l) in lines.iter().enumerate() {
+      let v = 
+        if l.wrap {
+          wrap(&l.text, w)
+        } else {
+          vec![l.text.clone()]
+        };
+      for s in v.iter() {
+        display.push((i, s.to_string()));
+      }
+    }
+    display
+  }
 } 
 
-pub fn wrap_list(lines: &Vec<Text>, w: usize) -> Vec<(usize, String)> {
-    let mut display: Vec<(usize, String)> = vec![];
-
-    for (i, l) in lines.iter().enumerate() {
-
-        let v = 
-            if l.wrap {
-                wrap(&l.text, w)
-            } else {
-                vec![l.text.clone()]
-            };
-
-        for s in v.iter() {
-            display.push((i, s.to_string()));
-        }
-    }
-
-    display
+#[derive(Clone)]
+pub struct Editor {
+  pub pos:    PosCol,
+  pub txt:    String,
+  pub color:  Color,
 }
+impl Editor {
+  pub fn new(frm: &Frame, txt: &str, color: Color) -> Self {
+    Self {
+      pos:    frm.pos().x,
+      color:  color,
+      txt:    txt.into(),
+    }
+  }
 
-pub fn white_line<W>(txt: &str, frm: &Frame, wrt: &mut W) -> io::Result<()> 
-where W: Write
-{
+  pub fn move_left(&mut self, frm: &Frame, step: u16) -> bool {
+    self.pos.move_backward(&frm.x(), step)
+  }
+
+  pub fn move_right(&mut self, frm: &Frame, step: u16) -> bool {
+    self.pos.move_forward(&frm.x(), self.txt.len(), step)
+  }
+
+  pub fn write_frame<W>(&self, frm: &Frame, wrt: &mut W) -> io::Result<()> 
+  where W: Write
+  {
     wrt
-        .queue(SetForegroundColor(Color::White))?;
+      .queue(SetForegroundColor(self.color))?;
 
-    let mut chars = txt.chars();
+    let mut chars = self.txt
+      .chars()
+      .skip(self.txt.len()
+          .saturating_sub(1)
+          .min(self.pos.scroll));
 
     let Range16 {start: x_start, end: x_end} = frm.outer.x();
 
     for x_pos in x_start..x_end {
-        wrt
-            .queue(MoveTo(x_pos, frm.outer.y))?
-            .queue(Print(chars.next().unwrap_or(' ')))?;
+      let c = chars.next().unwrap_or(' ');
+
+      wrt
+        .queue(MoveTo(x_pos, self.pos.cursor))?
+        .queue(Print(c))?;
     }
     Ok(())
-}
+  }
 
-#[derive(Clone)]
-pub struct Editor {
-    pub pos:    PosCol,
-    pub txt:    String,
-    pub color:  Color,
-}
-impl Editor {
-    pub fn new(frm: &Frame, txt: &str, color: Color) -> Self {
-        Self {
-            pos:    frm.pos().x,
-            color:  color,
-            txt:    txt.into(),
-        }
+  pub fn delete(&mut self, frm: &Frame, pos: &mut Pos) -> bool {
+    let outer = frm.outer.x();
+    let idx = pos.x.data_idx(&outer);
+    if idx >= self.txt.len() || self.txt.len() == 0 {
+      return false
     }
-
-    pub fn move_left(&mut self, frm: &Frame, step: u16) -> bool {
-        self.pos.move_backward(&frm.x(), step)
+    self.txt.remove(idx);
+    if pos.x.cursor + 1 != outer.end {
+      pos.x.move_forward(&frm.x(), self.txt.len(), 1)
+    } else {
+      false
     }
+  }
 
-    pub fn move_right(&mut self, frm: &Frame, step: u16) -> bool {
-        self.pos.move_forward(&frm.x(), self.txt.len(), step)
+  pub fn backspace(&mut self, frm: &Frame, pos: &mut Pos) -> bool {
+    if self.txt.len() == 0 {
+      return false
     }
-
-    pub fn view<W>(&self, frm: &Frame, pos: &Pos, wrt: &mut W) 
-    -> io::Result<()> 
-    where W: Write
-    {
-        wrt
-            .queue(SetForegroundColor(self.color))?;
-
-        let mut chars = self.txt
-            .chars()
-            .skip(self.txt.len()
-                .saturating_sub(1)
-                .min(pos.x.scroll));
-
-        let Range16 {start: x_start, end: x_end} = frm.outer.x();
-
-        for x_pos in x_start..x_end {
-            let c = chars.next().unwrap_or(' ');
-
-            wrt
-                .queue(MoveTo(x_pos, pos.y.cursor))?
-                .queue(Print(c))?;
-        }
-        Ok(())
+    let idx = pos.x.data_idx(&frm.outer.x());
+    pos.x.move_backward(&frm.x(), 1);
+    self.txt.remove(idx);
+    if pos.x.cursor + 1 != frm.outer.x().end {
+      pos.x.move_forward(&frm.x(), self.txt.len(), 1);
     }
+    true
+  }
 
-    pub fn delete(&mut self, frm: &Frame, pos: &mut Pos) -> bool {
-        let outer = frm.outer.x();
-        let idx = pos.x.data_idx(&outer);
-        if idx >= self.txt.len() || self.txt.len() == 0 {
-            return false
-        }
-        self.txt.remove(idx);
-        if pos.x.cursor + 1 != outer.end {
-            pos.x.move_forward(&frm.x(), self.txt.len(), 1)
-        } else {
-            false
-        }
+  pub fn insert(&mut self, frm: &Frame, pos: &mut Pos, c: char) -> bool {
+    let idx = pos.x.data_idx(&frm.outer.x()) + 1;
+    if idx >= self.txt.len() || self.txt.len() == 0 {
+      self.txt.push(c);
+    } else {
+      self.txt.insert(idx, c);
     }
-
-    pub fn backspace(&mut self, frm: &Frame, pos: &mut Pos) -> bool {
-        if self.txt.len() == 0 {
-            return false
-        }
-        let idx = pos.x.data_idx(&frm.outer.x());
-        pos.x.move_backward(&frm.x(), 1);
-        self.txt.remove(idx);
-        if pos.x.cursor + 1 != frm.outer.x().end {
-            pos.x.move_forward(&frm.x(), self.txt.len(), 1);
-        }
-        true
-    }
-
-    pub fn insert(&mut self, frm: &Frame, pos: &mut Pos, c: char) -> bool {
-        let idx = pos.x.data_idx(&frm.outer.x()) + 1;
-        if idx >= self.txt.len() || self.txt.len() == 0 {
-            self.txt.push(c);
-        } else {
-            self.txt.insert(idx, c);
-        }
-        pos.x.move_forward(&frm.x(), self.txt.len(), 1);
-        true
-    }
+    pos.x.move_forward(&frm.x(), self.txt.len(), 1);
+    true
+  }
 }

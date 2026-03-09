@@ -1,158 +1,154 @@
 // src/dlg.rs
 
 use crate::{
-    cfg::{Config},
-    screen::{Frame},
-    pos::{Pos},
-    text::{self, white_line, Editor},
-    msg::{InputMsg},
+  cfg::{Config},
+  screen::{Frame},
+  pos::{Pos},
+  text::{self, Text, Editor},
+  msg::{InputMsg},
 };
 use crossterm::{
-    QueueableCommand,
-    cursor::{MoveTo},
-    style::{Print, Color},
-    event::{KeyCode},
+  QueueableCommand,
+  cursor::{MoveTo},
+  style::{Print, Color},
+  event::{KeyCode},
 };
 use std::{
-    io::{self, Write}
+  io::{self, Write}
 };
 
 #[derive(Clone)]
 pub enum InputType {
-    Ack(char),
-    Ask(char, char),
-    Text(Editor, Pos),
+  Ack(char),
+  Ask(char, char),
+  Text(Editor, Pos),
 }
 #[derive(Clone)]
 pub struct Dialog {
-    pub p_frm:  Frame,
-    pub i_frm:  Frame,
-    pub p_txt:  String,
-    pub i_type: InputType,
+  pub prompt_frame: Frame,
+  pub prompt_text:  Text,
+  pub input_frame:  Frame,
+  pub input_type:   InputType,
 } 
 impl Dialog {
-    fn new(frm: &Frame, p_txt: &str) -> Self {
-        Self {
-            p_frm:  frm.row(3),
-            i_frm:  frm.row(6),
-            p_txt:  p_txt.into(), 
-            i_type: InputType::Ack('a'),
-        }
+  fn new(frm: &Frame, prompt_text: &str) -> Self {
+    Self {
+      prompt_frame:  frm.row(3),
+      input_frame:  frm.row(6),
+      prompt_text:  prompt_text.into(), 
+      input_type: InputType::Ack('a'),
     }
+  }
 
-    pub fn text(frm: &Frame, cfg: &Config, p_txt: &str) -> Self {
-        let mut dlg = Self::new(frm, p_txt);
-        let pos     = dlg.i_frm.pos();
-        let editor  = Editor::new(&dlg.i_frm, "", cfg.colors.get_dialog());
-        dlg.i_type  = InputType::Text(editor, pos);
-        dlg
+  pub fn text(frm: &Frame, cfg: &Config, prompt_text: &str) -> Self {
+    let mut dlg = Self::new(frm, prompt_text);
+    let pos = dlg.input_frame.pos();
+    let editor = Editor::new(&dlg.input_frame, "", cfg.colors.get_dialog());
+    dlg.input_type  = InputType::Text(editor, pos);
+    dlg
+  }
+
+  pub fn ack(frm: &Frame, cfg: &Config, prompt_text: &str) -> Self {
+    let mut dlg = Self::new(frm, prompt_text);
+    dlg.input_type  = InputType::Ack(cfg.keys.dialog.ack);
+    dlg
+  }
+
+  pub fn ask(frame: &Frame, cfg: &Config, prompt_text: &str ) -> Self {
+    let mut dlg = Self::new(frame, prompt_text);
+    dlg.input_type  = InputType::Ask
+      (cfg.keys.dialog.yes, cfg.keys.dialog.no);
+    dlg
+  }
+
+  pub fn view<W>(&self, writer: &mut W) -> io::Result<()> 
+  where W: Write
+  {
+    self.prompt_text.write_frame(&self.prompt_frame, writer)?;
+    match &self.input_type {
+      InputType::Ack(ack) => {
+        Text::new(&format!("|{}| acknowledge", ack))
+          .write_frame(&self.input_frame, writer)?;
+      }
+      InputType::Ask(yes, no) => {
+        Text::new(&format!("|{}| yes |{}| no", yes, no))
+          .write_frame(&self.input_frame, writer)?;
+      }
+      InputType::Text(editor, pos) => {
+        editor.write_frame(&self.input_frame, writer)?;
+        writer.queue(MoveTo(pos.x.cursor, pos.y.cursor))?;
+      }
     }
+    Ok(())
+  }
 
-    pub fn ack(frm: &Frame, cfg: &Config, p_txt: &str) -> Self {
-        let mut dlg = Self::new(frm, p_txt);
-        dlg.i_type  = InputType::Ack(cfg.keys.dialog.ack);
-        dlg
+  pub fn resize(&mut self, frame: &Frame) {
+    self.prompt_frame = frame.row(3);
+    self.input_frame  = frame.row(6);
+  }
+
+  pub fn update(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
+    match keycode {
+      KeyCode::Esc => Some(InputMsg::Cancel),
+      _ => self.update_input(keycode)
     }
+  }
 
-    pub fn ask(frame: &Frame, cfg: &Config, p_txt: &str ) -> Self {
-        let mut dlg = Self::new(frame, p_txt);
-        dlg.i_type  = InputType::Ask
-            (cfg.keys.dialog.yes, cfg.keys.dialog.no);
-        dlg
-    }
-
-    pub fn view<W>(&self, writer: &mut W) -> io::Result<()> 
-    where W: Write
-    {
-        white_line(&self.p_txt, &self.p_frm, writer)?;
-        match &self.i_type {
-            InputType::Ack(ack) => {
-                white_line(
-                    &format!("|{}| acknowledge", ack),
-                    &self.i_frm, 
-                    writer)?;
-            }
-            InputType::Ask(yes, no) => {
-                white_line(
-                    &format!("|{}| yes |{}| no", yes, no),
-                    &self.i_frm, 
-                    writer)?;
-            }
-            InputType::Text(editor, pos) => {
-                editor.view(&self.i_frm, &pos, writer)?;
-                writer.queue(MoveTo(pos.x.cursor, pos.y.cursor))?;
-            }
-        }
-        Ok(())
-    }
-
-    pub fn resize(&mut self, frame: &Frame) {
-        self.p_frm  = frame.row(3);
-        self.i_frm  = frame.row(6);
-    }
-
-    pub fn update(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
+  fn update_input(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
+    match &mut self.input_type {
+      InputType::Text(editor, pos) => {
         match keycode {
-            KeyCode::Esc => Some(InputMsg::Cancel),
-            _ => self.update_input(keycode)
+          KeyCode::Enter => {
+            Some(InputMsg::Text(editor.txt.clone()))
+          }
+          KeyCode::Left => {
+            editor
+              .move_left(&self.input_frame, 1)
+              .then_some(InputMsg::Default)
+          }
+          KeyCode::Right => {
+            editor
+              .move_right(&self.input_frame, 1)
+              .then_some(InputMsg::Default)
+          }
+          KeyCode::Delete => {
+            editor
+              .delete(&self.input_frame, pos)
+              .then_some(InputMsg::Default)
+          }
+          KeyCode::Backspace => {
+            editor
+              .backspace(&self.input_frame, pos)
+              .then_some(InputMsg::Default)
+          }
+          KeyCode::Char(c) => {
+            editor.insert(&self.input_frame, pos, *c);
+            Some(InputMsg::Default)
+          }
+          _ => None
         }
-    }
-
-    fn update_input(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
-        match &mut self.i_type {
-            InputType::Text(editor, pos) => {
-                match keycode {
-                    KeyCode::Enter => {
-                        Some(InputMsg::Text(editor.txt.clone()))
-                    }
-                    KeyCode::Left => {
-                        editor
-                            .move_left(&self.i_frm, 1)
-                            .then_some(InputMsg::Default)
-                    }
-                    KeyCode::Right => {
-                        editor
-                            .move_right(&self.i_frm, 1)
-                            .then_some(InputMsg::Default)
-                    }
-                    KeyCode::Delete => {
-                        editor
-                            .delete(&self.i_frm, pos)
-                            .then_some(InputMsg::Default)
-                    }
-                    KeyCode::Backspace => {
-                        editor
-                            .backspace(&self.i_frm, pos)
-                            .then_some(InputMsg::Default)
-                    }
-                    KeyCode::Char(c) => {
-                        editor.insert(&self.i_frm, pos, *c);
-                        Some(InputMsg::Default)
-                    }
-                    _ => None
-                }
-            }
-            InputType::Ack(ack) => {
-                match keycode {
-                    KeyCode::Char(c) => 
-                        (ack ==  c).then_some(InputMsg::Ack),
-                    _ => None,
-                }
-            }
-            InputType::Ask(yes, no) => {
-                match keycode {
-                    KeyCode::Char(c) => {
-                        if yes ==  c {
-                            Some(InputMsg::Yes)
-                        } else if no == c {
-                            Some(InputMsg::No)
-                        } else {
-                            None
-                        }
-                    }
-                    _ => None,
-                }
-            }
+      }
+      InputType::Ack(ack) => {
+        match keycode {
+          KeyCode::Char(c) => 
+            (ack ==  c).then_some(InputMsg::Ack),
+          _ => None,
         }
+      }
+      InputType::Ask(yes, no) => {
+        match keycode {
+          KeyCode::Char(c) => {
+            if yes ==  c {
+                Some(InputMsg::Yes)
+            } else if no == c {
+                Some(InputMsg::No)
+            } else {
+                None
+            }
+          }
+          _ => None,
+        }
+      }
     }
+  }
 }
