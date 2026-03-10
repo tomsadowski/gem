@@ -184,11 +184,14 @@ impl ColorParams {
 
   pub fn from_gem_doc(&self, doc: &GemDoc) -> Vec<Text> {
     doc.doc.iter()
-      .map(|(gem_type, text)| self.from_gem_type(gem_type, &text))
+      .map(|(gem_type, text)| 
+        self.from_gem_type(gem_type, &text))
       .collect()
   }
 
-  pub fn from_gem_type(&self, gem: &GemType, text: &str) -> Text {
+  pub fn from_gem_type(&self, gem: &GemType, text: &str) 
+    -> Text 
+  {
     let ((r, g, b), wrap) = match gem {
       GemType::HeadingOne     => (self.heading1, true),
       GemType::HeadingTwo     => (self.heading2, true),

@@ -8,10 +8,12 @@ use crate::{
 use crossterm::{
   QueueableCommand,
   style::{
-    Color, SetForegroundColor, SetBackgroundColor, Print, ResetColor},
+    Color, SetForegroundColor, 
+    SetBackgroundColor, Print, ResetColor},
   cursor::MoveTo,
 };
 use std::io::{self, Write};
+
 
 #[derive(Clone)]
 pub struct Text {
@@ -31,19 +33,26 @@ impl Default for Text {
   }
 }
 impl Text {
-  pub fn write_frame<W>(&self, frm: &Frame, wrt: &mut W) -> io::Result<()>
+  pub fn write_frame<W>(&self, 
+                        frm: &Frame, 
+                        wrt: &mut W) 
+    -> io::Result<()>
   where W: Write
   {
     wrt
       .queue(SetForegroundColor(Color::White))?;
 
     let mut chars = self.text.chars();
-    let Range16 {start: x_start, end: x_end} = frm.outer.x();
+
+    let Range16 {start: x_start, end: x_end} = 
+      frm.outer.x();
+
     for x_pos in x_start..x_end {
       wrt
         .queue(MoveTo(x_pos, frm.outer.y))?
         .queue(Print(chars.next().unwrap_or(' ')))?;
     }
+
     Ok(())
   }
 
@@ -55,14 +64,17 @@ impl Text {
       wrap:   false,
     }
   }
+
   pub fn fg(mut self, col: Color) -> Self {
     self.fg = col;
     self
   }
+
   pub fn bg(mut self, col: Color) -> Self {
     self.bg = col;
     self
   }
+
   pub fn wrap(mut self, b: bool) -> Self {
     self.wrap = b;
     self
@@ -85,18 +97,23 @@ impl Default for Doc {
 }
 impl Doc {
   pub fn new(text: Vec<Text>, frm: &Frame) -> Self {
+
     let lines = Self::wrap_list(&text, frm.outer.w);
     let pos = frm.pos();
+
     Self {pos, lines, text}
   }
 
   pub fn resize(&mut self, frm: &Frame) {
-    self.lines = Self::wrap_list(&self.text, frm.outer.w);
+    self.lines = 
+      Self::wrap_list(&self.text, frm.outer.w);
   }
 
   pub fn select(&self, frm: &Frame) -> Option<usize> {
+
     let line_idx = self.pos.y
       .data_idx(&frm.outer.y());
+
     self.lines
       .get(line_idx)
       .map(|(text_idx, _)| *text_idx)
@@ -112,27 +129,41 @@ impl Doc {
       .map(|(_, lines)| lines.len())
   }
 
-  pub fn move_left(&mut self, frm: &Frame, step: u16) -> bool {
+  pub fn move_left(&mut self, frm: &Frame, step: u16) 
+    -> bool 
+  {
     self.pos.x.move_backward(&frm.x(), step)
   }
 
-  pub fn move_right(&mut self, frm: &Frame, step: u16) -> bool {
+  pub fn move_right(&mut self, frm: &Frame, step: u16) 
+    -> bool 
+  {
     self
       .x(self.pos.y.data_idx(&frm.outer.y()))
-      .map(|x| self.pos.x.move_forward(&frm.x(), x, step))
+      .map(|x| 
+        self.pos.x.move_forward(&frm.x(), x, step))
       .unwrap_or(false)
   }
 
-  pub fn move_up(&mut self, frm: &Frame, step: u16) -> bool {
+  pub fn move_up(&mut self, frm: &Frame, step: u16) 
+    -> bool 
+  {
     if self.pos.y.move_backward(&frm.y(), step) {
       self.move_into_x(frm); true
     } else {false}
   }
 
-  pub fn move_down(&mut self, frm: &Frame, step: u16) -> bool {
-    if self.pos.y.move_forward(&frm.y(), self.y(), step) {
-      self.move_into_x(frm); true
-    } else {false}
+  pub fn move_down(&mut self, frm: &Frame, step: u16) 
+    -> bool 
+  {
+    if self.pos.y
+      .move_forward(&frm.y(), self.y(), step) 
+    {
+      self.move_into_x(frm); 
+      true
+    } else {
+      false
+    }
   }
 
   pub fn move_into_x(&mut self, frm: &Frame) {
@@ -144,7 +175,8 @@ impl Doc {
       .inspect(|d| self.pos.x.move_into(&frm.x(), *d));
   }
 
-  pub fn view<W>(&self, frm: &Frame, wrt: &mut W) -> io::Result<()> 
+  pub fn view<W>(&self, frm: &Frame, wrt: &mut W) 
+    -> io::Result<()> 
   where W: Write
   {
     let line_start = self.lines.len()
@@ -156,11 +188,17 @@ impl Doc {
       .min(self.lines.len());
 
     for (scr_idx, (text_idx, line)) in 
-      self.lines[line_start..line_end].iter().enumerate() 
+      self.lines[line_start..line_end]
+        .iter()
+        .enumerate() 
     {
       wrt
-        .queue(SetForegroundColor(self.text[*text_idx].fg))?
-        .queue(SetBackgroundColor(self.text[*text_idx].bg))?;
+        .queue(
+          SetForegroundColor(
+            self.text[*text_idx].fg))?
+        .queue(
+          SetBackgroundColor(
+            self.text[*text_idx].bg))?;
 
       let mut chars = line
         .chars()
@@ -168,35 +206,48 @@ impl Doc {
           .saturating_sub(1)
           .min(self.pos.x.scroll));
 
-      let Range16 {start: x_start, end: x_end} = frm.outer.x();
+      let Range16 {start: x_start, end: x_end} = 
+        frm.outer.x();
 
       for x_pos in x_start..x_end {
         wrt
-          .queue(MoveTo(x_pos, u16_or_0(scr_idx) + frm.outer.y))?
-          .queue(Print(chars.next().unwrap_or(' ')))?;
+          .queue(
+            MoveTo(x_pos, 
+              u16_or_0(scr_idx) + frm.outer.y))?
+          .queue(
+            Print(chars.next().unwrap_or(' ')))?;
       }
     }
 
     wrt
-        .queue(MoveTo(self.pos.x.cursor, self.pos.y.cursor))?
+        .queue(
+          MoveTo(
+            self.pos.x.cursor, 
+            self.pos.y.cursor))?
         .queue(ResetColor)?;
 
     Ok(())
   }
 
-  fn wrap_list(lines: &Vec<Text>, w: usize) -> Vec<(usize, String)> {
+  fn wrap_list(lines: &Vec<Text>, w: usize) 
+    -> Vec<(usize, String)> 
+  {
     let mut display: Vec<(usize, String)> = vec![];
+
     for (i, l) in lines.iter().enumerate() {
+
       let v = 
         if l.wrap {
           wrap(&l.text, w)
         } else {
           vec![l.text.clone()]
         };
+
       for s in v.iter() {
         display.push((i, s.to_string()));
       }
     }
+
     display
   }
 } 
@@ -208,7 +259,9 @@ pub struct Editor {
   pub color:  Color,
 }
 impl Editor {
-  pub fn new(frm: &Frame, txt: &str, color: Color) -> Self {
+  pub fn new(frm: &Frame, txt: &str, color: Color) 
+    -> Self 
+  {
     Self {
       pos:    frm.pos().x,
       color:  color,
@@ -216,15 +269,20 @@ impl Editor {
     }
   }
 
-  pub fn move_left(&mut self, frm: &Frame, step: u16) -> bool {
+  pub fn move_left(&mut self, frm: &Frame, step: u16) 
+    -> bool 
+  {
     self.pos.move_backward(&frm.x(), step)
   }
 
-  pub fn move_right(&mut self, frm: &Frame, step: u16) -> bool {
+  pub fn move_right(&mut self, frm: &Frame, step: u16) 
+    -> bool 
+  {
     self.pos.move_forward(&frm.x(), self.txt.len(), step)
   }
 
-  pub fn write_frame<W>(&self, frm: &Frame, wrt: &mut W) -> io::Result<()> 
+  pub fn write_frame<W>(&self, frm: &Frame, wrt: &mut W) 
+    -> io::Result<()> 
   where W: Write
   {
     wrt
@@ -236,7 +294,8 @@ impl Editor {
           .saturating_sub(1)
           .min(self.pos.scroll));
 
-    let Range16 {start: x_start, end: x_end} = frm.outer.x();
+    let Range16 {start: x_start, end: x_end} = 
+      frm.outer.x();
 
     for x_pos in x_start..x_end {
       let c = chars.next().unwrap_or(' ');
@@ -248,12 +307,16 @@ impl Editor {
     Ok(())
   }
 
-  pub fn delete(&mut self, frm: &Frame, pos: &mut Pos) -> bool {
+  pub fn delete(&mut self, frm: &Frame, pos: &mut Pos) 
+    -> bool 
+  {
     let outer = frm.outer.x();
     let idx = pos.x.data_idx(&outer);
+
     if idx >= self.txt.len() || self.txt.len() == 0 {
       return false
     }
+
     self.txt.remove(idx);
     if pos.x.cursor + 1 != outer.end {
       pos.x.move_forward(&frm.x(), self.txt.len(), 1)
@@ -262,20 +325,31 @@ impl Editor {
     }
   }
 
-  pub fn backspace(&mut self, frm: &Frame, pos: &mut Pos) -> bool {
+  pub fn backspace(&mut self, frm: &Frame, pos: &mut Pos) 
+    -> bool 
+  {
     if self.txt.len() == 0 {
       return false
     }
+
     let idx = pos.x.data_idx(&frm.outer.x());
+
     pos.x.move_backward(&frm.x(), 1);
     self.txt.remove(idx);
+
     if pos.x.cursor + 1 != frm.outer.x().end {
       pos.x.move_forward(&frm.x(), self.txt.len(), 1);
     }
+
     true
   }
 
-  pub fn insert(&mut self, frm: &Frame, pos: &mut Pos, c: char) -> bool {
+  pub fn insert(&mut self, 
+                frm: &Frame, 
+                pos: &mut Pos, 
+                c: char) 
+    -> bool 
+  {
     let idx = pos.x.data_idx(&frm.outer.x()) + 1;
     if idx >= self.txt.len() || self.txt.len() == 0 {
       self.txt.push(c);

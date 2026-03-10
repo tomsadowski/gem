@@ -31,8 +31,11 @@ pub struct App {
 } 
 impl App {
   pub fn new(path: &str, w: u16, h: u16) -> Self {
+
     let cfg = cfg::load_config(path);
-    let (hdr_frame, tab_frame) = Self::get_layout(w, h, &cfg);
+    let (hdr_frame, tab_frame) = 
+      Self::get_layout(w, h, &cfg);
+
     let mut app = Self {
       cfg_path: path.into(),
       quit:     false, 
@@ -40,29 +43,38 @@ impl App {
       idx:      0,  
       hdr:      Doc::default(),
       clr_scr:  false,
-      tabs:     vec![Tab::init(&tab_frame, &cfg.init_url, &cfg)],
+      tabs:     vec![
+        Tab::init(&tab_frame, &cfg.init_url, &cfg)],
       hdr_frame, 
       tab_frame,
       cfg,
     };
+
     app.update_hdr_text();
     app
   }
 
-  pub fn view(&self, writer: &mut impl Write) -> io::Result<()> { 
+  pub fn view(&self, writer: &mut impl Write) 
+    -> io::Result<()> 
+  { 
     writer.queue(cursor::Hide)?;
+
     if self.clr_scr {
       writer.queue(Clear(ClearType::All))?;
     }
+
     self.hdr.view(&self.hdr_frame, writer)?;
     self.tabs[self.idx].view(writer)?;
+
     writer
       .queue(cursor::Show)?
       .flush()
   }
 
   pub fn update(&mut self, event: Event) -> bool {
+
     self.clr_scr = false;
+
     match event {
       Event::Key(
         KeyEvent {
@@ -74,21 +86,28 @@ impl App {
         self.quit = true;
         true
       }
+
       Event::Resize(w, h) => {
         self.resize(w, h);
         self.clr_scr = true;
         true
       }
+
       Event::Key(
         KeyEvent {
           code: kc, 
           kind: KeyEventKind::Press, ..
         }
       ) => {
+
         let response = match &self.focus {
-          Focus::Global => self.update_global(&kc),
-          Focus::Tab => self.tabs[self.idx].update(&kc, &self.cfg),
+          Focus::Global => 
+            self.update_global(&kc),
+          Focus::Tab => 
+            self.tabs[self.idx]
+              .update(&kc, &self.cfg),
         }; 
+
         if let Some(msg) = response { 
           self.update_from_view_msg(msg);
           self.update_hdr_text();
@@ -97,42 +116,65 @@ impl App {
           false
         }
       }
-      _ => false,
+
+      _ => 
+        false,
     }
   }
 
-  fn get_layout(w: u16, h: u16, cfg: &Config) -> (Frame, Frame) {
+  // called infrequently, construct many things
+  // based on screensize and cfg
+  fn get_layout(w: u16, h: u16, cfg: &Config) 
+    -> (Frame, Frame) 
+  {
     let (hdr_rect, tab_rect) = {
+
       let rect = Rect::new(w, h)
         .crop_x(cfg.format.x_margin)
         .crop_y(cfg.format.y_margin);
+
       (rect.crop_south(h - 2), rect.crop_north(2))
+
     };
+
     let hdr = Frame::new(&hdr_rect, 0, 0);
-    let tab = Frame::new(&tab_rect, cfg.scroll_at, cfg.scroll_at);
+    let tab = Frame::new(&tab_rect, 
+                         cfg.scroll_at, 
+                         cfg.scroll_at);
+
     (hdr, tab)
   }
 
   fn update_from_view_msg(&mut self, msg: ViewMsg) {
+
     match msg {
+
       ViewMsg::Global => {
         self.focus = Focus::Global;
       }
+
       ViewMsg::ReloadConfig => {
-        self.update_cfg(cfg::load_config(&self.cfg_path));
+        self.update_cfg(
+          cfg::load_config(&self.cfg_path));
         self.clr_scr = true;
       }
+
       ViewMsg::NewConfig(s) => {
         self.cfg_path = s;
-        self.update_cfg(cfg::load_config(&self.cfg_path));
+        self.update_cfg(
+          cfg::load_config(&self.cfg_path));
         self.clr_scr = true;
       }
+
       ViewMsg::Go(url) => {
-        let tab = Tab::init(&self.tab_frame, &url, &self.cfg);
+        let tab = Tab::init(
+          &self.tab_frame, &url, &self.cfg);
+
         self.tabs.push(tab);
         self.idx = self.tabs.len() - 1;
         self.clr_scr = true;
       }
+
       ViewMsg::DeleteMe => {
         if self.tabs.len() > 1 {
           self.tabs.remove(self.idx);
@@ -140,6 +182,7 @@ impl App {
           self.clr_scr = true;
         }
       }
+
       ViewMsg::CycleLeft => {
         if self.idx == 0 {
           self.idx = self.tabs.len() - 1;
@@ -148,6 +191,7 @@ impl App {
         }
         self.clr_scr = true;
       }
+
       ViewMsg::CycleRight => {
         if self.idx == self.tabs.len() - 1 {
           self.idx = 0;
@@ -156,27 +200,38 @@ impl App {
         }
         self.clr_scr = true;
       }
+
       _ => {}
     }
   }
 
   fn resize(&mut self, w: u16, h: u16) {
-    let (hdr_frame, tab_frame) = Self::get_layout(w, h, &self.cfg);
+
+    let (hdr_frame, tab_frame) = 
+      Self::get_layout(w, h, &self.cfg);
+
     self.hdr_frame = hdr_frame;
     self.tab_frame = tab_frame;
+
     for t in self.tabs.iter_mut() {
       t.resize(&self.tab_frame);
     }
+
     self.update_hdr_text();
   }
 
   fn update_hdr_text(&mut self) {
+
     let fg = self.cfg.colors.get_banner();
-    let info = format!( "{}/{}: {}", 
-                        self.idx + 1, 
-                        self.tabs.len(), 
-                        &self.tabs[self.idx].name);
-    let line = &String::from("-").repeat(self.hdr_frame.outer.w);
+
+    let info = format!("{}/{}: {}", 
+                       self.idx + 1, 
+                       self.tabs.len(), 
+                       &self.tabs[self.idx].name);
+
+    let line = &String::from("-")
+      .repeat(self.hdr_frame.outer.w);
+
     self.hdr = Doc::new(
       vec![
         Text::new(&info).fg(fg).wrap(true),
@@ -187,28 +242,39 @@ impl App {
   }
 
   fn update_cfg(&mut self, cfg: Config) {
+
     self.cfg = cfg;
+
     for t in self.tabs.iter_mut() {
       t.update_cfg(&self.cfg);
     }
   }
 
-  fn update_global(&mut self, keycode: &KeyCode) -> Option<ViewMsg> {
+  fn update_global(&mut self, keycode: &KeyCode) 
+    -> Option<ViewMsg> 
+  {
     match keycode {
+
       KeyCode::Esc => {
         self.focus = Focus::Tab;
         Some(ViewMsg::Default)
       }
+
       KeyCode::Char(c) => {
+
         if c == &self.cfg.keys.tab_view {
           self.focus = Focus::Tab;
           Some(ViewMsg::Default)
+
         } else if c == &self.cfg.keys.load_cfg {
           self.focus = Focus::Tab;
           Some(ViewMsg::ReloadConfig)
+
         } else {None}
       } 
+
       _ => {None}
+
     }
   }
 }
