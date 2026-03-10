@@ -149,13 +149,14 @@ impl Rect {
 
 #[derive(Clone, Debug)]
 pub struct Range16 {
+
   pub start:  u16, 
   pub end:    u16
 }
+
 impl Range16 {
   // if for some reason a > b, just swap them
   pub fn new(start: u16, end: u16) -> Range16 {
-
     if start > end {
       Range16 {end, start}
 
@@ -165,7 +166,6 @@ impl Range16 {
   }
 
   pub fn get_data_end(&self, dlen: usize) -> u16 {
-
     let data_end = 
       usize::from(self.start) + dlen.saturating_sub(1);
 
@@ -176,22 +176,18 @@ impl Range16 {
   }
 
   pub fn get_max_scroll(&self, dlen: usize) -> usize {
-
     dlen.saturating_sub(self.len())
   }
 
   pub fn contains(&self, n: u16) -> bool {
-
     self.start <= n && n <= self.end
   }
 
   pub fn len16(&self) -> u16 {
-
     self.end.saturating_sub(self.start)
   }
 
   pub fn len(&self) -> usize {
-
     usize::from(self.len16())
   }
 }
@@ -206,12 +202,10 @@ pub struct ScreenRange {
 impl ScreenRange {
 
   pub fn get_data_end(&self, dlen: usize) -> u16 {
-
     self.outer.get_data_end(dlen)
   }
 
   pub fn get_max_scroll(&self, dlen: usize) -> usize {
-
     self.outer.get_max_scroll(dlen)
   }
 }
@@ -226,12 +220,10 @@ pub struct Frame {
 impl Dim for Frame {
 
   fn w(&self) -> usize {
-
     self.outer.w
   }
 
   fn h(&self) -> usize {
-
     self.outer.h
   }
 }
@@ -239,7 +231,6 @@ impl Dim for Frame {
 impl Frame {
 
   pub fn new(rect: &Rect, x: u16, y: u16) -> Frame {
-
     let outer = rect.clone();
     let inner = outer.crop_x(x).crop_y(y);
 
@@ -247,12 +238,10 @@ impl Frame {
   }
 
   pub fn pos(&self) -> Pos {
-
     Pos::from(&self.outer)
   }
 
   pub fn row(&self, r: u16) -> Frame {
-
     let inner = self.inner.row(r);
     let outer = self.outer.row(r);
 
@@ -260,18 +249,14 @@ impl Frame {
   }
 
   pub fn x(&self) -> ScreenRange {
-
     ScreenRange {
-
       inner: self.inner.x(), 
       outer: self.outer.x()
     }
   }
 
   pub fn y(&self) -> ScreenRange {
-
     ScreenRange {
-
       inner: self.inner.y(), 
       outer: self.outer.y()
     }

@@ -23,7 +23,6 @@ impl GemDoc {
     let (status, msg) = parse_status(&response);
 
     let doc = match status {
-
       Status::Success => 
         parse_doc(&content, url),
 
@@ -32,7 +31,6 @@ impl GemDoc {
           "rspns: stts: {:?}, msg: {}", 
           status, 
           msg);
-
         vec![(GemType::Text, msg)]
       }
     };
@@ -121,34 +119,28 @@ fn parse_formatted(line: &str, source: &Url)
   }
   // look for 2 character symbols
   if let Some((symbol, text)) = line.split_at_checked(2) {
-
     if symbol == "=>" {
-
       let (url_str, link_str) = 
         split_whitespace_once(text);
-
       match join_if_relative(source, url_str) {
-
         Ok(url) =>
           return (
             GemType::Link(Scheme::from(&url), url), 
             link_str.into()),
-
         Err(s) => 
-          return (GemType::BadLink(
-                  s.to_string()), 
-                  link_str.into())
+          return (
+            GemType::BadLink(
+              s.to_string()), 
+              link_str.into())
       }
 
     } else if symbol == "##" {
-
       return (GemType::HeadingTwo, text.into())
     }
   }
 
   // look for 1 character symbols
   if let Some((symbol, text)) = line.split_at_checked(1) {
-
     if symbol == ">" {
       return (GemType::Quote, text.into())
 
@@ -164,18 +156,13 @@ fn parse_formatted(line: &str, source: &Url)
 }
 
 pub fn parse_status(line: &str) -> (Status, String) {
-
   let (code_str, msg) = split_whitespace_once(line);
-
   let status = get_status(code_str);
-
   (status, msg.into())
 }
 
 fn get_status(code_str: &str) -> Status {
-
   match code_str.parse::<u8>().map_err(|e| e.to_string()) {
-
     Ok(u) => match u {
       10 | 12..=19 => Status::InputExpected,
       11 =>           Status::InputExpectedSensitive,

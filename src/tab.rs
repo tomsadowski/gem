@@ -206,27 +206,19 @@ impl Tab {
 
       // make a dialog
       } else if c == &cfg.keys.tab.delete_tab {
-
         let dlg = Dialog::ask(
           &self.frame, cfg, "Delete current tab?");
-
         self.dlg = Some((ViewMsg::DeleteMe, dlg));
-
         Some(ViewMsg::Default)
 
       } else if c == &cfg.keys.tab.new_tab {
-
         let dlg = Dialog::text(
           &self.frame, cfg, "enter path: ");
-
         self.dlg = Some((ViewMsg::NewTab, dlg));
-
         Some(ViewMsg::Default)
 
       } else if c == &cfg.keys.tab.inspect {
-
         let gemtype = match &self.gdoc {
-
           Some(gdoc) => {
             let idx = self.ddoc
               .select(&self.frame)
@@ -234,37 +226,30 @@ impl Tab {
 
             gdoc.doc[idx].0.clone()
           }
-
           None => 
             GemType::Text,
         };
 
         let dialog_tuple = match gemtype {
-
           GemType::Link(Scheme::Gemini, url) => {
-
             let dlg = Dialog::ask(
               &self.frame, 
               cfg, 
               &format!("go to {}?", url));
-
             (ViewMsg::Go(url.into()), dlg)
           }
 
           GemType::Link(_, url) => {
-
             let dlg = Dialog::ack(
               &self.frame, 
               cfg, 
               &format!(
                 "Protocol {} not yet supported", 
                 url));
-
             (ViewMsg::Default, dlg)
           }
 
           gemtext => {
-
             let dlg = Dialog::ack(
               &self.frame, 
               cfg, 
@@ -277,7 +262,6 @@ impl Tab {
         };
 
         self.dlg = Some(dialog_tuple);
-
         Some(ViewMsg::Default)
 
       } else {

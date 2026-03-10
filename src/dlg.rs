@@ -50,7 +50,6 @@ impl Dialog {
   {
     let mut dlg = Self::new(frm, prompt_text);
     let pos = dlg.input_frame.pos();
-
     let editor = Editor::new(
       &dlg.input_frame, "", cfg.colors.get_dialog());
 
@@ -65,7 +64,6 @@ impl Dialog {
 
     dlg.input_type = 
       InputType::Ack(cfg.keys.dialog.ack);
-
     dlg
   }
 
@@ -78,7 +76,6 @@ impl Dialog {
 
     dlg.input_type = InputType::Ask
       (cfg.keys.dialog.yes, cfg.keys.dialog.no);
-
     dlg
   }
 
@@ -89,7 +86,6 @@ impl Dialog {
       .write_frame(&self.prompt_frame, writer)?;
 
     match &self.input_type {
-
       InputType::Ack(ack) => {
         Text::new(&format!("|{}| acknowledge", ack))
           .write_frame(&self.input_frame, writer)?;
@@ -109,7 +105,6 @@ impl Dialog {
   }
 
   pub fn resize(&mut self, frame: &Frame) {
-
     self.prompt_frame = frame.row(3);
     self.input_frame  = frame.row(6);
   }
@@ -118,7 +113,6 @@ impl Dialog {
     -> Option<InputMsg> 
   {
     match keycode {
-
       KeyCode::Esc => 
         Some(InputMsg::Cancel),
 
@@ -131,10 +125,8 @@ impl Dialog {
     -> Option<InputMsg> 
   {
     match &mut self.input_type {
-
       InputType::Text(editor, pos) => {
         match keycode {
-
           KeyCode::Enter => {
             Some(InputMsg::Text(editor.txt.clone()))
           }
@@ -174,7 +166,6 @@ impl Dialog {
 
       InputType::Ack(ack) => {
         match keycode {
-
           KeyCode::Char(c) => 
             (ack ==  c).then_some(InputMsg::Ack),
 
@@ -184,9 +175,7 @@ impl Dialog {
 
       InputType::Ask(yes, no) => {
         match keycode {
-
           KeyCode::Char(c) => {
-            
             if yes ==  c {
                 Some(InputMsg::Yes)
             } else if no == c {

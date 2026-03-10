@@ -254,14 +254,12 @@ impl App {
     -> Option<ViewMsg> 
   {
     match keycode {
-
       KeyCode::Esc => {
         self.focus = Focus::Tab;
         Some(ViewMsg::Default)
       }
 
       KeyCode::Char(c) => {
-
         if c == &self.cfg.keys.tab_view {
           self.focus = Focus::Tab;
           Some(ViewMsg::Default)

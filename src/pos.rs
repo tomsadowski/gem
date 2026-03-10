@@ -65,17 +65,12 @@ impl PosCol {
                    len: usize) 
   {
     let (start, end) = 
-
       if len < rng.outer.len() {
-
         self.scroll = 0;
-
         let end = rng.outer.start + u16_or_0(len);
-
         (rng.outer.start, end)
 
       } else {
-
         (rng.outer.start, rng.inner.end)
       };
 
@@ -134,21 +129,17 @@ impl PosCol {
             self.scroll -= usize::from(step);
 
           } else {
-
             step = step
               .saturating_sub(
                 u16_or_0(self.scroll));
-
             self.scroll = usize::MIN;
             self.move_backward(rng, step);
           }
 
         } else {
-
           step = step.saturating_sub(
             self.cursor.saturating_sub(
               rng.inner.start));
-
           self.cursor = rng.inner.start;
           self.move_backward(rng, step);
         }
@@ -199,25 +190,20 @@ impl PosCol {
           self.cursor += step;
 
         } else if self.cursor == rng.inner.end {
-
           if self.scroll + usize::from(step) <= 
               max_scroll 
           {
             self.scroll += usize::from(step);
 
           } else {
-
             step = step.saturating_sub(u16_or_0(
               max_scroll.saturating_sub(self.scroll)));
-
             self.scroll = max_scroll;
             self.move_forward(rng, dlen, step);
           }
-
         } else {
           step = step.saturating_sub(
             rng.inner.end.saturating_sub(self.cursor));
-
           self.cursor = rng.inner.end;
           self.move_forward(rng, dlen, step);
         }
@@ -235,7 +221,6 @@ pub struct Pos {
 
 impl Default for Pos {
   fn default() -> Pos {
-
     Pos {
       x: PosCol::default(),
       y: PosCol::default()
@@ -245,7 +230,6 @@ impl Default for Pos {
 
 impl From<&Rect> for Pos {
   fn from(rect: &Rect) -> Pos {
-
     Pos {
       x: PosCol::from(&rect.x()),
       y: PosCol::from(&rect.y())
