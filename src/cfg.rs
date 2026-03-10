@@ -1,7 +1,7 @@
 // src/cfg.rs
 
 use crate::{
-  gem::{GemDoc, GemType},
+  gem::{GemDoc, GemType, GemText},
   text::{Text},
 };
 use crossterm::{
@@ -10,15 +10,7 @@ use crossterm::{
 use std::fs;
 use serde::Deserialize;
 
-// return default config if error
-pub fn load_config(path: &str) -> Config {
-  fs::read_to_string(path)
-    .ok()
-    .map(|txt| Config::parse(&txt).ok())
-    .flatten()
-    .unwrap_or_default()
-}
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct Config {
   pub init_url:  String,
   pub scroll_at: u16,
@@ -26,6 +18,7 @@ pub struct Config {
   pub keys:      KeyParams,
   pub format:    FormatParams,
 } 
+
 impl Default for Config {
   fn default() -> Self {
     Self {
@@ -37,13 +30,41 @@ impl Default for Config {
     }
   }
 }
+
 impl Config {
+
+  pub fn gemdoc_to_text(&self, doc: &GemDoc) -> Vec<Text> {
+    doc.doc.iter()
+      .map(|gem_text| self.gemtext_to_text(&gem_text))
+      .collect()
+  }
+
+  pub fn gemtext_to_text(&self, gem: &GemText) 
+    -> Text 
+  {
+    let (before, after) = 
+      self.format.from_gem_type(&gem.tag);
+
+    let text = 
+      Text::from(gem.txt.as_str())
+        .fg(self.colors.from_gem_type(&gem.tag))
+        .before(before.into())
+        .after(after.into());
+
+    if let GemType::PreFormat = gem.tag {
+      text
+
+    } else {
+      text.wrap()
+    }
+  }
+
   pub fn parse(text: &str) -> Result<Self, String> {
     toml::from_str(text).map_err(|e| e.to_string())
   }
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct KeyParams {
   pub global:     char,
   pub load_cfg:   char,
@@ -65,7 +86,7 @@ impl Default for KeyParams {
   }
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct TabKeyParams {
   pub move_up:      char,
   pub move_down:    char,
@@ -93,7 +114,7 @@ impl Default for TabKeyParams {
   }
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct DialogKeyParams {
   pub ack:    char, 
   pub yes:    char, 
@@ -109,7 +130,7 @@ impl Default for DialogKeyParams {
   }
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct FormatParams {
   pub x_margin:    u16,
   pub y_margin:    u16,
@@ -118,6 +139,7 @@ pub struct FormatParams {
   pub heading2:    (u8, u8),
   pub heading3:    (u8, u8),
 } 
+
 impl Default for FormatParams {
   fn default() -> Self {
     Self {
@@ -131,7 +153,22 @@ impl Default for FormatParams {
   }
 }
 
-#[derive(Deserialize)]
+impl FormatParams {
+
+  pub fn from_gem_type(&self, gem: &GemType) -> (u8, u8) {
+    match gem {
+      GemType::HeadingOne => 
+        self.heading1,
+      GemType::HeadingTwo => 
+        self.heading2,
+      GemType::HeadingThree => 
+        self.heading3,
+      _ => (0, 0)
+    }
+  }
+}
+
+#[derive(Clone, Deserialize)]
 pub struct ColorParams {
   pub background: (u8, u8, u8),
   pub banner:     (u8, u8, u8),
@@ -182,29 +219,27 @@ impl ColorParams {
     Color::Rgb {r, g, b}
   }
 
-  pub fn from_gem_doc(&self, doc: &GemDoc) -> Vec<Text> {
-    doc.doc.iter()
-      .map(|(gem_type, text)| 
-        self.from_gem_type(gem_type, &text))
-      .collect()
-  }
-
-  pub fn from_gem_type(&self, gem: &GemType, text: &str) 
-    -> Text 
-  {
-    let ((r, g, b), wrap) = match gem {
-      GemType::HeadingOne     => (self.heading1, true),
-      GemType::HeadingTwo     => (self.heading2, true),
-      GemType::HeadingThree   => (self.heading3, true),
-      GemType::Text           => (self.text, true),
-      GemType::Quote          => (self.quote, true),
-      GemType::ListItem       => (self.list, true),
-      GemType::PreFormat      => (self.preformat, false),
-      GemType::Link(_, _)     => (self.link, true),
-      GemType::BadLink(_)     => (self.badlink, true),
+  pub fn from_gem_type(&self, gem: &GemType) -> Color {
+    let (r, g, b) = match gem {
+      GemType::HeadingOne => 
+        self.heading1,
+      GemType::HeadingTwo => 
+        self.heading2,
+      GemType::HeadingThree => 
+        self.heading3,
+      GemType::Text => 
+        self.text,
+      GemType::Quote => 
+        self.quote,
+      GemType::ListItem => 
+        self.list,
+      GemType::PreFormat => 
+        self.preformat,
+      GemType::Link(_, _) => 
+        self.link,
+      GemType::BadLink(_) => 
+        self.badlink,
     };
-    Text::new(text)
-      .fg(Color::Rgb {r, g, b})
-      .wrap(wrap)
+    Color::Rgb {r, g, b}
   }
 }

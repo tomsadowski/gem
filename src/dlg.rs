@@ -87,12 +87,14 @@ impl Dialog {
 
     match &self.input_type {
       InputType::Ack(ack) => {
-        Text::new(&format!("|{}| acknowledge", ack))
+        Text::from(
+          format!("|{}| acknowledge", ack).as_str())
           .write_frame(&self.input_frame, writer)?;
       }
 
       InputType::Ask(yes, no) => {
-        Text::new(&format!("|{}| yes |{}| no", yes, no))
+        Text::from(
+          format!("|{}| yes |{}| no", yes, no).as_str())
           .write_frame(&self.input_frame, writer)?;
       }
 

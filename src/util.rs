@@ -56,6 +56,7 @@ pub fn wrap(line: &str, width: usize) -> Vec<String> {
           0 => b, 
           _ => a
         };
+
         wrapped.push(String::from(shortest.trim()));
         start += shortest.len();
         end = start + width;
@@ -100,6 +101,7 @@ pub enum Scheme {
   Http, 
   Unknown
 }
+
 impl From<&Url> for Scheme {
   fn from(url: &Url) -> Scheme {
     match url.scheme() {

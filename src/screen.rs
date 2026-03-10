@@ -27,6 +27,7 @@ pub struct Rect {
   pub w: usize,
   pub h: usize,
 }
+
 impl Dim for Rect {
   fn w(&self) -> usize {
     self.w
@@ -35,6 +36,7 @@ impl Dim for Rect {
     self.h
   }
 }
+
 impl Rect {
   pub fn new(w: u16, h: u16) -> Self {
 
@@ -229,8 +231,8 @@ impl Dim for Frame {
 }
 
 impl Frame {
-
   pub fn new(rect: &Rect, x: u16, y: u16) -> Frame {
+
     let outer = rect.clone();
     let inner = outer.crop_x(x).crop_y(y);
 
@@ -242,6 +244,7 @@ impl Frame {
   }
 
   pub fn row(&self, r: u16) -> Frame {
+
     let inner = self.inner.row(r);
     let outer = self.outer.row(r);
 

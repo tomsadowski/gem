@@ -11,9 +11,11 @@ use crossterm::{
   QueueableCommand, cursor,
   terminal::{Clear, ClearType},
   style::{Color},
-  event::{Event, KeyEvent, KeyEventKind, KeyCode, KeyModifiers}
+  event::{
+    Event, KeyEvent, KeyEventKind, KeyCode, KeyModifiers}
 };
 use std::{
+  fs,
   io::{self, Write}
 };
 
@@ -32,7 +34,7 @@ pub struct App {
 impl App {
   pub fn new(path: &str, w: u16, h: u16) -> Self {
 
-    let cfg = cfg::load_config(path);
+    let cfg = Self::load_config(path);
     let (hdr_frame, tab_frame) = 
       Self::get_layout(w, h, &cfg);
 
@@ -105,7 +107,7 @@ impl App {
             self.update_global(&kc),
           Focus::Tab => 
             self.tabs[self.idx]
-              .update(&kc, &self.cfg),
+              .update(&self.cfg, &kc),
         }; 
 
         if let Some(msg) = response { 
@@ -155,14 +157,14 @@ impl App {
 
       ViewMsg::ReloadConfig => {
         self.update_cfg(
-          cfg::load_config(&self.cfg_path));
+          Self::load_config(&self.cfg_path));
         self.clr_scr = true;
       }
 
       ViewMsg::NewConfig(s) => {
         self.cfg_path = s;
         self.update_cfg(
-          cfg::load_config(&self.cfg_path));
+          Self::load_config(&self.cfg_path));
         self.clr_scr = true;
       }
 
@@ -216,7 +218,6 @@ impl App {
     for t in self.tabs.iter_mut() {
       t.resize(&self.tab_frame);
     }
-
     self.update_hdr_text();
   }
 
@@ -234,11 +235,20 @@ impl App {
 
     self.hdr = Doc::new(
       vec![
-        Text::new(&info).fg(fg).wrap(true),
-        Text::new(&line).fg(fg), 
+        Text::from(info.as_str()).fg(fg).wrap(),
+        Text::from(line.as_str()).fg(fg), 
       ],
       &self.hdr_frame
     );
+  }
+
+  // return default config if error
+  fn load_config(path: &str) -> Config {
+    fs::read_to_string(path)
+      .ok()
+      .map(|txt| Config::parse(&txt).ok())
+      .flatten()
+      .unwrap_or_default()
   }
 
   fn update_cfg(&mut self, cfg: Config) {

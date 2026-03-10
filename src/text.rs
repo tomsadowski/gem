@@ -19,19 +19,31 @@ use std::io::{self, Write};
 pub struct Text {
   pub fg:     Color,
   pub bg:     Color,
+  pub before: usize,
+  pub after:  usize,
   pub text:   String,
   pub wrap:   bool,
 }
+
 impl From<&str> for Text {
   fn from(item: &str) -> Self {
-    Self::new(item)
+    Self {
+      before: 0,
+      after:  0,
+      text:   item.into(), 
+      fg:     Color::White, 
+      bg:     Color::Black,
+      wrap:   false,
+    }
   }
 }
+
 impl Default for Text {
   fn default() -> Self {
-    Self::new("")
+    Self::from("")
   }
 }
+
 impl Text {
   pub fn write_frame<W>(&self, 
                         frm: &Frame, 
@@ -56,13 +68,14 @@ impl Text {
     Ok(())
   }
 
-  pub fn new(text: &str) -> Self {
-    Self {
-      text:   text.into(), 
-      fg:     Color::White, 
-      bg:     Color::Black,
-      wrap:   false,
-    }
+  pub fn before(mut self, u: usize) -> Self {
+    self.before = u;
+    self
+  }
+
+  pub fn after(mut self, u: usize) -> Self {
+    self.after = u;
+    self
   }
 
   pub fn fg(mut self, col: Color) -> Self {
@@ -75,8 +88,8 @@ impl Text {
     self
   }
 
-  pub fn wrap(mut self, b: bool) -> Self {
-    self.wrap = b;
+  pub fn wrap(mut self) -> Self {
+    self.wrap = true;
     self
   }
 }
@@ -86,6 +99,7 @@ pub struct Doc {
   pub text:   Vec<Text>,
   pub lines:  Vec<(usize, String)>,
 } 
+
 impl Default for Doc {
   fn default() -> Self {
     Self {
@@ -95,6 +109,7 @@ impl Default for Doc {
     }
   }
 }
+
 impl Doc {
   pub fn new(text: Vec<Text>, frm: &Frame) -> Self {
 

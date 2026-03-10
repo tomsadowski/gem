@@ -27,76 +27,8 @@ pub struct Tab {
   pub gdoc:   Option<GemDoc>,
   pub ddoc:   Doc,
 } 
+
 impl Tab {
-  // might display dialog
-  fn some_gem_doc(&mut self, cfg: &Config, gemdoc: GemDoc) 
-  {
-    self.dlg = match gemdoc.status {
-
-      Status::InputExpected |
-      Status::InputExpectedSensitive => {
-
-        let dlg = 
-          Dialog::text(&self.frame, cfg, &gemdoc.msg);
-        Some((ViewMsg::Reply, dlg))
-      }
-
-      Status::RedirectTemporary |
-      Status::RedirectPermanent => {
-
-        let dlg = 
-          Dialog::ask(&self.frame, cfg, &gemdoc.msg);
-        Some((ViewMsg::Go(gemdoc.msg.clone()), dlg))
-      }
-
-      Status::CertRequiredClient |
-      Status::CertRequiredTransient |
-      Status::CertRequiredAuthorized => {
-
-        let dlg = 
-          Dialog::ack(&self.frame, cfg, &gemdoc.msg);
-        Some((ViewMsg::Default, dlg))
-      }
-
-      _ => {
-        None
-      }
-    };
-
-    let text = cfg.colors.from_gem_doc(&gemdoc);
-
-    self.ddoc = Doc::new(text, &self.frame);
-    self.gdoc = Some(gemdoc);
-  }
-
-  // display dialog
-  fn none_gem_doc(&mut self, cfg: &Config, msg: &str) {
-
-    self.gdoc = None;
-
-    let dlg  = Dialog::ack(&self.frame, cfg, msg);
-
-    self.dlg = Some((ViewMsg::DeleteMe, dlg));
-  }
-
-  fn make_request(&mut self, cfg: &Config, url_str: &str) 
-  {
-    match Url::parse(url_str) {
-
-      Ok(url) => match GemDoc::new(&url) {
-
-        Ok(gemdoc) => 
-          self.some_gem_doc(cfg, gemdoc),
-
-        Err(e) => 
-          self.none_gem_doc(cfg, &e),
-      }
-
-      Err(e) => 
-        self.none_gem_doc(cfg, &e.to_string()),
-    }
-  }
-
   pub fn init(frame: &Frame, url_str: &str, cfg: &Config) 
     -> Self 
   {
@@ -123,7 +55,7 @@ impl Tab {
     }
   }
 
-  pub fn update(&mut self, kc: &KeyCode, cfg: &Config) 
+  pub fn update(&mut self, cfg: &Config, kc: &KeyCode) 
     -> Option<ViewMsg> 
   {
     // send keycode to dialog if there is a dialog.
@@ -206,31 +138,39 @@ impl Tab {
 
       // make a dialog
       } else if c == &cfg.keys.tab.delete_tab {
+
         let dlg = Dialog::ask(
-          &self.frame, cfg, "Delete current tab?");
+          &self.frame, 
+          cfg, 
+          "Delete current tab?");
         self.dlg = Some((ViewMsg::DeleteMe, dlg));
         Some(ViewMsg::Default)
 
       } else if c == &cfg.keys.tab.new_tab {
+
         let dlg = Dialog::text(
-          &self.frame, cfg, "enter path: ");
+          &self.frame, 
+          cfg, 
+          "enter path: ");
         self.dlg = Some((ViewMsg::NewTab, dlg));
         Some(ViewMsg::Default)
 
       } else if c == &cfg.keys.tab.inspect {
+
         let gemtype = match &self.gdoc {
           Some(gdoc) => {
             let idx = self.ddoc
               .select(&self.frame)
               .unwrap_or(0);
 
-            gdoc.doc[idx].0.clone()
+            gdoc.doc[idx].tag.clone()
           }
           None => 
             GemType::Text,
         };
 
         let dialog_tuple = match gemtype {
+
           GemType::Link(Scheme::Gemini, url) => {
             let dlg = Dialog::ask(
               &self.frame, 
@@ -289,4 +229,74 @@ impl Tab {
 
     Ok(())
   }
+
+  // might display dialog
+  fn some_gem_doc(&mut self, cfg: &Config, gemdoc: GemDoc) 
+  {
+    self.dlg = match gemdoc.status.tag {
+
+      Status::InputExpected |
+      Status::InputExpectedSensitive => {
+
+        let dlg = 
+          Dialog::text(&self.frame, cfg, &gemdoc.status.txt);
+        Some((ViewMsg::Reply, dlg))
+      }
+
+      Status::RedirectTemporary |
+      Status::RedirectPermanent => {
+
+        let dlg = 
+          Dialog::ask(&self.frame, cfg, &gemdoc.status.txt);
+        Some((ViewMsg::Go(gemdoc.status.txt.clone()), dlg))
+      }
+
+      Status::CertRequiredClient |
+      Status::CertRequiredTransient |
+      Status::CertRequiredAuthorized => {
+
+        let dlg = 
+          Dialog::ack(&self.frame, cfg, &gemdoc.status.txt);
+        Some((ViewMsg::Default, dlg))
+      }
+
+      _ => {
+        None
+      }
+    };
+
+    let text = cfg.gemdoc_to_text(&gemdoc);
+
+    self.ddoc = Doc::new(text, &self.frame);
+    self.gdoc = Some(gemdoc);
+  }
+
+  // display dialog
+  fn none_gem_doc(&mut self, cfg: &Config, msg: &str) {
+
+    self.gdoc = None;
+
+    let dlg  = Dialog::ack(&self.frame, cfg, msg);
+
+    self.dlg = Some((ViewMsg::DeleteMe, dlg));
+  }
+
+  fn make_request(&mut self, cfg: &Config, url_str: &str) 
+  {
+    match Url::parse(url_str) {
+
+      Ok(url) => match GemDoc::new(&url) {
+
+        Ok(gemdoc) => 
+          self.some_gem_doc(cfg, gemdoc),
+
+        Err(e) => 
+          self.none_gem_doc(cfg, &e),
+      }
+
+      Err(e) => 
+        self.none_gem_doc(cfg, &e.to_string()),
+    }
+  }
+
 }

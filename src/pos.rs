@@ -30,7 +30,6 @@ impl From<&Range16> for PosCol {
 }
 
 impl PosCol {
-
   // index of cursor within its range
   pub fn data_idx(&self, rng: &Range16) -> usize {
 
