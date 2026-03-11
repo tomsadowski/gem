@@ -73,6 +73,7 @@ pub struct KeyParams {
   pub dialog:     DialogKeyParams,
   pub tab:        TabKeyParams,
 } 
+
 impl Default for KeyParams {
   fn default() -> Self {
     Self {
@@ -98,6 +99,7 @@ pub struct TabKeyParams {
   pub delete_tab:   char,
   pub new_tab:      char,
 } 
+
 impl Default for TabKeyParams {
   fn default() -> Self {
     Self {
@@ -120,6 +122,7 @@ pub struct DialogKeyParams {
   pub yes:    char, 
   pub no:     char
 } 
+
 impl Default for DialogKeyParams {
   fn default() -> Self {
     Self {
@@ -154,7 +157,6 @@ impl Default for FormatParams {
 }
 
 impl FormatParams {
-
   pub fn from_gem_type(&self, gem: &GemType) -> (u8, u8) {
     match gem {
       GemType::HeadingOne => 
@@ -184,6 +186,7 @@ pub struct ColorParams {
   pub list:       (u8, u8, u8),
   pub preformat:  (u8, u8, u8),
 } 
+
 impl Default for ColorParams {
   fn default() -> Self {
     Self {
@@ -203,6 +206,7 @@ impl Default for ColorParams {
     }
   }
 }
+
 impl ColorParams {
   pub fn get_banner(&self) -> Color {
     let (r, g, b) = self.banner; 
