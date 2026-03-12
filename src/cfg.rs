@@ -6,11 +6,96 @@ use crate::{
 };
 use crossterm::{
   style::{Color},
+  event::{KeyCode},
 };
-use std::fs;
+use std::{fs, io};
 use serde::Deserialize;
+use toml::{
+  Table, Value,
+};
 
-#[derive(Clone, Deserialize)]
+
+pub fn hex_from_char(u: char) -> Option<u8> {
+  match u {
+    '0' => Some(0),
+    '1' => Some(1),
+    '2' => Some(2),
+    '3' => Some(3),
+    '4' => Some(4),
+    '5' => Some(5),
+    '6' => Some(6),
+    '7' => Some(7),
+    '8' => Some(8),
+    '9' => Some(9),
+    'a' => Some(10),
+    'b' => Some(11),
+    'c' => Some(12),
+    'd' => Some(13),
+    'e' => Some(14),
+    'f' => Some(15),
+    _ => None,
+  }
+}
+
+pub fn parse_next_u8<I>(v: &mut I) -> Option<u8> 
+where I: Iterator<Item = char>
+{
+  v
+    .next()
+    .and_then(|c| hex_from_char(c))
+    .zip(
+      v
+        .next()
+        .and_then(|c| hex_from_char(c)))
+    .map(|(a, b)| 16 * a + b)
+}
+
+pub fn color_from_hex(text: &str) -> Option<Color> {
+  let mut c = text.chars();
+
+  let r = parse_next_u8(&mut c);
+  let g = parse_next_u8(&mut c);
+  let b = parse_next_u8(&mut c);
+
+  if let (Some(r), Some(g), Some(b)) = (r, g, b) {
+    Some(Color::Rgb {r, g, b})
+
+  } else {
+    None
+  }
+}
+
+// Either a table or a path to a file containing a table
+pub trait ConfigModule: Sized {
+
+  // required
+  fn from_table(table: &Table) -> Result<Self, String>;
+
+  // provided
+  fn parse_module(value: &Value) -> Result<Self, String> {
+    match value {
+
+      Value::Table(t) => {
+        Self::from_table(t)
+      }
+
+      // stuff all errors into a string
+      Value::String(s) => {
+        fs::read_to_string(s)
+          .map_err(|e| e.to_string())
+          .and_then(|txt| Table::try_from(&txt)
+            .map_err(|e| e.to_string()))
+          .and_then(|table| Self::from_table(&table))
+      }
+
+      v => {
+        Err(format!("did not expect value of type {}", v))
+      },
+    }
+  }
+}
+
+#[derive(Clone)]
 pub struct Config {
   pub init_url:  String,
   pub scroll_at: u16,
@@ -59,81 +144,88 @@ impl Config {
     }
   }
 
-  pub fn parse(text: &str) -> Result<Self, String> {
-    toml::from_str(text).map_err(|e| e.to_string())
+  pub fn parse(text: &str) -> Self {
+
+    let mut cfg = Self::default();
+    let table = Table::try_from(text).unwrap_or_default();
+
+    if let Some(v) = table.get("colors") {
+      cfg.colors = 
+        ColorParams::parse_module(v)
+          .unwrap_or_default();
+    }
+    if let Some(v) = table.get("keys") {
+      cfg.keys = 
+        KeyParams::parse_module(v)
+          .unwrap_or_default();
+    }
+    if let Some(v) = table.get("format") {
+      cfg.format = 
+        FormatParams::parse_module(v)
+          .unwrap_or_default();
+    }
+    
+    cfg
   }
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone)]
 pub struct KeyParams {
-  pub global:     char,
-  pub load_cfg:   char,
-  pub msg_view:   char,
-  pub tab_view:   char,
-  pub dialog:     DialogKeyParams,
-  pub tab:        TabKeyParams,
+  pub global:     KeyCode,
+  pub load_cfg:   KeyCode,
+  pub msg_view:   KeyCode,
+  pub tab_view:   KeyCode,
+
+  pub move_up:      KeyCode,
+  pub move_down:    KeyCode,
+  pub move_left:    KeyCode,
+  pub move_right:   KeyCode,
+  pub cycle_left:   KeyCode,
+  pub cycle_right:  KeyCode,
+  pub inspect:      KeyCode,
+  pub delete_tab:   KeyCode,
+  pub new_tab:      KeyCode,
+
+  pub ack:    KeyCode, 
+  pub yes:    KeyCode, 
+  pub no:     KeyCode
 } 
 
 impl Default for KeyParams {
   fn default() -> Self {
     Self {
-      global:     'g',
-      load_cfg:   'c',
-      msg_view:   'm',
-      tab_view:   't',
-      dialog:     DialogKeyParams::default(),
-      tab:        TabKeyParams::default(),
+      global:     KeyCode::Char('g'),
+      load_cfg:   KeyCode::Char('c'),
+      msg_view:   KeyCode::Char('m'),
+      tab_view:   KeyCode::Char('t'),
+
+      move_up:      KeyCode::Char('o'),
+      move_down:    KeyCode::Char('i'),
+      move_left:    KeyCode::Char('e'),
+      move_right:   KeyCode::Char('n'),
+      cycle_left:   KeyCode::Char('E'),
+      cycle_right:  KeyCode::Char('N'),
+      inspect:      KeyCode::Char('w'),
+      delete_tab:   KeyCode::Char('v'),
+      new_tab:      KeyCode::Char('p'),
+
+      ack:    KeyCode::Char('y'), 
+      yes:    KeyCode::Char('y'), 
+      no:     KeyCode::Char('n')
     }
   }
 }
 
-#[derive(Clone, Deserialize)]
-pub struct TabKeyParams {
-  pub move_up:      char,
-  pub move_down:    char,
-  pub move_left:    char,
-  pub move_right:   char,
-  pub cycle_left:   char,
-  pub cycle_right:  char,
-  pub inspect:      char,
-  pub delete_tab:   char,
-  pub new_tab:      char,
-} 
-
-impl Default for TabKeyParams {
-  fn default() -> Self {
-    Self {
-      move_up:      'o',
-      move_down:    'i',
-      move_left:    'e',
-      move_right:   'n',
-      cycle_left:   'E',
-      cycle_right:  'N',
-      inspect:      'w',
-      delete_tab:   'v',
-      new_tab:      'p',
+impl ConfigModule for KeyParams {
+  fn from_table(table: &Table) -> Result<Self, String> {
+    let cfg = Self::default();
+    if let Some(v) = table.get("colors") {
     }
+    Ok(cfg)
   }
 }
 
-#[derive(Clone, Deserialize)]
-pub struct DialogKeyParams {
-  pub ack:    char, 
-  pub yes:    char, 
-  pub no:     char
-} 
-
-impl Default for DialogKeyParams {
-  fn default() -> Self {
-    Self {
-      ack:    'y', 
-      yes:    'y', 
-      no:     'n'
-    }
-  }
-}
-
-#[derive(Clone, Deserialize)]
+#[derive(Clone)]
 pub struct FormatParams {
   pub x_margin:    u16,
   pub y_margin:    u16,
@@ -156,6 +248,15 @@ impl Default for FormatParams {
   }
 }
 
+impl ConfigModule for FormatParams {
+  fn from_table(table: &Table) -> Result<Self, String> {
+    let cfg = Self::default();
+    if let Some(v) = table.get("colors") {
+    }
+    Ok(cfg)
+  }
+}
+
 impl FormatParams {
   pub fn from_gem_type(&self, gem: &GemType) -> (u8, u8) {
     match gem {
@@ -170,80 +271,145 @@ impl FormatParams {
   }
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone)]
 pub struct ColorParams {
-  pub background: (u8, u8, u8),
-  pub banner:     (u8, u8, u8),
-  pub border:     (u8, u8, u8),
-  pub dialog:     (u8, u8, u8),
-  pub text:       (u8, u8, u8),
-  pub heading1:   (u8, u8, u8),
-  pub heading2:   (u8, u8, u8),
-  pub heading3:   (u8, u8, u8),
-  pub link:       (u8, u8, u8),
-  pub badlink:    (u8, u8, u8),
-  pub quote:      (u8, u8, u8),
-  pub list:       (u8, u8, u8),
-  pub preformat:  (u8, u8, u8),
+  pub background: Color,
+  pub banner:     Color,
+  pub border:     Color,
+  pub dialog:     Color,
+  pub text:       Color,
+  pub heading1:   Color,
+  pub heading2:   Color,
+  pub heading3:   Color,
+  pub link:       Color,
+  pub badlink:    Color,
+  pub quote:      Color,
+  pub list:       Color,
+  pub preformat:  Color,
 } 
 
 impl Default for ColorParams {
   fn default() -> Self {
     Self {
-      background: ( 40,  40,  40),
-      border:     (128, 136, 144),
-      badlink:    (128, 136, 144),
-      banner:     (224, 240, 255),
-      dialog:     (224, 240, 255),
-      text:       (224, 240, 255),
-      list:       (224, 240, 255),
-      heading1:   (255, 144, 176),
-      heading2:   (255, 144, 176),
-      heading3:   (255, 144, 176),
-      link:       (128, 255, 208),
-      quote:      (255, 208, 160),
-      preformat:  (255, 208, 160),
+      background: Color::Black,
+      border:     Color::Grey,
+      badlink:    Color::Grey,
+      banner:     Color::Grey,
+      dialog:     Color::White,
+      text:       Color::White,
+      list:       Color::White,
+      heading1:   Color::White,
+      heading2:   Color::White,
+      heading3:   Color::White,
+      link:       Color::White,
+      quote:      Color::White,
+      preformat:  Color::White,
     }
   }
 }
 
 impl ColorParams {
-  pub fn get_banner(&self) -> Color {
-    let (r, g, b) = self.banner; 
-    Color::Rgb {r, g, b}
+  pub fn parse_color(value: &Value) -> Option<Color> {
+    if let Value::String(hex) = value {
+      color_from_hex(&hex)
+    } else {
+      None
+    }
   }
-
-  pub fn get_dialog(&self) -> Color {
-    let (r, g, b) = self.dialog; 
-    Color::Rgb {r, g, b}
+  pub fn from_gem_tag(&self, tag: &GemType) -> Color {
+    match tag {
+      _ => Color::White,
+    }
   }
+}
 
-  pub fn get_background(&self) -> Color {
-    let (r, g, b) = self.background; 
-    Color::Rgb {r, g, b}
-  }
+impl ConfigModule for ColorParams {
+  fn from_table(table: &Table) -> Result<Self, String> {
+    let mut cfg = Self::default();
 
-  pub fn from_gem_type(&self, gem: &GemType) -> Color {
-    let (r, g, b) = match gem {
-      GemType::HeadingOne => 
-        self.heading1,
-      GemType::HeadingTwo => 
-        self.heading2,
-      GemType::HeadingThree => 
-        self.heading3,
-      GemType::Text => 
-        self.text,
-      GemType::Quote => 
-        self.quote,
-      GemType::ListItem => 
-        self.list,
-      GemType::PreFormat => 
-        self.preformat,
-      GemType::Link(_, _) => 
-        self.link,
-      GemType::BadLink(_) => 
-        self.badlink,
-    };
-    Color::Rgb {r, g, b}
+    if let Some(c) = 
+      table.get("background")
+        .or(table.get("bg"))
+        .and_then(|v| Self::parse_color(v))
+    {
+      cfg.background = c;
+    } 
+    if let Some(c) = 
+      table.get("banner") 
+        .and_then(|v| Self::parse_color(v))
+    {
+      cfg.banner = c
+    }
+    if let Some(c) = 
+      table.get("border") 
+        .and_then(|v| Self::parse_color(v))
+    {
+      cfg.border = c;
+    }
+    if let Some(c) = 
+      table.get("dialog") 
+        .and_then(|v| Self::parse_color(v))
+    {
+      cfg.dialog = c;
+    }
+    if let Some(c) = 
+      table.get("text") 
+        .and_then(|v| Self::parse_color(v))
+    {
+      cfg.text = c;
+    }
+    if let Some(c) = 
+      table.get("heading1") 
+        .or(table.get("h1"))
+        .and_then(|v| Self::parse_color(v))
+    {
+      cfg.heading1 = c;
+    }
+    if let Some(c) = 
+      table.get("heading2") 
+        .or(table.get("h2"))
+        .and_then(|v| Self::parse_color(v))
+    {
+      cfg.heading2 = c;
+    }
+    if let Some(c) = 
+      table.get("heading3") 
+        .or(table.get("h3"))
+        .and_then(|v| Self::parse_color(v))
+    {
+      cfg.heading3 = c;
+    }
+    if let Some(c) = 
+      table.get("badlink") 
+        .and_then(|v| Self::parse_color(v))
+    {
+      cfg.badlink = c;
+    }
+    if let Some(c) = 
+      table.get("link") 
+        .and_then(|v| Self::parse_color(v))
+    {
+      cfg.link = c;
+    }
+    if let Some(c) = 
+      table.get("quote") 
+        .and_then(|v| Self::parse_color(v))
+    {
+      cfg.quote = c;
+    }
+    if let Some(c) = 
+      table.get("list") 
+        .and_then(|v| Self::parse_color(v))
+    {
+      cfg.list = c;
+    }
+    if let Some(c) = 
+      table.get("preformat") 
+        .and_then(|v| Self::parse_color(v))
+    {
+      cfg.preformat = c;
+    }
+
+    Ok(cfg)
   }
 }
