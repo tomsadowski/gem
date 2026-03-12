@@ -236,7 +236,7 @@ impl App {
 
     self.hdr = Doc::new(
       vec![
-        Text::from(info.as_str()).fg(fg).bg(bg).wrap(),
+        Text::from(info.as_str()).fg(fg).bg(bg),
         Text::from(line.as_str()).fg(fg).bg(bg), 
       ],
       &self.hdr_frame

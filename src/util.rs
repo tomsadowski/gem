@@ -171,11 +171,3 @@ pub fn get_data(url: &Url)
 
   Ok((response, content))
 }
-
-fn find_clrf(data: &[u8]) -> Option<usize> {
-
-  let clrf = b"\r\n";
-
-  data.windows(clrf.len())
-    .position(|window| window == clrf)
-}
