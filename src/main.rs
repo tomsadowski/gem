@@ -7,7 +7,7 @@
 mod util;
 mod gem;
 mod dlg;
-mod cfg;
+mod usr;
 mod text;
 mod tab;
 mod app;

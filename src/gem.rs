@@ -31,7 +31,7 @@ impl GemDoc {
           "response: status: {:?}, text: {}", 
           status.tag, 
           status.txt);
-        vec![GemText::new(GemType::Text, &msg)]
+        vec![GemText::new(GemTag::Text, &msg)]
       }
     };
 
@@ -47,12 +47,12 @@ impl GemDoc {
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct GemText {
-  pub tag: GemType,
+  pub tag: GemTag,
   pub txt: String,
 }
 
 impl GemText {
-  pub fn new(tag: GemType, txt: &str) -> Self {
+  pub fn new(tag: GemTag, txt: &str) -> Self {
     Self {
       tag, 
       txt: String::from(txt)
@@ -73,7 +73,7 @@ impl GemText {
       } else if preformat {
         vec.push(
           Self::new(
-            GemType::PreFormat, 
+            GemTag::PreFormat, 
             line.into(),
           ));
 
@@ -90,7 +90,7 @@ impl GemText {
     if let Some(("###", text)) = 
       line.split_at_checked(3) 
     {
-      return Self::new(GemType::HeadingThree, text.into())
+      return Self::new(GemTag::HeadingThree, text.into())
     }
     // look for 2 character symbols
     if let Some((symbol, text)) = 
@@ -104,17 +104,17 @@ impl GemText {
         match join_if_relative(source, url_str) {
           Ok(url) =>
             return Self::new(
-              GemType::Link(Scheme::from(&url), url), 
+              GemTag::Link(Scheme::from(&url), url), 
               link_str.into()),
           Err(s) => 
             return Self::new(
-              GemType::BadLink(
+              GemTag::BadLink(
                 s.to_string()), 
                 link_str.into())
         }
 
       } else if symbol == "##" {
-        return Self::new(GemType::HeadingTwo, text.into())
+        return Self::new(GemTag::HeadingTwo, text.into())
       }
     }
 
@@ -123,23 +123,23 @@ impl GemText {
       line.split_at_checked(1) 
     {
       if symbol == ">" {
-        return Self::new(GemType::Quote, text.into())
+        return Self::new(GemTag::Quote, text.into())
 
       } else if symbol == "*" {
-        return Self::new(GemType::ListItem, 
+        return Self::new(GemTag::ListItem, 
                 &format!("- {}", text))
 
       } else if symbol == "#" {
-        return Self::new(GemType::HeadingOne, text.into())
+        return Self::new(GemTag::HeadingOne, text.into())
       }
     }
 
-    return Self::new(GemType::Text, line.into())
+    return Self::new(GemTag::Text, line.into())
   }
 }
 
 #[derive(Clone, PartialEq, Debug)]
-pub enum GemType {
+pub enum GemTag {
   HeadingOne,
   HeadingTwo,
   HeadingThree,

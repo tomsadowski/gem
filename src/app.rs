@@ -1,7 +1,7 @@
 // src/app.rs
 
 use crate::{
-  cfg::{self, Config},
+  usr::{self, User},
   screen::{Frame, Rect},
   msg::{Focus, ViewMsg},
   text::{Doc, Text},
@@ -25,8 +25,8 @@ pub struct App {
   pub hdr_frame:    Frame,
   pub tab_frame:    Frame,
   pub idx:          usize,
-  pub cfg_path:     String,
-  pub cfg:          Config,
+  pub usr_path:     String,
+  pub usr:          User,
   pub focus:        Focus,
   pub clr_scr:      bool,
   pub quit:         bool,
@@ -34,22 +34,22 @@ pub struct App {
 impl App {
   pub fn new(path: &str, w: u16, h: u16) -> Self {
 
-    let cfg = Self::load_config(path);
+    let usr = Self::load_config(path);
     let (hdr_frame, tab_frame) = 
-      Self::get_layout(w, h, &cfg);
+      Self::get_layout(w, h, &usr);
 
     let mut app = Self {
-      cfg_path: path.into(),
+      usr_path: path.into(),
       quit:     false, 
       focus:    Focus::Tab,
       idx:      0,  
       hdr:      Doc::default(),
       clr_scr:  false,
       tabs:     vec![
-        Tab::init(&tab_frame, &cfg.init_url, &cfg)],
+        Tab::init(&tab_frame, &usr.init_url, &usr)],
       hdr_frame, 
       tab_frame,
-      cfg,
+      usr,
     };
 
     app.update_hdr_text();
@@ -107,7 +107,7 @@ impl App {
             self.update_global(&kc),
           Focus::Tab => 
             self.tabs[self.idx]
-              .update(&self.cfg, &kc),
+              .update(&self.usr, &kc),
         }; 
 
         if let Some(msg) = response { 
@@ -125,15 +125,15 @@ impl App {
   }
 
   // called infrequently, construct many things
-  // based on screensize and cfg
-  fn get_layout(w: u16, h: u16, cfg: &Config) 
+  // based on screensize and usr
+  fn get_layout(w: u16, h: u16, usr: &User) 
     -> (Frame, Frame) 
   {
     let (hdr_rect, tab_rect) = {
 
       let rect = Rect::new(w, h)
-        .crop_x(cfg.format.x_margin)
-        .crop_y(cfg.format.y_margin);
+        .crop_x(usr.format.x_margin)
+        .crop_y(usr.format.y_margin);
 
       (rect.crop_south(h - 2), rect.crop_north(2))
 
@@ -141,8 +141,8 @@ impl App {
 
     let hdr = Frame::new(&hdr_rect, 0, 0);
     let tab = Frame::new(&tab_rect, 
-                         cfg.scroll_at, 
-                         cfg.scroll_at);
+                         usr.scroll_at, 
+                         usr.scroll_at);
 
     (hdr, tab)
   }
@@ -155,22 +155,22 @@ impl App {
         self.focus = Focus::Global;
       }
 
-      ViewMsg::ReloadConfig => {
-        self.update_cfg(
-          Self::load_config(&self.cfg_path));
+      ViewMsg::ReloadUser => {
+        self.update_usr(
+          Self::load_config(&self.usr_path));
         self.clr_scr = true;
       }
 
-      ViewMsg::NewConfig(s) => {
-        self.cfg_path = s;
-        self.update_cfg(
-          Self::load_config(&self.cfg_path));
+      ViewMsg::NewUser(s) => {
+        self.usr_path = s;
+        self.update_usr(
+          Self::load_config(&self.usr_path));
         self.clr_scr = true;
       }
 
       ViewMsg::Go(url) => {
         let tab = Tab::init(
-          &self.tab_frame, &url, &self.cfg);
+          &self.tab_frame, &url, &self.usr);
 
         self.tabs.push(tab);
         self.idx = self.tabs.len() - 1;
@@ -210,7 +210,7 @@ impl App {
   fn resize(&mut self, w: u16, h: u16) {
 
     let (hdr_frame, tab_frame) = 
-      Self::get_layout(w, h, &self.cfg);
+      Self::get_layout(w, h, &self.usr);
 
     self.hdr_frame = hdr_frame;
     self.tab_frame = tab_frame;
@@ -223,7 +223,8 @@ impl App {
 
   fn update_hdr_text(&mut self) {
 
-    let fg = self.cfg.colors.get_banner();
+    let fg = self.usr.colors.banner;
+    let bg = self.usr.colors.background;
 
     let info = format!("{}/{}: {}", 
                        self.idx + 1, 
@@ -235,54 +236,47 @@ impl App {
 
     self.hdr = Doc::new(
       vec![
-        Text::from(info.as_str()).fg(fg).wrap(),
-        Text::from(line.as_str()).fg(fg), 
+        Text::from(info.as_str()).fg(fg).bg(bg).wrap(),
+        Text::from(line.as_str()).fg(fg).bg(bg), 
       ],
       &self.hdr_frame
     );
   }
 
   // return default config if error
-  fn load_config(path: &str) -> Config {
+  fn load_config(path: &str) -> User {
     fs::read_to_string(path)
       .ok()
-      .map(|txt| Config::parse(&txt).ok())
-      .flatten()
+      .map(|txt| User::parse(&txt))
       .unwrap_or_default()
   }
 
-  fn update_cfg(&mut self, cfg: Config) {
+  fn update_usr(&mut self, usr: User) {
 
-    self.cfg = cfg;
+    self.usr = usr;
 
     for t in self.tabs.iter_mut() {
-      t.update_cfg(&self.cfg);
+      t.update_usr(&self.usr);
     }
   }
 
   fn update_global(&mut self, keycode: &KeyCode) 
     -> Option<ViewMsg> 
   {
-    match keycode {
-      KeyCode::Esc => {
-        self.focus = Focus::Tab;
-        Some(ViewMsg::Default)
-      }
+    if keycode == &self.usr.keys.cancel {
+      self.focus = Focus::Tab;
+      Some(ViewMsg::Default)
 
-      KeyCode::Char(c) => {
-        if c == &self.cfg.keys.tab_view {
-          self.focus = Focus::Tab;
-          Some(ViewMsg::Default)
+    } else if keycode == &self.usr.keys.tab_view {
+      self.focus = Focus::Tab;
+      Some(ViewMsg::Default)
 
-        } else if c == &self.cfg.keys.load_cfg {
-          self.focus = Focus::Tab;
-          Some(ViewMsg::ReloadConfig)
+    } else if keycode == &self.usr.keys.load_usr {
+      self.focus = Focus::Tab;
+      Some(ViewMsg::ReloadUser)
 
-        } else {None}
-      } 
-
-      _ => {None}
-
+    } else {
+      None
     }
   }
 }

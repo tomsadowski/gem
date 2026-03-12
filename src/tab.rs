@@ -1,9 +1,9 @@
 // src/tab.rs
 
 use crate::{
-  cfg::{Config},
+  usr::{User},
   util::{Scheme},
-  gem::{GemDoc, GemType, Status},
+  gem::{GemDoc, GemTag, Status},
   text::{Doc},
   screen::{Frame},
   pos::{Pos},
@@ -29,7 +29,7 @@ pub struct Tab {
 } 
 
 impl Tab {
-  pub fn init(frame: &Frame, url_str: &str, cfg: &Config) 
+  pub fn init(frame: &Frame, url_str: &str, usr: &User) 
     -> Self 
   {
     let mut tab = Self {
@@ -40,7 +40,7 @@ impl Tab {
       name:   url_str.into(),
     };
 
-    tab.make_request(cfg, url_str);
+    tab.make_request(usr, url_str);
     tab
   }
 
@@ -55,12 +55,11 @@ impl Tab {
     }
   }
 
-  pub fn update(&mut self, cfg: &Config, kc: &KeyCode) 
+  pub fn update(&mut self, usr: &User, kc: &KeyCode) 
     -> Option<ViewMsg> 
   {
     // send keycode to dialog if there is a dialog.
     if let Some((m, d)) = &mut self.dlg {
-
       // process response
       match d.update(kc) {
 
@@ -105,59 +104,58 @@ impl Tab {
           None
       }
     // there is no dialog, process keycode
-    } else if let KeyCode::Char(c) = kc {
-
-      if c == &cfg.keys.global {
+    } else if kc == &usr.keys.global {
         Some(ViewMsg::Global)
 
-      } else if c == &cfg.keys.tab.move_down {
-        self.ddoc
-          .move_down(&self.frame, 1)
-          .then_some(ViewMsg::Default)
+    } else if kc == &usr.keys.move_down {
+      self.ddoc
+        .move_down(&self.frame, 1)
+        .then_some(ViewMsg::Default)
 
-      } else if c == &cfg.keys.tab.move_up {
-        self.ddoc
-          .move_up(&self.frame, 1)
-          .then_some(ViewMsg::Default)
+    } else if kc == &usr.keys.move_up {
+      self.ddoc
+        .move_up(&self.frame, 1)
+        .then_some(ViewMsg::Default)
 
-      } else if c == &cfg.keys.tab.move_left {
-        self.ddoc
-          .move_left(&self.frame, 1)
-          .then_some(ViewMsg::Default)
+    } else if kc == &usr.keys.move_left {
+      self.ddoc
+        .move_left(&self.frame, 1)
+        .then_some(ViewMsg::Default)
 
-      } else if c == &cfg.keys.tab.move_right {
-        self.ddoc
-          .move_right(&self.frame, 1)
-          .then_some(ViewMsg::Default)
+    } else if kc == &usr.keys.move_right {
+      self.ddoc
+        .move_right(&self.frame, 1)
+        .then_some(ViewMsg::Default)
 
-      } else if c == &cfg.keys.tab.cycle_left {
-        Some(ViewMsg::CycleLeft)
+    } else if kc == &usr.keys.cycle_left {
+      Some(ViewMsg::CycleLeft)
 
-      } else if c == &cfg.keys.tab.cycle_right {
-        Some(ViewMsg::CycleRight)
+    } else if kc == &usr.keys.cycle_right {
+      Some(ViewMsg::CycleRight)
 
-      // make a dialog
-      } else if c == &cfg.keys.tab.delete_tab {
+    // make a dialog
+    } else if kc == &usr.keys.delete_tab {
 
-        let dlg = Dialog::ask(
-          &self.frame, 
-          cfg, 
-          "Delete current tab?");
-        self.dlg = Some((ViewMsg::DeleteMe, dlg));
-        Some(ViewMsg::Default)
+      let dlg = Dialog::ask(
+        &self.frame, 
+        usr, 
+        "Delete current tab?");
+      self.dlg = Some((ViewMsg::DeleteMe, dlg));
+      Some(ViewMsg::Default)
 
-      } else if c == &cfg.keys.tab.new_tab {
+    } else if kc == &usr.keys.new_tab {
 
-        let dlg = Dialog::text(
-          &self.frame, 
-          cfg, 
-          "enter path: ");
-        self.dlg = Some((ViewMsg::NewTab, dlg));
-        Some(ViewMsg::Default)
+      let dlg = Dialog::text(
+        &self.frame, 
+        usr, 
+        "enter path: ");
+      self.dlg = Some((ViewMsg::NewTab, dlg));
+      Some(ViewMsg::Default)
 
-      } else if c == &cfg.keys.tab.inspect {
+    } else if kc == &usr.keys.inspect {
 
-        let gemtype = match &self.gdoc {
+      let gemtype = 
+        match &self.gdoc {
           Some(gdoc) => {
             let idx = self.ddoc
               .select(&self.frame)
@@ -166,23 +164,23 @@ impl Tab {
             gdoc.doc[idx].tag.clone()
           }
           None => 
-            GemType::Text,
+            GemTag::Text,
         };
 
-        let dialog_tuple = match gemtype {
-
-          GemType::Link(Scheme::Gemini, url) => {
+      let dialog_tuple = 
+        match gemtype {
+          GemTag::Link(Scheme::Gemini, url) => {
             let dlg = Dialog::ask(
               &self.frame, 
-              cfg, 
+              usr, 
               &format!("go to {}?", url));
             (ViewMsg::Go(url.into()), dlg)
           }
 
-          GemType::Link(_, url) => {
+          GemTag::Link(_, url) => {
             let dlg = Dialog::ack(
               &self.frame, 
-              cfg, 
+              usr, 
               &format!(
                 "Protocol {} not yet supported", 
                 url));
@@ -192,7 +190,7 @@ impl Tab {
           gemtext => {
             let dlg = Dialog::ack(
               &self.frame, 
-              cfg, 
+              usr, 
               &format!(
                 "you've selected {:?}", 
                 gemtext));
@@ -207,12 +205,9 @@ impl Tab {
       } else {
         None
       }
-    } else {
-      None
-    }
   }
 
-  pub fn update_cfg(&mut self, _cfg: &Config) {
+  pub fn update_usr(&mut self, _usr: &User) {
   }
 
   // show dialog if there's a dialog, otherwise show ddoc
@@ -224,14 +219,12 @@ impl Tab {
 
     } else {
       self.ddoc.view(&self.frame, writer)?;
-
     }
-
     Ok(())
   }
 
   // might display dialog
-  fn some_gem_doc(&mut self, cfg: &Config, gemdoc: GemDoc) 
+  fn some_gem_doc(&mut self, usr: &User, gemdoc: GemDoc) 
   {
     self.dlg = match gemdoc.status.tag {
 
@@ -239,7 +232,7 @@ impl Tab {
       Status::InputExpectedSensitive => {
 
         let dlg = 
-          Dialog::text(&self.frame, cfg, &gemdoc.status.txt);
+          Dialog::text(&self.frame, usr, &gemdoc.status.txt);
         Some((ViewMsg::Reply, dlg))
       }
 
@@ -247,7 +240,7 @@ impl Tab {
       Status::RedirectPermanent => {
 
         let dlg = 
-          Dialog::ask(&self.frame, cfg, &gemdoc.status.txt);
+          Dialog::ask(&self.frame, usr, &gemdoc.status.txt);
         Some((ViewMsg::Go(gemdoc.status.txt.clone()), dlg))
       }
 
@@ -256,7 +249,7 @@ impl Tab {
       Status::CertRequiredAuthorized => {
 
         let dlg = 
-          Dialog::ack(&self.frame, cfg, &gemdoc.status.txt);
+          Dialog::ack(&self.frame, usr, &gemdoc.status.txt);
         Some((ViewMsg::Default, dlg))
       }
 
@@ -265,37 +258,37 @@ impl Tab {
       }
     };
 
-    let text = cfg.gemdoc_to_text(&gemdoc);
+    let text = usr.gemdoc_to_text(&gemdoc);
 
     self.ddoc = Doc::new(text, &self.frame);
     self.gdoc = Some(gemdoc);
   }
 
   // display dialog
-  fn none_gem_doc(&mut self, cfg: &Config, msg: &str) {
+  fn none_gem_doc(&mut self, usr: &User, msg: &str) {
 
     self.gdoc = None;
 
-    let dlg  = Dialog::ack(&self.frame, cfg, msg);
+    let dlg  = Dialog::ack(&self.frame, usr, msg);
 
     self.dlg = Some((ViewMsg::DeleteMe, dlg));
   }
 
-  fn make_request(&mut self, cfg: &Config, url_str: &str) 
+  fn make_request(&mut self, usr: &User, url_str: &str) 
   {
     match Url::parse(url_str) {
 
       Ok(url) => match GemDoc::new(&url) {
 
         Ok(gemdoc) => 
-          self.some_gem_doc(cfg, gemdoc),
+          self.some_gem_doc(usr, gemdoc),
 
         Err(e) => 
-          self.none_gem_doc(cfg, &e),
+          self.none_gem_doc(usr, &e),
       }
 
       Err(e) => 
-        self.none_gem_doc(cfg, &e.to_string()),
+        self.none_gem_doc(usr, &e.to_string()),
     }
   }
 

@@ -5,25 +5,40 @@ init_url  = "gemini://geminiprotocol.net/"
 scroll_at = 6
 
 [colors]
+ #p.black[3]    = "#202020"
+
+ #p.dyellow[3]  = "#706050"
+ #p.yellow[3]   = "#c0b090"
+
+ #p.dred[3]     = "#402020"
+ #p.dgreen[3]   = "#183018"
+ #p.dcyan[3]    = "#103040"
+ #p.dmagenta[3] = "#402030"
+
+ #p.red[3]      = "#d06060"
+ #p.green[3]    = "#70a070"
+ #p.cyan[3]     = "#90a0d0"
+ #p.magenta[3]  = "#a070a0"
+
 # black
-background = [ 40,  40,  40]
-# grey
-border     = [128, 136, 144]
-badlink    = [128, 136, 144]
-# green
-link       = [128, 255, 208]
-# white
-text       = [224, 240, 255]
-list       = [224, 240, 255]
-dialog     = [224, 240, 255]
-banner     = [224, 240, 255]
+background = "202020" 
+# dyellow
+border     = "706050"
+badlink    = "706050"
+banner     = "706050"
 # yellow
-preformat  = [255, 208, 160]
-quote      = [255, 208, 160]
+text       = "c0b090"
+list       = "c0b090"
+dialog     = "c0b090"
+# cyan
+link       = "90a0d0"
+# green
+preformat  = "70a070"
+quote      = "70a070"
 # red
-heading1   = [255, 144, 176]
-heading2   = [255, 144, 176]
-heading3   = [255, 144, 176]
+heading1   = "d06060"
+heading2   = "d06060"
+heading3   = "d06060"
 
 [format]
 x_margin    = 12
@@ -39,7 +54,6 @@ msg_view  = "m"
 tab_view  = "t"
 load_cfg  = "c"
 
-[keys.tab]
 move_up      = "o"
 move_down    = "i"
 move_left    = "e"
@@ -50,7 +64,6 @@ inspect      = "w"
 delete_tab   = "v"
 new_tab      = "p"
 
-[keys.dialog]
 ack          = "y"
 yes          = "y"
 no           = "n"

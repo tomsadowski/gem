@@ -4,9 +4,9 @@
 pub enum ViewMsg {
   Default, 
   Global, 
-  ReloadConfig, 
+  ReloadUser, 
   Msg(String), 
-  NewConfig(String),
+  NewUser(String),
   CycleLeft, 
   CycleRight, 
   DeleteMe, 

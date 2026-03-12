@@ -1,7 +1,7 @@
 // src/dlg.rs
 
 use crate::{
-  cfg::{Config},
+  usr::{User},
   screen::{Frame},
   pos::{Pos},
   text::{self, Text, Editor},
@@ -20,8 +20,8 @@ use std::{
 
 #[derive(Clone)]
 pub enum InputType {
-  Ack(char),
-  Ask(char, char),
+  Ack(KeyCode),
+  Ask(KeyCode, KeyCode),
   Text(Editor, Pos),
 }
 
@@ -41,41 +41,41 @@ impl Dialog {
       prompt_frame: frm.row(3),
       input_frame: frm.row(6),
       prompt_text: prompt_text.into(), 
-      input_type: InputType::Ack('a'),
+      input_type: InputType::Ack(KeyCode::Enter),
     }
   }
 
-  pub fn text(frm: &Frame, cfg: &Config, prompt_text: &str)
+  pub fn text(frm: &Frame, usr: &User, prompt_text: &str)
     -> Self 
   {
     let mut dlg = Self::new(frm, prompt_text);
     let pos = dlg.input_frame.pos();
     let editor = Editor::new(
-      &dlg.input_frame, "", cfg.colors.get_dialog());
+      &dlg.input_frame, "", usr.colors.dialog);
 
     dlg.input_type = InputType::Text(editor, pos);
     dlg
   }
 
-  pub fn ack(frm: &Frame, cfg: &Config, prompt_text: &str) 
+  pub fn ack(frm: &Frame, usr: &User, prompt_text: &str) 
     -> Self 
   {
     let mut dlg = Self::new(frm, prompt_text);
 
     dlg.input_type = 
-      InputType::Ack(cfg.keys.dialog.ack);
+      InputType::Ack(usr.keys.ack);
     dlg
   }
 
   pub fn ask(frame: &Frame, 
-             cfg: &Config, 
+             usr: &User, 
              prompt_text: &str) 
     -> Self 
   {
     let mut dlg = Self::new(frame, prompt_text);
 
     dlg.input_type = InputType::Ask
-      (cfg.keys.dialog.yes, cfg.keys.dialog.no);
+      (usr.keys.yes, usr.keys.no);
     dlg
   }
 
@@ -167,27 +167,16 @@ impl Dialog {
       }
 
       InputType::Ack(ack) => {
-        match keycode {
-          KeyCode::Char(c) => 
-            (ack ==  c).then_some(InputMsg::Ack),
-
-          _ => None,
-        }
+        (ack ==  keycode).then_some(InputMsg::Ack)
       }
 
       InputType::Ask(yes, no) => {
-        match keycode {
-          KeyCode::Char(c) => {
-            if yes ==  c {
-                Some(InputMsg::Yes)
-            } else if no == c {
-                Some(InputMsg::No)
-            } else {
-                None
-            }
-          }
-        
-          _ => None,
+        if yes ==  keycode {
+            Some(InputMsg::Yes)
+        } else if no == keycode {
+            Some(InputMsg::No)
+        } else {
+            None
         }
       }
     }
