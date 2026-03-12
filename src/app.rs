@@ -32,7 +32,7 @@ pub struct App {
   pub quit:         bool,
 } 
 impl App {
-  pub fn new(path: &str, w: u16, h: u16) -> Self {
+  pub fn init(path: &str, w: u16, h: u16) -> Self {
 
     let usr = Self::load_config(path);
     let (hdr_frame, tab_frame) = 

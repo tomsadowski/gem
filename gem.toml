@@ -5,20 +5,6 @@ init_url  = "gemini://geminiprotocol.net/"
 scroll_at = 6
 
 [colors]
- #p.black[3]    = "#202020"
-
- #p.dyellow[3]  = "#706050"
- #p.yellow[3]   = "#c0b090"
-
- #p.dred[3]     = "#402020"
- #p.dgreen[3]   = "#183018"
- #p.dcyan[3]    = "#103040"
- #p.dmagenta[3] = "#402030"
-
- #p.red[3]      = "#d06060"
- #p.green[3]    = "#70a070"
- #p.cyan[3]     = "#90a0d0"
- #p.magenta[3]  = "#a070a0"
 
 # black
 background = "202020" 
@@ -44,9 +30,9 @@ heading3   = "d06060"
 x_margin    = 12
 y_margin    = 2
 list_prefix = " - "
-heading3    = [3, 2]
-heading2    = [2, 1]
-heading1    = [1, 0]
+heading1    = [1, 1]
+heading2    = [1, 1]
+heading3    = [1, 1]
 
 [keys]
 global    = "g"

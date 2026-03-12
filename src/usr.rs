@@ -320,9 +320,9 @@ impl Default for UserFormat {
       x_margin:    4,
       y_margin:    2,
       list_prefix: "- ".into(),
-      heading1:    (3, 2),
-      heading2:    (2, 1),
-      heading3:    (1, 0),
+      heading1:    (0, 0),
+      heading2:    (0, 0),
+      heading3:    (0, 0),
     }
   }
 }
@@ -331,22 +331,46 @@ impl UserModule for UserFormat {
 
   fn from_table(table: &Table) -> Result<Self, String> {
 
-    let usr = Self::default();
+    let mut usr = Self::default();
 
-    if let Some(v) = 
+    if let Some(Value::Array(a)) = 
       table.get("heading1")
         .or(table.get("h1"))
     {
+      if let Some(
+        (Value::Integer(before), Value::Integer(after))) = 
+        a.get(0).zip(a.get(1)) 
+      {
+        let before = u8::try_from(*before).unwrap_or(0);
+        let after = u8::try_from(*after).unwrap_or(0);
+        usr.heading1 = (before, after);
+      }
     }
-    if let Some(v) = 
+    if let Some(Value::Array(a)) = 
       table.get("heading2")
         .or(table.get("h2"))
     {
+      if let Some(
+        (Value::Integer(before), Value::Integer(after))) = 
+        a.get(0).zip(a.get(1)) 
+      {
+        let before = u8::try_from(*before).unwrap_or(0);
+        let after = u8::try_from(*after).unwrap_or(0);
+        usr.heading2 = (before, after);
+      }
     }
-    if let Some(v) = 
+    if let Some(Value::Array(a)) = 
       table.get("heading1")
         .or(table.get("h1"))
     {
+      if let Some(
+        (Value::Integer(before), Value::Integer(after))) = 
+        a.get(0).zip(a.get(1)) 
+      {
+        let before = u8::try_from(*before).unwrap_or(0);
+        let after = u8::try_from(*after).unwrap_or(0);
+        usr.heading3 = (before, after);
+      }
     }
 
     Ok(usr)

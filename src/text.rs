@@ -15,7 +15,7 @@ use crossterm::{
 use std::io::{self, Write};
 
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Text {
   pub fg:     Color,
   pub bg:     Color,
@@ -52,7 +52,7 @@ impl Text {
   where W: Write
   {
     wrt
-      .queue(SetForegroundColor(Color::White))?;
+      .queue(SetForegroundColor(self.fg))?;
 
     let mut chars = self.text.chars();
 
@@ -251,6 +251,10 @@ impl Doc {
 
     for (i, l) in lines.iter().enumerate() {
 
+      for x in 0..l.before {
+        display.push((i, "".to_string()));
+      }
+
       let v = 
         if l.wrap {
           wrap(&l.text, w)
@@ -260,6 +264,10 @@ impl Doc {
 
       for s in v.iter() {
         display.push((i, s.to_string()));
+      }
+
+      for x in 0..l.after {
+        display.push((i, "".to_string()));
       }
     }
 
