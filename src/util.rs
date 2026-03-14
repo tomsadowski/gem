@@ -11,7 +11,17 @@ use crossterm::{
 use url::{
   Url, ParseError
 };
+use toml::{Value};
 use native_tls::TlsConnector;
+
+pub fn parse_color(value: &Value) -> Result<Color, String> {
+  if let Value::String(hex) = value {
+    color_from_hex(&hex)
+
+  } else {
+    Err("fart".into())
+  }
+}
 
 pub fn try_hex_from_char(u: char) -> Option<u8> {
   match u {
