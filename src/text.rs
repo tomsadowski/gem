@@ -72,6 +72,7 @@ impl Text {
 
   pub fn prefix(mut self, s: &str) -> Self {
     self.prefix = String::from(s);
+    self.text.insert_str(0, s);
     self
   }
 

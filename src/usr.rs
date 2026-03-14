@@ -56,9 +56,10 @@ impl User {
       usr.init_url = s.into();
     }
 
-    if let Some(Value::Table(t)) = table.get("colors") {
+    if let Some(Value::Table(t)) = table.get("layout") {
       usr.layout = UserLayout::default().read_table(t)?;
     }
+
     if let Some(Value::Table(t)) = table.get("keys") {
       usr.keys = UserKeys::default().read_table(t)?;
     }

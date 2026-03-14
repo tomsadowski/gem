@@ -113,7 +113,6 @@ impl UserText {
           ColorKey::Fg => self.fg = Some(v),
           ColorKey::Bg => self.bg = Some(v),
         }
-        Ok(())
       }
       Key::Usize(k) => {
         let v = k.try_parse_value(&value)?;
@@ -121,17 +120,16 @@ impl UserText {
           UsizeKey::Above => self.above = v,
           UsizeKey::Below => self.below = v,
         }
-        Ok(())
       }
       Key::Prefix => {
         if let Value::String(s) = value {
           self.prefix = s.into(); 
-          Ok(())
         } else {
-          Err(format!("prefix doesnt take {:?}", value))
+          return Err(format!("prefix doesnt take {:?}", value))
         }
       }
     }
+    Ok(())
   }
 
   pub fn read_table(mut self, table: &Table) 

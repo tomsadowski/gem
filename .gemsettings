@@ -1,0 +1,76 @@
+
+#init_url = "gemini://medusae.space"
+#init_url = "gemini://datapulp.smol.pub/"
+
+init_url  = "gemini://geminiprotocol.net/"
+
+layout = {
+  scroll_at = 6,
+  x_page = 2,
+  y_page = 2,
+  background = "202020",
+  border = "706050",
+  banner = "706050",
+  dialog = "c0b090",
+
+  badlink = {
+    fg = "706050",
+  },
+  text = {
+    fg = "c0b090",
+    above = 1,
+    below = 1,
+  },
+  list = {
+    fg = "c0b090",
+    prefix = " - ",
+    below = 1,
+  },
+  preformat = {
+    fg = "70a070", 
+  },
+  link = {
+    fg = "90a0d0",
+    below = 1,
+  },
+  quote = {
+    fg = "70a070",
+    above = 1,
+    below = 1,
+  },
+  header1 = {
+    fg = "d06060",
+    prefix = "*** *** *** ",
+    above = 1,
+  },
+  header2 = {
+    prefix = "*** *** ",
+    fg = "d06060",
+    above = 1,
+  },
+  header3 = {
+    prefix = "*** ",
+    fg = "d06060",
+    above = 1,
+  },
+}
+
+keys = {
+  global   = "g",
+  msg_view = "m",
+  tab_view = "t",
+  load_usr = "l",
+  move_up     = "o",
+  move_down   = "i",
+  move_left   = "e",
+  move_right  = "n",
+  cycle_left  = "left",
+  cycle_right = "right",
+  inspect     = "space",
+  delete_tab  = "d",
+  new_tab     = "t",
+  yes    = "y",
+  no     = "n",
+  ack    = "enter",
+  cancel = "esc",
+}

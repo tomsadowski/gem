@@ -38,7 +38,7 @@ fn main() -> io::Result<()> {
     .queue(terminal::DisableLineWrap)?;
 
   let (w, h) = terminal::size()?;
-  let mut ui = App::init("gem.toml", w, h);
+  let mut ui = App::init(".gemsettings", w, h);
 
   ui.view(&mut stdout)?;
 
