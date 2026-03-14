@@ -2,37 +2,46 @@ init_url  = "gemini://geminiprotocol.net/"
 #init_url = "gemini://medusae.space"
 #init_url = "gemini://datapulp.smol.pub/"
 
+
+
+[layout]
 scroll_at = 6
-
-[colors]
-
-# black
-background = "202020" 
-# dyellow
-border     = "706050"
-badlink    = "706050"
-banner     = "706050"
-# yellow
-text       = "c0b090"
-list       = "c0b090"
-dialog     = "c0b090"
-# cyan
-link       = "90a0d0"
-# green
-preformat  = "70a070"
-quote      = "70a070"
-# red
-heading1   = "d06060"
-heading2   = "d06060"
-heading3   = "d06060"
-
-[format]
-x_margin    = 12
+x_page      = 2
 y_margin    = 2
 list_prefix = " - "
-heading1    = [1, 1]
-heading2    = [1, 1]
-heading3    = [1, 1]
+
+background = "202020" 
+border     = "706050"
+banner     = "706050"
+dialog     = "c0b090"
+
+[badlink]
+fg = "706050"
+
+[text]
+fg = "c0b090"
+
+[list]
+fg = "c0b090"
+
+[preformat]
+fg = "70a070"
+
+[link]
+fg = "90a0d0"
+
+[quote]
+fg = "70a070"
+
+[heading1]
+fg = "d06060"
+
+[heading2]
+fg = "d06060"
+
+[heading3]
+fg = "d06060"
+
 
 [keys]
 global    = "g"
@@ -44,12 +53,13 @@ move_up      = "o"
 move_down    = "i"
 move_left    = "e"
 move_right   = "n"
-cycle_left   = "E"
-cycle_right  = "N"
-inspect      = "w"
-delete_tab   = "v"
-new_tab      = "p"
+cycle_left   = "left"
+cycle_right  = "right"
+inspect      = "space"
+delete_tab   = "d"
+new_tab      = "t"
 
-ack          = "y"
 yes          = "y"
 no           = "n"
+ack          = "enter"
+cancel       = "esc"

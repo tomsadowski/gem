@@ -265,3 +265,59 @@ impl Frame {
     }
   }
 }
+
+//#[derive(Clone)]
+//pub struct Page {
+
+//  // scroll <= text <= page
+//  pub scroll:  Rect, 
+//  pub text:    Rect,
+//  pub page:    Rect,
+//} 
+
+//impl Dim for Page {
+
+//  fn w(&self) -> usize {
+//    self.page.w
+//  }
+
+//  fn h(&self) -> usize {
+//    self.page.h
+//  }
+//}
+
+//impl Page {
+//  pub fn new(rect: &Rect, x: u16, y: u16) -> Self {
+
+//    let outer = rect.clone();
+//    let inner = outer.crop_x(x).crop_y(y);
+
+//    Self {outer, inner}
+//  }
+
+//  pub fn pos(&self) -> Pos {
+//    Pos::from(&self.outer)
+//  }
+
+//  pub fn row(&self, r: u16) -> Self {
+
+//    let inner = self.inner.row(r);
+//    let outer = self.outer.row(r);
+
+//    Self {inner, outer}
+//  }
+
+//  pub fn x(&self) -> ScreenRange {
+//    ScreenRange {
+//      inner: self.inner.x(), 
+//      outer: self.outer.x()
+//    }
+//  }
+
+//  pub fn y(&self) -> ScreenRange {
+//    ScreenRange {
+//      inner: self.inner.y(), 
+//      outer: self.outer.y()
+//    }
+//  }
+//}

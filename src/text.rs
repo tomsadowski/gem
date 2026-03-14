@@ -17,22 +17,24 @@ use std::io::{self, Write};
 
 #[derive(Clone, Debug)]
 pub struct Text {
+  pub text:   String,
   pub fg:     Color,
   pub bg:     Color,
-  pub before: usize,
-  pub after:  usize,
-  pub text:   String,
+  pub above:  usize,
+  pub below:  usize,
+  pub prefix: String,
   pub wrap:   bool,
 }
 
 impl From<&str> for Text {
   fn from(item: &str) -> Self {
     Self {
-      before: 0,
-      after:  0,
+      above:  0,
+      below:  0,
       text:   item.into(), 
       fg:     Color::White, 
       bg:     Color::Black,
+      prefix: "".into(),
       wrap:   false,
     }
   }
@@ -68,13 +70,18 @@ impl Text {
     Ok(())
   }
 
-  pub fn before(mut self, u: usize) -> Self {
-    self.before = u;
+  pub fn prefix(mut self, s: &str) -> Self {
+    self.prefix = String::from(s);
     self
   }
 
-  pub fn after(mut self, u: usize) -> Self {
-    self.after = u;
+  pub fn above(mut self, u: usize) -> Self {
+    self.above = u;
+    self
+  }
+
+  pub fn below(mut self, u: usize) -> Self {
+    self.below = u;
     self
   }
 
@@ -111,6 +118,12 @@ impl Default for Doc {
 }
 
 impl Doc {
+
+  pub fn text(mut self, text: Vec<Text>) -> Self {
+    self.text = text;
+    self
+  }
+
   pub fn new(text: Vec<Text>, frm: &Frame) -> Self {
 
     let lines = Self::wrap_list(&text, frm.outer.w);
@@ -251,7 +264,7 @@ impl Doc {
 
     for (i, l) in lines.iter().enumerate() {
 
-      for x in 0..l.before {
+      for x in 0..l.above {
         display.push((i, "".to_string()));
       }
 
@@ -266,7 +279,7 @@ impl Doc {
         display.push((i, s.to_string()));
       }
 
-      for x in 0..l.after {
+      for x in 0..l.below {
         display.push((i, "".to_string()));
       }
     }

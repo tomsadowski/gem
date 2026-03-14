@@ -132,8 +132,8 @@ impl App {
     let (hdr_rect, tab_rect) = {
 
       let rect = Rect::new(w, h)
-        .crop_x(usr.format.x_margin)
-        .crop_y(usr.format.y_margin);
+        .crop_x(usr.layout.x_page)
+        .crop_y(usr.layout.y_page);
 
       (rect.crop_south(h - 2), rect.crop_north(2))
 
@@ -141,8 +141,8 @@ impl App {
 
     let hdr = Frame::new(&hdr_rect, 0, 0);
     let tab = Frame::new(&tab_rect, 
-                         usr.scroll_at, 
-                         usr.scroll_at);
+                         usr.layout.scroll_at, 
+                         usr.layout.scroll_at);
 
     (hdr, tab)
   }
@@ -223,8 +223,8 @@ impl App {
 
   fn update_hdr_text(&mut self) {
 
-    let fg = self.usr.colors.banner;
-    let bg = self.usr.colors.background;
+    let fg = self.usr.layout.banner;
+    let bg = self.usr.layout.background;
 
     let info = format!("{}/{}: {}", 
                        self.idx + 1, 

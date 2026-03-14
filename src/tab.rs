@@ -258,9 +258,8 @@ impl Tab {
       }
     };
 
-    let text = usr.gemdoc_to_text(&gemdoc);
+    self.ddoc = usr.get_doc(&gemdoc, &self.frame.outer);
 
-    self.ddoc = Doc::new(text, &self.frame);
     self.gdoc = Some(gemdoc);
   }
 
