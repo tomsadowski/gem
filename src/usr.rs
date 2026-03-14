@@ -2,30 +2,16 @@
 
 use crate::{
   gem::{
-    GemDoc, GemTag, GemText,
+    GemDoc
   },
   text::{
-    Text, Doc,
+    Doc,
   },
   screen::{
-    self, Rect, Frame,
+    Rect, Frame,
   },
   usr_layout::{UserLayout},
   usr_keys::{UserKeys},
-  util::{
-    self,
-  },
-};
-use crossterm::{
-  style::{
-    Color
-  },
-  event::{
-    KeyCode
-  },
-};
-use std::{
-  fs, io
 };
 use toml::{
   Table, Value,

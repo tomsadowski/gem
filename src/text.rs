@@ -1,9 +1,9 @@
 // src/text.rs
 
 use crate::{
-  screen::{Frame, Dim, Range16},
+  screen::{Frame, Range16},
   pos::{Pos, PosCol},
-  util::{self, wrap, u16_or_0},
+  util::{wrap, u16_or_0},
 };
 use crossterm::{
   QueueableCommand,

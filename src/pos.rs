@@ -2,12 +2,8 @@
 
 use crate::{
   util::{u16_or_0},
-  screen::{Rect, Frame, ScreenRange, Range16},
+  screen::{Rect, ScreenRange, Range16},
 };
-use std::{
-  cmp::min,
-};
-
 
 #[derive(Clone, Debug)]
 pub struct PosCol {

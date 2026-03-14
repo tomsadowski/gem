@@ -1,17 +1,10 @@
 // src/screen.rs
 
 use crate::{
-  util::{self, u16_or_0},
+  util::{u16_or_0},
   pos::{Pos},
 };
-use crossterm::{
-  QueueableCommand,
-  terminal::{Clear, ClearType},
-  cursor::{MoveTo},
-  style::{Print, Color, SetForegroundColor},
-};
 use std::{
-  io::{self, Write},
   cmp::min,
 };
 

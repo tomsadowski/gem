@@ -4,13 +4,13 @@ use crate::{
   usr::{User},
   screen::{Frame},
   pos::{Pos},
-  text::{self, Text, Editor},
+  text::{Text, Editor},
   msg::{InputMsg},
 };
 use crossterm::{
   QueueableCommand,
   cursor::{MoveTo},
-  style::{Print, Color},
+  style::{Color},
   event::{KeyCode},
 };
 use std::{

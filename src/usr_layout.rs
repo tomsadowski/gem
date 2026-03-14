@@ -1,14 +1,13 @@
 // src/usr_layout.rs
 
 use crate::{
-  gem::{GemDoc, GemTag, GemText},
-  text::{Text, Doc},
-  screen::{self, Rect, Frame},
-  util::{self, parse_color},
+  gem::{GemTag, GemText},
+  text::{Text},
+  screen::{Rect, Frame},
+  util::{parse_color},
   usr_text::UserText,
 };
 use crossterm::style::Color;
-use std::{fs, io};
 use toml::{Table, Value};
 
 #[derive(Debug)]
@@ -141,7 +140,7 @@ impl Default for UserLayout {
 
 impl UserLayout {
 
-  pub fn try_assign(&mut self, key: &Key, value: &Value) 
+  fn try_assign(&mut self, key: &Key, value: &Value) 
     -> Result<(), String> 
   {
     match key {

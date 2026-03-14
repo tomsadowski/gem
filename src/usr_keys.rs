@@ -1,26 +1,9 @@
 // src/usr_keys.rs
 
-use crate::{
-  gem::{
-    GemDoc, GemTag, GemText,
-  },
-  text::{
-    Text, Doc,
-  },
-  screen::{
-    self, Rect, Frame,
-  },
-};
 use crossterm::{
-  style::{
-    Color
-  },
   event::{
     KeyCode
   },
-};
-use std::{
-  fs, io
 };
 use toml::{
   Table, Value,
@@ -121,7 +104,7 @@ impl Default for UserKeys {
 }
 
 impl UserKeys {
-  pub fn try_assign(&mut self, key: &Key, value: &Value) 
+  fn try_assign(&mut self, key: &Key, value: &Value) 
     -> Result<(), String> 
   {
     let v = Self::try_from_value(value)?;

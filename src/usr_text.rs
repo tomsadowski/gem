@@ -1,29 +1,11 @@
 // src/usr_text.rs
 
 use crate::{
-  gem::{
-    GemDoc, GemTag, GemText,
-  },
-  text::{
-    Text, Doc,
-  },
-  screen::{
-    self, Rect, Frame,
-  },
-  util::{
-    self, parse_color
-  },
+  text::{Text},
+  util::{parse_color},
 };
 use crossterm::{
-  style::{
-    Color
-  },
-  event::{
-    KeyCode
-  },
-};
-use std::{
-  fs, io
+  style::{Color},
 };
 use toml::{
   Table, Value,
@@ -121,7 +103,7 @@ impl UserText {
     text
   }
 
-  pub fn try_assign(&mut self, key: &Key, value: &Value) 
+  fn try_assign(&mut self, key: &Key, value: &Value) 
     -> Result<(), String> 
   {
     match key {

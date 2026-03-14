@@ -1,7 +1,7 @@
 // src/app.rs
 
 use crate::{
-  usr::{self, User},
+  usr::{User},
   screen::{Frame, Rect},
   msg::{Focus, ViewMsg},
   text::{Doc, Text},

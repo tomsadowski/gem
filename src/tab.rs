@@ -6,12 +6,10 @@ use crate::{
   gem::{GemDoc, GemTag, Status},
   text::{Doc},
   screen::{Frame},
-  pos::{Pos},
   msg::{ViewMsg, InputMsg},
   dlg::{Dialog},
 };
 use crossterm::{
-  QueueableCommand, cursor,
   event::{KeyCode}
 };
 use std::{
