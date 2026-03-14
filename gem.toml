@@ -47,7 +47,7 @@ fg = "d06060"
 global    = "g"
 msg_view  = "m"
 tab_view  = "t"
-load_cfg  = "c"
+load_usr  = "l"
 
 move_up      = "o"
 move_down    = "i"

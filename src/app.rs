@@ -236,8 +236,8 @@ impl App {
 
     self.hdr = Doc::new(
       vec![
-        Text::from(info.as_str()).fg(fg).bg(bg),
-        Text::from(line.as_str()).fg(fg).bg(bg), 
+        Text::from(info.as_str()).fg(Color::White).bg(Color::Black),
+        Text::from(line.as_str()).fg(Color::White).bg(Color::Black), 
       ],
       &self.hdr_frame
     );
@@ -246,9 +246,8 @@ impl App {
   // return default config if error
   fn load_config(path: &str) -> User {
     fs::read_to_string(path)
-      .ok()
-      .map(|txt| User::parse(&txt))
-      .unwrap_or_default()
+      .map_err(|e| e.to_string())
+      .and_then(|txt| User::parse(&txt)).unwrap()
   }
 
   fn update_usr(&mut self, usr: User) {

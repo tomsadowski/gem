@@ -1,3 +1,44 @@
    Compiling gem v0.1.0 (/home/tsadowski/.local/source/gem)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.31s
+warning: type `usr_keys::Key` is more private than the item `UserKeys::try_assign`
+   --> src/usr_keys.rs:124:3
+    |
+124 | /   pub fn try_assign(&mut self, key: &Key, value: &Value) 
+125 | |     -> Result<(), String> 
+    | |_________________________^ method `UserKeys::try_assign` is reachable at visibility `pub(crate)`
+    |
+note: but type `usr_keys::Key` is only usable at visibility `pub(self)`
+   --> src/usr_keys.rs:31:1
+    |
+ 31 | enum Key {
+    | ^^^^^^^^
+    = note: `#[warn(private_interfaces)]` on by default
+
+warning: type `usr_layout::Key` is more private than the item `UserLayout::try_assign`
+   --> src/usr_layout.rs:144:3
+    |
+144 | /   pub fn try_assign(&mut self, key: &Key, value: &Value) 
+145 | |     -> Result<(), String> 
+    | |_________________________^ method `UserLayout::try_assign` is reachable at visibility `pub(crate)`
+    |
+note: but type `usr_layout::Key` is only usable at visibility `pub(self)`
+   --> src/usr_layout.rs:15:1
+    |
+ 15 | enum Key {
+    | ^^^^^^^^
+
+warning: type `usr_text::Key` is more private than the item `UserText::try_assign`
+   --> src/usr_text.rs:124:3
+    |
+124 | /   pub fn try_assign(&mut self, key: &Key, value: &Value) 
+125 | |     -> Result<(), String> 
+    | |_________________________^ method `UserText::try_assign` is reachable at visibility `pub(crate)`
+    |
+note: but type `usr_text::Key` is only usable at visibility `pub(self)`
+   --> src/usr_text.rs:33:1
+    |
+ 33 | enum Key {
+    | ^^^^^^^^
+
+warning: `gem` (bin "gem") generated 3 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.35s
      Running `target/debug/gem`

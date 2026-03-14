@@ -51,7 +51,7 @@ impl Dialog {
     let mut dlg = Self::new(frm, prompt_text);
     let pos = dlg.input_frame.pos();
     let editor = Editor::new(
-      &dlg.input_frame, "", usr.layout.dialog);
+      &dlg.input_frame, "", Color::White);
 
     dlg.input_type = InputType::Text(editor, pos);
     dlg

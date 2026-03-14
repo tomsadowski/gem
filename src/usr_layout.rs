@@ -72,7 +72,7 @@ impl TextKey {
   {
     if let Value::Table(t) = value {
       UserText::default()
-        .read_table(value)
+        .read_table(t)
         .map_err(|e| format!("{:?} : {}", self, e))
     } else {
       Err(format!("prefix doesnt take {:?}", value))
@@ -84,7 +84,7 @@ impl U16Key {
     -> Result<u16, String>
   {
     if let Value::Integer(t) = value {
-        u16::try_parse(*t)
+        u16::try_from(*t)
         .map_err(|e| format!("{:?} : {}", self, e))
     } else {
       Err(format!("prefix doesnt take {:?}", value))

@@ -60,7 +60,7 @@ impl User {
     self.layout.get_frame_from_rect(rect)
   }
 
-  pub fn parse(text: &str) -> Self {
+  pub fn parse(text: &str) -> Result<Self, String> {
 
     let mut usr = Self::default();
     let table = text.parse::<Table>()
@@ -70,15 +70,13 @@ impl User {
       usr.init_url = s.into();
     }
 
-    if let Some(v) = table.get("colors") {
-      usr.layout = UserLayout::parse_module(v)
-          .unwrap_or_default();
+    if let Some(Value::Table(t)) = table.get("colors") {
+      usr.layout = UserLayout::default().read_table(t)?;
     }
-    if let Some(v) = table.get("keys") {
-      usr.keys = UserKeys::parse_module(v)
-          .unwrap_or_default();
+    if let Some(Value::Table(t)) = table.get("keys") {
+      usr.keys = UserKeys::default().read_table(t)?;
     }
     
-    usr
+    Ok(usr)
   }
 }
