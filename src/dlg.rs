@@ -2,7 +2,7 @@
 
 use crate::{
   usr::{User},
-  screen::{Frame},
+  screen::{Page},
   pos::{Pos},
   text::{Text, Editor},
   msg::{InputMsg},
@@ -27,15 +27,15 @@ pub enum InputType {
 
 #[derive(Clone)]
 pub struct Dialog {
-  pub prompt_frame: Frame,
+  pub prompt_frame: Page,
   pub prompt_text:  Text,
-  pub input_frame:  Frame,
+  pub input_frame:  Page,
   pub input_type:   InputType,
 } 
 
 impl Dialog {
 
-  fn new(frm: &Frame, prompt_text: &str) -> Self {
+  fn new(frm: &Page, prompt_text: &str) -> Self {
 
     Self {
       prompt_frame: frm.row(3),
@@ -45,19 +45,19 @@ impl Dialog {
     }
   }
 
-  pub fn text(frm: &Frame, usr: &User, prompt_text: &str)
+  pub fn text(frm: &Page, usr: &User, prompt_text: &str)
     -> Self 
   {
     let mut dlg = Self::new(frm, prompt_text);
     let pos = dlg.input_frame.pos();
-    let editor = Editor::new(
-      &dlg.input_frame, "", Color::White);
+    let color = usr.layout.dialog.unwrap_or(Color::White);
+    let editor = Editor::new(&dlg.input_frame, "", color);
 
     dlg.input_type = InputType::Text(editor, pos);
     dlg
   }
 
-  pub fn ack(frm: &Frame, usr: &User, prompt_text: &str) 
+  pub fn ack(frm: &Page, usr: &User, prompt_text: &str) 
     -> Self 
   {
     let mut dlg = Self::new(frm, prompt_text);
@@ -67,7 +67,7 @@ impl Dialog {
     dlg
   }
 
-  pub fn ask(frame: &Frame, 
+  pub fn ask(frame: &Page, 
              usr: &User, 
              prompt_text: &str) 
     -> Self 
@@ -83,30 +83,30 @@ impl Dialog {
   where W: Write
   {
     self.prompt_text
-      .write_frame(&self.prompt_frame, writer)?;
+      .write_page(&self.prompt_frame, writer)?;
 
     match &self.input_type {
       InputType::Ack(ack) => {
         Text::from(
           format!("|{}| acknowledge", ack).as_str())
-          .write_frame(&self.input_frame, writer)?;
+          .write_page(&self.input_frame, writer)?;
       }
 
       InputType::Ask(yes, no) => {
         Text::from(
           format!("|{}| yes |{}| no", yes, no).as_str())
-          .write_frame(&self.input_frame, writer)?;
+          .write_page(&self.input_frame, writer)?;
       }
 
       InputType::Text(editor, pos) => {
-        editor.write_frame(&self.input_frame, writer)?;
+        editor.write_page(&self.input_frame, writer)?;
         writer.queue(MoveTo(pos.x.cursor, pos.y.cursor))?;
       }
     }
     Ok(())
   }
 
-  pub fn resize(&mut self, frame: &Frame) {
+  pub fn resize(&mut self, frame: &Page) {
     self.prompt_frame = frame.row(3);
     self.input_frame  = frame.row(6);
   }

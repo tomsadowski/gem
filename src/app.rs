@@ -2,7 +2,7 @@
 
 use crate::{
   usr::{User},
-  screen::{Frame, Rect},
+  screen::{Page, Rect},
   msg::{Focus, ViewMsg},
   text::{Doc, Text},
   tab::Tab,
@@ -12,7 +12,8 @@ use crossterm::{
   terminal::{Clear, ClearType},
   style::{Color},
   event::{
-    Event, KeyEvent, KeyEventKind, KeyCode, KeyModifiers}
+    Event, KeyEvent, KeyEventKind, KeyCode, KeyModifiers,
+  }
 };
 use std::{
   fs,
@@ -20,23 +21,23 @@ use std::{
 };
 
 pub struct App {
-  pub hdr:          Doc,
-  pub tabs:         Vec<Tab>,
-  pub hdr_frame:    Frame,
-  pub tab_frame:    Frame,
-  pub idx:          usize,
-  pub usr_path:     String,
-  pub usr:          User,
-  pub focus:        Focus,
-  pub clr_scr:      bool,
-  pub quit:         bool,
+  pub hdr:      Doc,
+  pub tabs:     Vec<Tab>,
+  pub hdr_page: Page,
+  pub tab_page: Page,
+  pub idx:      usize,
+  pub usr_path: String,
+  pub usr:      User,
+  pub focus:    Focus,
+  pub clr_scr:  bool,
+  pub quit:     bool,
 } 
 impl App {
   pub fn init(path: &str, w: u16, h: u16) -> Self {
 
     let usr = Self::load_config(path);
-    let (hdr_frame, tab_frame) = 
-      Self::get_layout(w, h, &usr);
+    let (hdr_page, tab_page) = 
+      usr.get_layout(w, h);
 
     let mut app = Self {
       usr_path: path.into(),
@@ -46,9 +47,9 @@ impl App {
       hdr:      Doc::default(),
       clr_scr:  false,
       tabs:     vec![
-        Tab::init(&tab_frame, &usr.init_url, &usr)],
-      hdr_frame, 
-      tab_frame,
+        Tab::init(&tab_page, &usr.init_url, &usr)],
+      hdr_page, 
+      tab_page,
       usr,
     };
 
@@ -65,7 +66,7 @@ impl App {
       writer.queue(Clear(ClearType::All))?;
     }
 
-    self.hdr.view(&self.hdr_frame, writer)?;
+    self.hdr.view(&self.hdr_page, writer)?;
     self.tabs[self.idx].view(writer)?;
 
     writer
@@ -124,29 +125,6 @@ impl App {
     }
   }
 
-  // called infrequently, construct many things
-  // based on screensize and usr
-  fn get_layout(w: u16, h: u16, usr: &User) 
-    -> (Frame, Frame) 
-  {
-    let (hdr_rect, tab_rect) = {
-
-      let rect = Rect::new(w, h)
-        .crop_x(usr.layout.x_page)
-        .crop_y(usr.layout.y_page);
-
-      (rect.crop_south(h - 2), rect.crop_north(2))
-
-    };
-
-    let hdr = Frame::new(&hdr_rect, 0, 0);
-    let tab = Frame::new(&tab_rect, 
-                         usr.layout.scroll_at, 
-                         usr.layout.scroll_at);
-
-    (hdr, tab)
-  }
-
   fn update_from_view_msg(&mut self, msg: ViewMsg) {
 
     match msg {
@@ -170,7 +148,7 @@ impl App {
 
       ViewMsg::Go(url) => {
         let tab = Tab::init(
-          &self.tab_frame, &url, &self.usr);
+          &self.tab_page, &url, &self.usr);
 
         self.tabs.push(tab);
         self.idx = self.tabs.len() - 1;
@@ -209,22 +187,22 @@ impl App {
 
   fn resize(&mut self, w: u16, h: u16) {
 
-    let (hdr_frame, tab_frame) = 
-      Self::get_layout(w, h, &self.usr);
+    let (hdr_page, tab_page) = 
+      self.usr.get_layout(w, h);
 
-    self.hdr_frame = hdr_frame;
-    self.tab_frame = tab_frame;
+    self.hdr_page = hdr_page;
+    self.tab_page = tab_page;
 
     for t in self.tabs.iter_mut() {
-      t.resize(&self.tab_frame);
+      t.resize(&self.tab_page);
     }
     self.update_hdr_text();
   }
 
   fn update_hdr_text(&mut self) {
 
-    let fg = self.usr.layout.banner;
-    let bg = self.usr.layout.background;
+    let fg = self.usr.layout.banner.unwrap_or(Color::White);
+    let bg = self.usr.layout.background.unwrap_or(Color::Black);
 
     let info = format!("{}/{}: {}", 
                        self.idx + 1, 
@@ -232,14 +210,14 @@ impl App {
                        &self.tabs[self.idx].name);
 
     let line = &String::from("-")
-      .repeat(self.hdr_frame.outer.w);
+      .repeat(self.hdr_page.text.w);
 
     self.hdr = Doc::new(
       vec![
-        Text::from(info.as_str()).fg(Color::White).bg(Color::Black),
-        Text::from(line.as_str()).fg(Color::White).bg(Color::Black), 
+        Text::from(info.as_str()).fg(fg).bg(bg),
+        Text::from(line.as_str()).fg(fg).bg(bg), 
       ],
-      &self.hdr_frame
+      &self.hdr_page
     );
   }
 

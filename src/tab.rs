@@ -5,7 +5,7 @@ use crate::{
   util::{Scheme},
   gem::{GemDoc, GemTag, Status},
   text::{Doc},
-  screen::{Frame},
+  screen::{Page},
   msg::{ViewMsg, InputMsg},
   dlg::{Dialog},
 };
@@ -19,7 +19,7 @@ use url::{Url};
 
 
 pub struct Tab {
-  pub frame:  Frame,
+  pub page:  Page,
   pub name:   String,
   pub dlg:    Option<(ViewMsg, Dialog)>,
   pub gdoc:   Option<GemDoc>,
@@ -27,14 +27,14 @@ pub struct Tab {
 } 
 
 impl Tab {
-  pub fn init(frame: &Frame, url_str: &str, usr: &User) 
+  pub fn init(page: &Page, url_str: &str, usr: &User) 
     -> Self 
   {
     let mut tab = Self {
       dlg:    None,
       gdoc:   None,
       ddoc:   Doc::default(), 
-      frame:  frame.clone(),
+      page:   page.clone(),
       name:   url_str.into(),
     };
 
@@ -43,13 +43,13 @@ impl Tab {
   }
 
   // resize ddoc and dialog
-  pub fn resize(&mut self, frame: &Frame) {
+  pub fn resize(&mut self, page: &Page) {
 
-    self.frame = frame.clone();
-    self.ddoc.resize(frame);
+    self.page = page.clone();
+    self.ddoc.resize(page);
 
     if let Some((_, d)) = &mut self.dlg {
-      d.resize(frame);
+      d.resize(page);
     }
   }
 
@@ -107,22 +107,22 @@ impl Tab {
 
     } else if kc == &usr.keys.move_down {
       self.ddoc
-        .move_down(&self.frame, 1)
+        .move_down(&self.page, 1)
         .then_some(ViewMsg::Default)
 
     } else if kc == &usr.keys.move_up {
       self.ddoc
-        .move_up(&self.frame, 1)
+        .move_up(&self.page, 1)
         .then_some(ViewMsg::Default)
 
     } else if kc == &usr.keys.move_left {
       self.ddoc
-        .move_left(&self.frame, 1)
+        .move_left(&self.page, 1)
         .then_some(ViewMsg::Default)
 
     } else if kc == &usr.keys.move_right {
       self.ddoc
-        .move_right(&self.frame, 1)
+        .move_right(&self.page, 1)
         .then_some(ViewMsg::Default)
 
     } else if kc == &usr.keys.cycle_left {
@@ -135,7 +135,7 @@ impl Tab {
     } else if kc == &usr.keys.delete_tab {
 
       let dlg = Dialog::ask(
-        &self.frame, 
+        &self.page, 
         usr, 
         "Delete current tab?");
       self.dlg = Some((ViewMsg::DeleteMe, dlg));
@@ -144,7 +144,7 @@ impl Tab {
     } else if kc == &usr.keys.new_tab {
 
       let dlg = Dialog::text(
-        &self.frame, 
+        &self.page, 
         usr, 
         "enter path: ");
       self.dlg = Some((ViewMsg::NewTab, dlg));
@@ -156,7 +156,7 @@ impl Tab {
         match &self.gdoc {
           Some(gdoc) => {
             let idx = self.ddoc
-              .select(&self.frame)
+              .select(&self.page)
               .unwrap_or(0);
 
             gdoc.doc[idx].tag.clone()
@@ -169,7 +169,7 @@ impl Tab {
         match gemtype {
           GemTag::Link(Scheme::Gemini, url) => {
             let dlg = Dialog::ask(
-              &self.frame, 
+              &self.page, 
               usr, 
               &format!("go to {}?", url));
             (ViewMsg::Go(url.into()), dlg)
@@ -177,7 +177,7 @@ impl Tab {
 
           GemTag::Link(_, url) => {
             let dlg = Dialog::ack(
-              &self.frame, 
+              &self.page, 
               usr, 
               &format!(
                 "Protocol {} not yet supported", 
@@ -187,7 +187,7 @@ impl Tab {
 
           gemtext => {
             let dlg = Dialog::ack(
-              &self.frame, 
+              &self.page, 
               usr, 
               &format!(
                 "you've selected {:?}", 
@@ -216,7 +216,7 @@ impl Tab {
       d.view(writer)?;
 
     } else {
-      self.ddoc.view(&self.frame, writer)?;
+      self.ddoc.view(&self.page, writer)?;
     }
     Ok(())
   }
@@ -230,15 +230,22 @@ impl Tab {
       Status::InputExpectedSensitive => {
 
         let dlg = 
-          Dialog::text(&self.frame, usr, &gemdoc.status.txt);
+          Dialog::text(&self.page, usr, &gemdoc.status.txt);
         Some((ViewMsg::Reply, dlg))
       }
 
-      Status::RedirectTemporary |
-      Status::RedirectPermanent => {
-
+      Status::RedirectTemporary => {
         let dlg = 
-          Dialog::ask(&self.frame, usr, &gemdoc.status.txt);
+          Dialog::ask(&self.page, usr, &gemdoc.status.txt);
+        let new_url = gemdoc.url
+          .join(&gemdoc.status.txt)
+          .unwrap_or(gemdoc.url.clone());
+        Some((ViewMsg::Go(new_url.into()), dlg))
+      }
+
+      Status::RedirectPermanent => {
+        let dlg = 
+          Dialog::ask(&self.page, usr, &gemdoc.status.txt);
         Some((ViewMsg::Go(gemdoc.status.txt.clone()), dlg))
       }
 
@@ -247,7 +254,7 @@ impl Tab {
       Status::CertRequiredAuthorized => {
 
         let dlg = 
-          Dialog::ack(&self.frame, usr, &gemdoc.status.txt);
+          Dialog::ack(&self.page, usr, &gemdoc.status.txt);
         Some((ViewMsg::Default, dlg))
       }
 
@@ -256,7 +263,7 @@ impl Tab {
       }
     };
 
-    self.ddoc = usr.get_doc(&gemdoc, &self.frame.outer);
+    self.ddoc = usr.get_doc(&gemdoc, &self.page);
 
     self.gdoc = Some(gemdoc);
   }
@@ -266,7 +273,7 @@ impl Tab {
 
     self.gdoc = None;
 
-    let dlg  = Dialog::ack(&self.frame, usr, msg);
+    let dlg  = Dialog::ack(&self.page, usr, msg);
 
     self.dlg = Some((ViewMsg::DeleteMe, dlg));
   }

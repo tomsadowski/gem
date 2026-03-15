@@ -2,12 +2,13 @@
 #init_url = "gemini://medusae.space"
 #init_url = "gemini://datapulp.smol.pub/"
 
-init_url  = "gemini://geminiprotocol.net/"
+#init_url  = "gemini://geminiprotocol.net/"
+init_url  = "gemini://geminiprotocol.net/history/servers.gmi"
 
 layout = {
   scroll_at = 6,
   x_page = 2,
-  y_page = 2,
+  y_page = 8,
   background = "202020",
   border = "706050",
   banner = "706050",

@@ -2,7 +2,7 @@
 
 use crate::{
   util::{u16_or_0},
-  screen::{Rect, ScreenRange, Range16},
+  screen::{Rect, PageRange, Range16},
 };
 
 #[derive(Clone, Debug)]
@@ -56,17 +56,17 @@ impl PosCol {
   }
 
   pub fn move_into(&mut self, 
-                   rng: &ScreenRange, 
+                   rng: &PageRange, 
                    len: usize) 
   {
     let (start, end) = 
-      if len < rng.outer.len() {
+      if len < rng.text.len() {
         self.scroll = 0;
-        let end = rng.outer.start + u16_or_0(len);
-        (rng.outer.start, end)
+        let end = rng.text.start + u16_or_0(len);
+        (rng.text.start, end)
 
       } else {
-        (rng.outer.start, rng.inner.end)
+        (rng.text.start, rng.scroll.end)
       };
 
     if self.cursor < start {
@@ -78,11 +78,11 @@ impl PosCol {
   }
 
   pub fn move_backward( &mut self, 
-                        rng: &ScreenRange, 
+                        rng: &PageRange, 
                         mut step: u16) -> bool
   {
     match (
-      self.cursor == rng.outer.start, 
+      self.cursor == rng.text.start, 
       self.scroll == usize::MIN) 
     {
       // nowhere to go, nothing to change
@@ -104,21 +104,21 @@ impl PosCol {
       // move cursor
       (false, true) => {
 
-        if rng.outer.start + step <= self.cursor {
+        if rng.text.start + step <= self.cursor {
           self.cursor -= step;
 
         } else {
-          self.cursor = rng.outer.start;
+          self.cursor = rng.text.start;
         }
       }
 
       // move cursor and maybe scroll
       (false, false) => {
 
-        if rng.inner.start + step <= self.cursor {
+        if rng.scroll.start + step <= self.cursor {
           self.cursor -= step;
 
-        } else if rng.inner.start == self.cursor {
+        } else if rng.scroll.start == self.cursor {
 
           if usize::from(step) <= self.scroll {
             self.scroll -= usize::from(step);
@@ -134,8 +134,8 @@ impl PosCol {
         } else {
           step = step.saturating_sub(
             self.cursor.saturating_sub(
-              rng.inner.start));
-          self.cursor = rng.inner.start;
+              rng.scroll.start));
+          self.cursor = rng.scroll.start;
           self.move_backward(rng, step);
         }
       }
@@ -145,7 +145,7 @@ impl PosCol {
   }
 
   pub fn move_forward(&mut self,
-                      rng: &ScreenRange, 
+                      rng: &PageRange, 
                       dlen: usize,
                       mut step: u16 ) -> bool
   {
@@ -181,10 +181,10 @@ impl PosCol {
       }
       (false, false) => {
 
-        if self.cursor + step <= rng.inner.end {
+        if self.cursor + step <= rng.scroll.end {
           self.cursor += step;
 
-        } else if self.cursor == rng.inner.end {
+        } else if self.cursor == rng.scroll.end {
           if self.scroll + usize::from(step) <= 
               max_scroll 
           {
@@ -198,8 +198,8 @@ impl PosCol {
           }
         } else {
           step = step.saturating_sub(
-            rng.inner.end.saturating_sub(self.cursor));
-          self.cursor = rng.inner.end;
+            rng.scroll.end.saturating_sub(self.cursor));
+          self.cursor = rng.scroll.end;
           self.move_forward(rng, dlen, step);
         }
       }

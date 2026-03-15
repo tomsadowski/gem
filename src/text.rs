@@ -1,7 +1,7 @@
 // src/text.rs
 
 use crate::{
-  screen::{Frame, Range16},
+  screen::{Page, Range16},
   pos::{Pos, PosCol},
   util::{wrap, u16_or_0},
 };
@@ -47,8 +47,8 @@ impl Default for Text {
 }
 
 impl Text {
-  pub fn write_frame<W>(&self, 
-                        frm: &Frame, 
+  pub fn write_page<W>(&self, 
+                        frm: &Page, 
                         wrt: &mut W) 
     -> io::Result<()>
   where W: Write
@@ -59,11 +59,11 @@ impl Text {
     let mut chars = self.text.chars();
 
     let Range16 {start: x_start, end: x_end} = 
-      frm.outer.x();
+      frm.text.x();
 
     for x_pos in x_start..x_end {
       wrt
-        .queue(MoveTo(x_pos, frm.outer.y))?
+        .queue(MoveTo(x_pos, frm.text.y))?
         .queue(Print(chars.next().unwrap_or(' ')))?;
     }
 
@@ -125,23 +125,23 @@ impl Doc {
     self
   }
 
-  pub fn new(text: Vec<Text>, frm: &Frame) -> Self {
+  pub fn new(text: Vec<Text>, frm: &Page) -> Self {
 
-    let lines = Self::wrap_list(&text, frm.outer.w);
+    let lines = Self::wrap_list(&text, frm.text.w);
     let pos = frm.pos();
 
     Self {pos, lines, text}
   }
 
-  pub fn resize(&mut self, frm: &Frame) {
+  pub fn resize(&mut self, frm: &Page) {
     self.lines = 
-      Self::wrap_list(&self.text, frm.outer.w);
+      Self::wrap_list(&self.text, frm.text.w);
   }
 
-  pub fn select(&self, frm: &Frame) -> Option<usize> {
+  pub fn select(&self, frm: &Page) -> Option<usize> {
 
     let line_idx = self.pos.y
-      .data_idx(&frm.outer.y());
+      .data_idx(&frm.text.y());
 
     self.lines
       .get(line_idx)
@@ -158,23 +158,23 @@ impl Doc {
       .map(|(_, lines)| lines.len())
   }
 
-  pub fn move_left(&mut self, frm: &Frame, step: u16) 
+  pub fn move_left(&mut self, frm: &Page, step: u16) 
     -> bool 
   {
     self.pos.x.move_backward(&frm.x(), step)
   }
 
-  pub fn move_right(&mut self, frm: &Frame, step: u16) 
+  pub fn move_right(&mut self, frm: &Page, step: u16) 
     -> bool 
   {
     self
-      .x(self.pos.y.data_idx(&frm.outer.y()))
+      .x(self.pos.y.data_idx(&frm.text.y()))
       .map(|x| 
         self.pos.x.move_forward(&frm.x(), x, step))
       .unwrap_or(false)
   }
 
-  pub fn move_up(&mut self, frm: &Frame, step: u16) 
+  pub fn move_up(&mut self, frm: &Page, step: u16) 
     -> bool 
   {
     if self.pos.y.move_backward(&frm.y(), step) {
@@ -182,7 +182,7 @@ impl Doc {
     } else {false}
   }
 
-  pub fn move_down(&mut self, frm: &Frame, step: u16) 
+  pub fn move_down(&mut self, frm: &Page, step: u16) 
     -> bool 
   {
     if self.pos.y
@@ -195,16 +195,16 @@ impl Doc {
     }
   }
 
-  pub fn move_into_x(&mut self, frm: &Frame) {
+  pub fn move_into_x(&mut self, frm: &Page) {
     let idx = self.pos.y
-      .data_idx(&frm.outer.y())
+      .data_idx(&frm.text.y())
       .min(self.y().saturating_sub(1));
     self
       .x(idx)
       .inspect(|d| self.pos.x.move_into(&frm.x(), *d));
   }
 
-  pub fn view<W>(&self, frm: &Frame, wrt: &mut W) 
+  pub fn view<W>(&self, frm: &Page, wrt: &mut W) 
     -> io::Result<()> 
   where W: Write
   {
@@ -213,7 +213,7 @@ impl Doc {
       .min(self.pos.y.scroll);
 
     let line_end = line_start
-      .saturating_add(frm.outer.h)
+      .saturating_add(frm.text.h)
       .min(self.lines.len());
 
     for (scr_idx, (text_idx, line)) in 
@@ -236,13 +236,13 @@ impl Doc {
           .min(self.pos.x.scroll));
 
       let Range16 {start: x_start, end: x_end} = 
-        frm.outer.x();
+        frm.text.x();
 
       for x_pos in x_start..x_end {
         wrt
           .queue(
             MoveTo(x_pos, 
-              u16_or_0(scr_idx) + frm.outer.y))?
+              u16_or_0(scr_idx) + frm.text.y))?
           .queue(
             Print(chars.next().unwrap_or(' ')))?;
       }
@@ -296,7 +296,7 @@ pub struct Editor {
   pub color:  Color,
 }
 impl Editor {
-  pub fn new(frm: &Frame, txt: &str, color: Color) 
+  pub fn new(frm: &Page, txt: &str, color: Color) 
     -> Self 
   {
     Self {
@@ -306,19 +306,19 @@ impl Editor {
     }
   }
 
-  pub fn move_left(&mut self, frm: &Frame, step: u16) 
+  pub fn move_left(&mut self, frm: &Page, step: u16) 
     -> bool 
   {
     self.pos.move_backward(&frm.x(), step)
   }
 
-  pub fn move_right(&mut self, frm: &Frame, step: u16) 
+  pub fn move_right(&mut self, frm: &Page, step: u16) 
     -> bool 
   {
     self.pos.move_forward(&frm.x(), self.txt.len(), step)
   }
 
-  pub fn write_frame<W>(&self, frm: &Frame, wrt: &mut W) 
+  pub fn write_page<W>(&self, frm: &Page, wrt: &mut W) 
     -> io::Result<()> 
   where W: Write
   {
@@ -332,7 +332,7 @@ impl Editor {
           .min(self.pos.scroll));
 
     let Range16 {start: x_start, end: x_end} = 
-      frm.outer.x();
+      frm.text.x();
 
     for x_pos in x_start..x_end {
       let c = chars.next().unwrap_or(' ');
@@ -344,37 +344,37 @@ impl Editor {
     Ok(())
   }
 
-  pub fn delete(&mut self, frm: &Frame, pos: &mut Pos) 
+  pub fn delete(&mut self, frm: &Page, pos: &mut Pos) 
     -> bool 
   {
-    let outer = frm.outer.x();
-    let idx = pos.x.data_idx(&outer);
+    let text = frm.text.x();
+    let idx = pos.x.data_idx(&text);
 
     if idx >= self.txt.len() || self.txt.len() == 0 {
       return false
     }
 
     self.txt.remove(idx);
-    if pos.x.cursor + 1 != outer.end {
+    if pos.x.cursor + 1 != text.end {
       pos.x.move_forward(&frm.x(), self.txt.len(), 1)
     } else {
       false
     }
   }
 
-  pub fn backspace(&mut self, frm: &Frame, pos: &mut Pos) 
+  pub fn backspace(&mut self, frm: &Page, pos: &mut Pos) 
     -> bool 
   {
     if self.txt.len() == 0 {
       return false
     }
 
-    let idx = pos.x.data_idx(&frm.outer.x());
+    let idx = pos.x.data_idx(&frm.text.x());
 
     pos.x.move_backward(&frm.x(), 1);
     self.txt.remove(idx);
 
-    if pos.x.cursor + 1 != frm.outer.x().end {
+    if pos.x.cursor + 1 != frm.text.x().end {
       pos.x.move_forward(&frm.x(), self.txt.len(), 1);
     }
 
@@ -382,12 +382,12 @@ impl Editor {
   }
 
   pub fn insert(&mut self, 
-                frm: &Frame, 
+                frm: &Page, 
                 pos: &mut Pos, 
                 c: char) 
     -> bool 
   {
-    let idx = pos.x.data_idx(&frm.outer.x()) + 1;
+    let idx = pos.x.data_idx(&frm.text.x()) + 1;
     if idx >= self.txt.len() || self.txt.len() == 0 {
       self.txt.push(c);
     } else {

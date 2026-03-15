@@ -3,7 +3,7 @@
 use crate::{
   gem::{GemTag, GemText},
   text::{Text},
-  screen::{Rect, Frame},
+  screen::{Rect, Page},
   util::{parse_color},
   usr_text::UserText,
 };
@@ -192,19 +192,43 @@ impl UserLayout {
     Ok(self)
   }
 
+  // called infrequently, construct many things
+  // based on screensize and usr
+  pub fn get_layout(&self, rect: &Rect) 
+    -> (Page, Page) 
+  {
+    let (hdr_rect, tab_rect) = {
+
+      let rect = rect
+          .crop_x(self.x_page)
+          .crop_y(self.y_page);
+
+      (rect.crop_south(rect.y().len16() - 2), rect.crop_north(2))
+
+    };
+
+    let hdr = Page::new(&hdr_rect)
+      .text(self.x_text, 0);
+    let tab = Page::new(&tab_rect)
+      .text(self.x_text, self.y_text)
+      .scroll(self.scroll_at, self.scroll_at);
+
+    (hdr, tab)
+  }
+
   pub fn get_rect_from_dim(&self, w: u16, h: u16) -> Rect {
     Rect::new(w, h)
       .crop_x(self.x_page)
       .crop_y(self.y_page)
   }
 
-  pub fn get_frame_from_rect(&self, rect: &Rect) -> Frame {
-    Frame {
-      inner: rect
-        .crop_x(self.scroll_at)
-        .crop_y(self.scroll_at),
-      outer: rect.clone(),
-    }
+  pub fn get_page_from_rect(&self, rect: &Rect) -> Page {
+    let rect = rect
+      .crop_x(self.x_page)
+      .crop_y(self.y_page);
+    Page::new(&rect)
+      .text(self.x_text, self.y_text)
+      .scroll(self.scroll_at, self.scroll_at)
   }
 
   pub fn gemtext_to_text(&self, gem: &Vec<GemText>) 
@@ -215,7 +239,7 @@ impl UserLayout {
   }
 
   pub fn get_user_text(&self, gtxt: &GemText) -> Text {
-    match gtxt.tag {
+    let text = match gtxt.tag {
       GemTag::HeadingOne => 
         self.heading1.get_text(&gtxt.txt).wrap(),
 
@@ -242,6 +266,7 @@ impl UserLayout {
 
       GemTag::Quote => 
         self.quote.get_text(&gtxt.txt).wrap(),
-    }
+    };
+    text.bg(self.background.unwrap_or(Color::Black))
   }
 }

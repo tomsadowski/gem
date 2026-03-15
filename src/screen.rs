@@ -188,129 +188,90 @@ impl Range16 {
 }
 
 #[derive(Clone, Debug)]
-pub struct ScreenRange {
+pub struct PageRange {
 
-  pub inner: Range16,
-  pub outer: Range16,
+  pub scroll: Range16,
+  pub text:   Range16,
+  pub page:   Range16,
 }
 
-impl ScreenRange {
+impl PageRange {
 
   pub fn get_data_end(&self, dlen: usize) -> u16 {
-    self.outer.get_data_end(dlen)
+    self.text.get_data_end(dlen)
   }
 
   pub fn get_max_scroll(&self, dlen: usize) -> usize {
-    self.outer.get_max_scroll(dlen)
+    self.text.get_max_scroll(dlen)
   }
 }
 
 #[derive(Clone)]
-pub struct Frame {
+pub struct Page {
 
-  pub inner:  Rect, 
-  pub outer:  Rect,
+  // scroll <= text <= page
+  pub scroll:  Rect, 
+  pub text:    Rect,
+  pub page:    Rect,
 } 
 
-impl Dim for Frame {
+impl Dim for Page {
 
   fn w(&self) -> usize {
-    self.outer.w
+    self.page.w
   }
 
   fn h(&self) -> usize {
-    self.outer.h
+    self.page.h
   }
 }
 
-impl Frame {
-  pub fn new(rect: &Rect, x: u16, y: u16) -> Frame {
+impl Page {
+  pub fn new(rect: &Rect) -> Self {
+    Self {
+      page: rect.clone(),
+      text: rect.clone(),
+      scroll: rect.clone(),
+    }
+  }
 
-    let outer = rect.clone();
-    let inner = outer.crop_x(x).crop_y(y);
+  pub fn text(mut self, x: u16, y: u16) -> Self {
+    self.text = self.page.crop_x(x).crop_y(y);
+    self.scroll = self.text.clone();
+    self
+  }
 
-    Self {outer, inner}
+  pub fn scroll(mut self, x: u16, y: u16) -> Self {
+    self.scroll = self.text.crop_x(x).crop_y(y);
+    self
   }
 
   pub fn pos(&self) -> Pos {
-    Pos::from(&self.outer)
+    Pos::from(&self.text)
   }
 
-  pub fn row(&self, r: u16) -> Frame {
 
-    let inner = self.inner.row(r);
-    let outer = self.outer.row(r);
-
-    Frame {inner, outer}
-  }
-
-  pub fn x(&self) -> ScreenRange {
-    ScreenRange {
-      inner: self.inner.x(), 
-      outer: self.outer.x()
+  pub fn row(&self, r: u16) -> Self {
+    Self {
+      scroll: self.scroll.row(r),
+      text: self.text.row(r),
+      page: self.page.row(r),
     }
   }
 
-  pub fn y(&self) -> ScreenRange {
-    ScreenRange {
-      inner: self.inner.y(), 
-      outer: self.outer.y()
+  pub fn x(&self) -> PageRange {
+    PageRange {
+      scroll: self.scroll.x(), 
+      text: self.text.x(), 
+      page: self.page.x()
+    }
+  }
+
+  pub fn y(&self) -> PageRange {
+    PageRange {
+      scroll: self.scroll.y(), 
+      text: self.text.y(), 
+      page: self.page.y()
     }
   }
 }
-
-//#[derive(Clone)]
-//pub struct Page {
-
-//  // scroll <= text <= page
-//  pub scroll:  Rect, 
-//  pub text:    Rect,
-//  pub page:    Rect,
-//} 
-
-//impl Dim for Page {
-
-//  fn w(&self) -> usize {
-//    self.page.w
-//  }
-
-//  fn h(&self) -> usize {
-//    self.page.h
-//  }
-//}
-
-//impl Page {
-//  pub fn new(rect: &Rect, x: u16, y: u16) -> Self {
-
-//    let outer = rect.clone();
-//    let inner = outer.crop_x(x).crop_y(y);
-
-//    Self {outer, inner}
-//  }
-
-//  pub fn pos(&self) -> Pos {
-//    Pos::from(&self.outer)
-//  }
-
-//  pub fn row(&self, r: u16) -> Self {
-
-//    let inner = self.inner.row(r);
-//    let outer = self.outer.row(r);
-
-//    Self {inner, outer}
-//  }
-
-//  pub fn x(&self) -> ScreenRange {
-//    ScreenRange {
-//      inner: self.inner.x(), 
-//      outer: self.outer.x()
-//    }
-//  }
-
-//  pub fn y(&self) -> ScreenRange {
-//    ScreenRange {
-//      inner: self.inner.y(), 
-//      outer: self.outer.y()
-//    }
-//  }
-//}
