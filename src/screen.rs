@@ -4,9 +4,7 @@ use crate::{
   util::{u16_or_0},
   pos::{Pos},
 };
-use std::{
-  cmp::min,
-};
+use std::cmp::min;
 
 pub trait Dim {
   fn w(&self) -> usize;
@@ -32,25 +30,17 @@ impl Dim for Rect {
 
 impl Rect {
   pub fn new(w: u16, h: u16) -> Self {
-
     let w = usize::from(w);
     let h = usize::from(h);
 
-    Self {
-      x: 0, 
-      y: 0, 
-      w, 
-      h
-    }
+    Self {x: 0, y: 0, w, h}
   }
 
   pub fn pos(&self) -> Pos {
-
     Pos::from(self)
   }
 
   pub fn row(&self, r: u16) -> Self {
-
     Self {
       x: self.x, 
       y: self.y + r,
@@ -60,7 +50,6 @@ impl Rect {
   }
 
   pub fn x(&self) -> Range16 {
-
     Range16 {
       start: self.x, 
       end:   self.x + u16_or_0(self.w)
@@ -68,7 +57,6 @@ impl Rect {
   }
 
   pub fn y(&self) -> Range16 {
-
     Range16 {
       start: self.y, 
       end:   self.y + u16_or_0(self.h)
@@ -84,14 +72,12 @@ impl Rect {
   pub fn crop_y(&self, step: u16) -> Self {
 
     let rect = self.clone();
-
     rect.crop_north(step).crop_south(step)
   }
 
   pub fn crop_x(&self, step: u16) -> Self {
 
     let rect = self.clone();
-
     rect.crop_east(step).crop_west(step)
   }
 
@@ -102,7 +88,6 @@ impl Rect {
     if usize::from(step) < rect.h {
       rect.h -= usize::from(step);
     }
-
     rect
   }
 
@@ -113,7 +98,6 @@ impl Rect {
     if usize::from(step) < rect.w {
       rect.w -= usize::from(step)
     }
-
     rect
   }
 
@@ -125,7 +109,6 @@ impl Rect {
       rect.y += step;
       rect.h -= usize::from(step);
     }
-
     rect
   }
 
@@ -137,14 +120,12 @@ impl Rect {
       rect.x += step;
       rect.w -= usize::from(step);
     }
-
     rect
   }
 }
 
 #[derive(Clone, Debug)]
 pub struct Range16 {
-
   pub start:  u16, 
   pub end:    u16
 }

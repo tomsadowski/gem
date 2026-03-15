@@ -108,6 +108,7 @@ impl UserText {
   {
     match key {
       Key::Color(k) => {
+
         let v = k.try_parse_value(&value)?;
         match k {
           ColorKey::Fg => self.fg = Some(v),
@@ -115,6 +116,7 @@ impl UserText {
         }
       }
       Key::Usize(k) => {
+
         let v = k.try_parse_value(&value)?;
         match k {
           UsizeKey::Above => self.above = v,
@@ -122,10 +124,13 @@ impl UserText {
         }
       }
       Key::Prefix => {
+
         if let Value::String(s) = value {
           self.prefix = s.into(); 
+
         } else {
-          return Err(format!("prefix doesnt take {:?}", value))
+          return Err(
+            format!("prefix doesnt take {:?}", value))
         }
       }
     }

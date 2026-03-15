@@ -48,7 +48,7 @@ impl Default for Text {
 
 impl Text {
   pub fn write_page<W>(&self, 
-                        frm: &Page, 
+                        page: &Page, 
                         wrt: &mut W) 
     -> io::Result<()>
   where W: Write
@@ -59,11 +59,11 @@ impl Text {
     let mut chars = self.text.chars();
 
     let Range16 {start: x_start, end: x_end} = 
-      frm.text.x();
+      page.text.x();
 
     for x_pos in x_start..x_end {
       wrt
-        .queue(MoveTo(x_pos, frm.text.y))?
+        .queue(MoveTo(x_pos, page.text.y))?
         .queue(Print(chars.next().unwrap_or(' ')))?;
     }
 
@@ -125,23 +125,23 @@ impl Doc {
     self
   }
 
-  pub fn new(text: Vec<Text>, frm: &Page) -> Self {
+  pub fn new(text: Vec<Text>, page: &Page) -> Self {
 
-    let lines = Self::wrap_list(&text, frm.text.w);
-    let pos = frm.pos();
+    let lines = Self::wrap_list(&text, page.text.w);
+    let pos = page.pos();
 
     Self {pos, lines, text}
   }
 
-  pub fn resize(&mut self, frm: &Page) {
+  pub fn resize(&mut self, page: &Page) {
     self.lines = 
-      Self::wrap_list(&self.text, frm.text.w);
+      Self::wrap_list(&self.text, page.text.w);
   }
 
-  pub fn select(&self, frm: &Page) -> Option<usize> {
+  pub fn select(&self, page: &Page) -> Option<usize> {
 
     let line_idx = self.pos.y
-      .data_idx(&frm.text.y());
+      .data_idx(&page.text.y());
 
     self.lines
       .get(line_idx)
@@ -158,53 +158,53 @@ impl Doc {
       .map(|(_, lines)| lines.len())
   }
 
-  pub fn move_left(&mut self, frm: &Page, step: u16) 
+  pub fn move_left(&mut self, page: &Page, step: u16) 
     -> bool 
   {
-    self.pos.x.move_backward(&frm.x(), step)
+    self.pos.x.move_backward(&page.x(), step)
   }
 
-  pub fn move_right(&mut self, frm: &Page, step: u16) 
+  pub fn move_right(&mut self, page: &Page, step: u16) 
     -> bool 
   {
     self
-      .x(self.pos.y.data_idx(&frm.text.y()))
+      .x(self.pos.y.data_idx(&page.text.y()))
       .map(|x| 
-        self.pos.x.move_forward(&frm.x(), x, step))
+        self.pos.x.move_forward(&page.x(), x, step))
       .unwrap_or(false)
   }
 
-  pub fn move_up(&mut self, frm: &Page, step: u16) 
+  pub fn move_up(&mut self, page: &Page, step: u16) 
     -> bool 
   {
-    if self.pos.y.move_backward(&frm.y(), step) {
-      self.move_into_x(frm); true
+    if self.pos.y.move_backward(&page.y(), step) {
+      self.move_into_x(page); true
     } else {false}
   }
 
-  pub fn move_down(&mut self, frm: &Page, step: u16) 
+  pub fn move_down(&mut self, page: &Page, step: u16) 
     -> bool 
   {
     if self.pos.y
-      .move_forward(&frm.y(), self.y(), step) 
+      .move_forward(&page.y(), self.y(), step) 
     {
-      self.move_into_x(frm); 
+      self.move_into_x(page); 
       true
     } else {
       false
     }
   }
 
-  pub fn move_into_x(&mut self, frm: &Page) {
+  pub fn move_into_x(&mut self, page: &Page) {
     let idx = self.pos.y
-      .data_idx(&frm.text.y())
+      .data_idx(&page.text.y())
       .min(self.y().saturating_sub(1));
     self
       .x(idx)
-      .inspect(|d| self.pos.x.move_into(&frm.x(), *d));
+      .inspect(|d| self.pos.x.move_into(&page.x(), *d));
   }
 
-  pub fn view<W>(&self, frm: &Page, wrt: &mut W) 
+  pub fn view<W>(&self, page: &Page, wrt: &mut W) 
     -> io::Result<()> 
   where W: Write
   {
@@ -213,7 +213,7 @@ impl Doc {
       .min(self.pos.y.scroll);
 
     let line_end = line_start
-      .saturating_add(frm.text.h)
+      .saturating_add(page.text.h)
       .min(self.lines.len());
 
     for (scr_idx, (text_idx, line)) in 
@@ -236,13 +236,13 @@ impl Doc {
           .min(self.pos.x.scroll));
 
       let Range16 {start: x_start, end: x_end} = 
-        frm.text.x();
+        page.text.x();
 
       for x_pos in x_start..x_end {
         wrt
           .queue(
             MoveTo(x_pos, 
-              u16_or_0(scr_idx) + frm.text.y))?
+              u16_or_0(scr_idx) + page.text.y))?
           .queue(
             Print(chars.next().unwrap_or(' ')))?;
       }
@@ -296,29 +296,29 @@ pub struct Editor {
   pub color:  Color,
 }
 impl Editor {
-  pub fn new(frm: &Page, txt: &str, color: Color) 
+  pub fn new(page: &Page, txt: &str, color: Color) 
     -> Self 
   {
     Self {
-      pos:    frm.pos().x,
+      pos:    page.pos().x,
       color:  color,
       txt:    txt.into(),
     }
   }
 
-  pub fn move_left(&mut self, frm: &Page, step: u16) 
+  pub fn move_left(&mut self, page: &Page, step: u16) 
     -> bool 
   {
-    self.pos.move_backward(&frm.x(), step)
+    self.pos.move_backward(&page.x(), step)
   }
 
-  pub fn move_right(&mut self, frm: &Page, step: u16) 
+  pub fn move_right(&mut self, page: &Page, step: u16) 
     -> bool 
   {
-    self.pos.move_forward(&frm.x(), self.txt.len(), step)
+    self.pos.move_forward(&page.x(), self.txt.len(), step)
   }
 
-  pub fn write_page<W>(&self, frm: &Page, wrt: &mut W) 
+  pub fn write_page<W>(&self, page: &Page, wrt: &mut W) 
     -> io::Result<()> 
   where W: Write
   {
@@ -332,7 +332,7 @@ impl Editor {
           .min(self.pos.scroll));
 
     let Range16 {start: x_start, end: x_end} = 
-      frm.text.x();
+      page.text.x();
 
     for x_pos in x_start..x_end {
       let c = chars.next().unwrap_or(' ');
@@ -344,10 +344,10 @@ impl Editor {
     Ok(())
   }
 
-  pub fn delete(&mut self, frm: &Page, pos: &mut Pos) 
+  pub fn delete(&mut self, page: &Page, pos: &mut Pos) 
     -> bool 
   {
-    let text = frm.text.x();
+    let text = page.text.x();
     let idx = pos.x.data_idx(&text);
 
     if idx >= self.txt.len() || self.txt.len() == 0 {
@@ -356,44 +356,44 @@ impl Editor {
 
     self.txt.remove(idx);
     if pos.x.cursor + 1 != text.end {
-      pos.x.move_forward(&frm.x(), self.txt.len(), 1)
+      pos.x.move_forward(&page.x(), self.txt.len(), 1)
     } else {
       false
     }
   }
 
-  pub fn backspace(&mut self, frm: &Page, pos: &mut Pos) 
+  pub fn backspace(&mut self, page: &Page, pos: &mut Pos) 
     -> bool 
   {
     if self.txt.len() == 0 {
       return false
     }
 
-    let idx = pos.x.data_idx(&frm.text.x());
+    let idx = pos.x.data_idx(&page.text.x());
 
-    pos.x.move_backward(&frm.x(), 1);
+    pos.x.move_backward(&page.x(), 1);
     self.txt.remove(idx);
 
-    if pos.x.cursor + 1 != frm.text.x().end {
-      pos.x.move_forward(&frm.x(), self.txt.len(), 1);
+    if pos.x.cursor + 1 != page.text.x().end {
+      pos.x.move_forward(&page.x(), self.txt.len(), 1);
     }
 
     true
   }
 
   pub fn insert(&mut self, 
-                frm: &Page, 
+                page: &Page, 
                 pos: &mut Pos, 
                 c: char) 
     -> bool 
   {
-    let idx = pos.x.data_idx(&frm.text.x()) + 1;
+    let idx = pos.x.data_idx(&page.text.x()) + 1;
     if idx >= self.txt.len() || self.txt.len() == 0 {
       self.txt.push(c);
     } else {
       self.txt.insert(idx, c);
     }
-    pos.x.move_forward(&frm.x(), self.txt.len(), 1);
+    pos.x.move_forward(&page.x(), self.txt.len(), 1);
     true
   }
 }

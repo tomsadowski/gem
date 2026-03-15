@@ -59,7 +59,9 @@ impl GemText {
     }
   }
 
-  pub fn parse_doc(text_str: &str, source: &Url) -> Vec<Self> {
+  pub fn parse_doc(text_str: &str, source: &Url) 
+    -> Vec<Self> 
+  {
     let mut vec = vec![];
     let mut preformat = false;
 

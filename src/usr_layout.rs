@@ -34,26 +34,46 @@ impl Key {
     -> Result<Self, String> 
   {
     match key {
-      "x_text"            => Ok(Self::U16(U16Key::XText)),
-      "y_text"            => Ok(Self::U16(U16Key::YText)),
-      "x_page"            => Ok(Self::U16(U16Key::XPage)),
-      "y_page"            => Ok(Self::U16(U16Key::YPage)),
-      "scroll_at"         => Ok(Self::U16(U16Key::ScrollAt)),
-      "background" | "bg" => Ok(Self::Color(ColorKey::Bg)),
-      "dialog" | "dlg"    => Ok(Self::Color(ColorKey::Dlg)),
-      "banner"            => Ok(Self::Color(ColorKey::Banner)),
-      "border"            => Ok(Self::Color(ColorKey::Border)),
-      "text"              => Ok(Self::Text(TextKey::Text)),
-      "header1" | "h1"    => Ok(Self::Text(TextKey::H1)),
-      "header2" | "h2"    => Ok(Self::Text(TextKey::H2)),
-      "header3" | "h3"    => Ok(Self::Text(TextKey::H3)),
-      "link"              => Ok(Self::Text(TextKey::Link)),
-      "badlink"           => Ok(Self::Text(TextKey::BadLink)),
-      "quote"             => Ok(Self::Text(TextKey::Quote)),
-      "list"              => Ok(Self::Text(TextKey::List)),
-      "preformat"         => Ok(Self::Text(TextKey::Preformat)),
+      "x_text" => 
+                        Ok(Self::U16(U16Key::XText)),
+      "y_text" => 
+                        Ok(Self::U16(U16Key::YText)),
+      "x_page" => 
+                        Ok(Self::U16(U16Key::XPage)),
+      "y_page" => 
+                        Ok(Self::U16(U16Key::YPage)),
+      "scroll_at" => 
+                        Ok(Self::U16(U16Key::ScrollAt)),
+      "background" | "bg" => 
+                        Ok(Self::Color(ColorKey::Bg)),
+      "dialog" | "dlg" => 
+                        Ok(Self::Color(ColorKey::Dlg)),
+      "banner" => 
+                        Ok(Self::Color(ColorKey::Banner)),
+      "border" => 
+                        Ok(Self::Color(ColorKey::Border)),
+      "text" => 
+                        Ok(Self::Text(TextKey::Text)),
+      "header1" | "h1" => 
+                        Ok(Self::Text(TextKey::H1)),
+      "header2" | "h2" => 
+                        Ok(Self::Text(TextKey::H2)),
+      "header3" | "h3" => 
+                        Ok(Self::Text(TextKey::H3)),
+      "link" => 
+                        Ok(Self::Text(TextKey::Link)),
+      "badlink" => 
+                        Ok(Self::Text(TextKey::BadLink)),
+      "quote" => 
+                        Ok(Self::Text(TextKey::Quote)),
+      "list" => 
+                        Ok(Self::Text(TextKey::List)),
+      "preformat" => 
+                        Ok(Self::Text(TextKey::Preformat)),
       key => 
-        Err(format!("Layout table does not contain key {}.", key)),
+        Err(
+          format!(
+            "Layout table does not contain key {}.", key)),
     }
   }
 }
@@ -65,6 +85,7 @@ impl ColorKey {
       .map_err(|e| format!("{:?} : {}", self, e))
   }
 }
+
 impl TextKey {
   pub fn try_parse_value(&self, value: &Value) 
     -> Result<UserText, String>
@@ -73,11 +94,13 @@ impl TextKey {
       UserText::default()
         .read_table(t)
         .map_err(|e| format!("{:?} : {}", self, e))
+
     } else {
       Err(format!("prefix doesnt take {:?}", value))
     }
   }
 }
+
 impl U16Key {
   pub fn try_parse_value(&self, value: &Value) 
     -> Result<u16, String>
@@ -85,6 +108,7 @@ impl U16Key {
     if let Value::Integer(t) = value {
         u16::try_from(*t)
         .map_err(|e| format!("{:?} : {}", self, e))
+
     } else {
       Err(format!("prefix doesnt take {:?}", value))
     }
@@ -203,7 +227,8 @@ impl UserLayout {
           .crop_x(self.x_page)
           .crop_y(self.y_page);
 
-      (rect.crop_south(rect.y().len16() - 2), rect.crop_north(2))
+      (rect.crop_south(rect.y().len16() - 2), 
+       rect.crop_north(2))
 
     };
 

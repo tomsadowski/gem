@@ -1,14 +1,9 @@
 // src/usr_keys.rs
 
 use crossterm::{
-  event::{
-    KeyCode
-  },
+  event::{KeyCode},
 };
-use toml::{
-  Table, Value,
-};
-
+use toml::{Table, Value};
 
 #[derive(Debug)]
 enum Key {
@@ -53,7 +48,9 @@ impl Key {
       "no"          => Ok(Self::No),
       "cancel"      => Ok(Self::Cancel),
       key => 
-        Err(format!("Keys table does not contain key {}.", key)),
+        Err(
+          format!(
+            "Keys table does not contain key {}.", key)),
     }
   }
 }

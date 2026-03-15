@@ -2,15 +2,14 @@
 
 use crate::{
   usr::{User},
-  screen::{Page, Rect},
+  screen::{Page},
   msg::{Focus, ViewMsg},
-  text::{Doc, Text},
+  text::{Doc},
   tab::Tab,
 };
 use crossterm::{
   QueueableCommand, cursor,
   terminal::{Clear, ClearType},
-  style::{Color},
   event::{
     Event, KeyEvent, KeyEventKind, KeyCode, KeyModifiers,
   }
@@ -20,6 +19,11 @@ use std::{
   io::{self, Write}
 };
 
+// coordinator, the brain. 
+// holds the usr, holds the sessions,
+// knows the entirety of the program state.
+// There is only one instance of this struct
+// for the entire program.
 pub struct App {
   pub hdr:      Doc,
   pub tabs:     Vec<Tab>,
@@ -201,24 +205,13 @@ impl App {
 
   fn update_hdr_text(&mut self) {
 
-    let fg = self.usr.layout.banner.unwrap_or(Color::White);
-    let bg = self.usr.layout.background.unwrap_or(Color::Black);
-
     let info = format!("{}/{}: {}", 
                        self.idx + 1, 
                        self.tabs.len(), 
                        &self.tabs[self.idx].name);
 
-    let line = &String::from("-")
-      .repeat(self.hdr_page.text.w);
-
-    self.hdr = Doc::new(
-      vec![
-        Text::from(info.as_str()).fg(fg).bg(bg),
-        Text::from(line.as_str()).fg(fg).bg(bg), 
-      ],
-      &self.hdr_page
-    );
+    self.hdr = self.usr
+      .get_hdr_doc(&info, &self.hdr_page);
   }
 
   // return default config if error

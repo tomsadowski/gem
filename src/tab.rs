@@ -134,18 +134,16 @@ impl Tab {
     // make a dialog
     } else if kc == &usr.keys.delete_tab {
 
-      let dlg = Dialog::ask(
+      let dlg = usr.ask(
         &self.page, 
-        usr, 
         "Delete current tab?");
       self.dlg = Some((ViewMsg::DeleteMe, dlg));
       Some(ViewMsg::Default)
 
     } else if kc == &usr.keys.new_tab {
 
-      let dlg = Dialog::text(
+      let dlg = usr.text(
         &self.page, 
-        usr, 
         "enter path: ");
       self.dlg = Some((ViewMsg::NewTab, dlg));
       Some(ViewMsg::Default)
@@ -168,17 +166,15 @@ impl Tab {
       let dialog_tuple = 
         match gemtype {
           GemTag::Link(Scheme::Gemini, url) => {
-            let dlg = Dialog::ask(
+            let dlg = usr.ask(
               &self.page, 
-              usr, 
               &format!("go to {}?", url));
             (ViewMsg::Go(url.into()), dlg)
           }
 
           GemTag::Link(_, url) => {
-            let dlg = Dialog::ack(
+            let dlg = usr.ack(
               &self.page, 
-              usr, 
               &format!(
                 "Protocol {} not yet supported", 
                 url));
@@ -186,12 +182,9 @@ impl Tab {
           }
 
           gemtext => {
-            let dlg = Dialog::ack(
+            let dlg = usr.ack(
               &self.page, 
-              usr, 
-              &format!(
-                "you've selected {:?}", 
-                gemtext));
+              &format!("you've selected {:?}", gemtext));
 
             (ViewMsg::Default, dlg)
           }
@@ -229,23 +222,23 @@ impl Tab {
       Status::InputExpected |
       Status::InputExpectedSensitive => {
 
-        let dlg = 
-          Dialog::text(&self.page, usr, &gemdoc.status.txt);
+        let dlg = usr.text(&self.page, &gemdoc.status.txt);
         Some((ViewMsg::Reply, dlg))
       }
 
       Status::RedirectTemporary => {
-        let dlg = 
-          Dialog::ask(&self.page, usr, &gemdoc.status.txt);
+
+        let dlg = usr.ask(&self.page, &gemdoc.status.txt);
+
         let new_url = gemdoc.url
           .join(&gemdoc.status.txt)
           .unwrap_or(gemdoc.url.clone());
+
         Some((ViewMsg::Go(new_url.into()), dlg))
       }
 
       Status::RedirectPermanent => {
-        let dlg = 
-          Dialog::ask(&self.page, usr, &gemdoc.status.txt);
+        let dlg = usr.ask(&self.page, &gemdoc.status.txt);
         Some((ViewMsg::Go(gemdoc.status.txt.clone()), dlg))
       }
 
@@ -253,8 +246,7 @@ impl Tab {
       Status::CertRequiredTransient |
       Status::CertRequiredAuthorized => {
 
-        let dlg = 
-          Dialog::ack(&self.page, usr, &gemdoc.status.txt);
+        let dlg = usr.ack(&self.page, &gemdoc.status.txt);
         Some((ViewMsg::Default, dlg))
       }
 
@@ -273,7 +265,7 @@ impl Tab {
 
     self.gdoc = None;
 
-    let dlg  = Dialog::ack(&self.page, usr, msg);
+    let dlg  = usr.ack(&self.page, msg);
 
     self.dlg = Some((ViewMsg::DeleteMe, dlg));
   }
