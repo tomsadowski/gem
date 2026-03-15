@@ -2,7 +2,7 @@
 
 use crate::{
   usr::{User},
-  screen::{Page},
+  page::{Page},
   msg::{Focus, ViewMsg},
   text::{Doc},
   tab::Tab,

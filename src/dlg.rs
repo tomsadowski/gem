@@ -1,7 +1,7 @@
 // src/dlg.rs
 
 use crate::{
-  screen::{Page},
+  page::{Page},
   pos::{Pos},
   text::{Text, Editor},
   msg::{InputMsg},
@@ -29,11 +29,9 @@ pub struct Dialog {
   pub input_page:  Page,
   pub input_type:   InputType,
 } 
-
 impl Dialog {
 
   pub fn new(page: &Page, text: &str) -> Self {
-
     Self {
       prompt_page:  page.row(3),
       input_page:   page.row(6),

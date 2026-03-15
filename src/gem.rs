@@ -13,7 +13,6 @@ pub struct GemDoc {
   pub status: StatusText,
   pub doc:    Vec<GemText>,
 }
-
 impl GemDoc {
   pub fn new(url: &Url) -> Result<Self, String> {
 
@@ -50,7 +49,6 @@ pub struct GemText {
   pub tag: GemTag,
   pub txt: String,
 }
-
 impl GemText {
   pub fn new(tag: GemTag, txt: &str) -> Self {
     Self {
@@ -83,7 +81,6 @@ impl GemText {
         vec.push(Self::parse_formatted(line, source));
       }
     }
-
     vec
   }
 
@@ -135,7 +132,6 @@ impl GemText {
         return Self::new(GemTag::HeadingOne, text.into())
       }
     }
-
     return Self::new(GemTag::Text, line.into())
   }
 }
@@ -158,7 +154,6 @@ pub struct StatusText {
   pub tag: Status, 
   pub txt: String,
 }
-
 impl StatusText {
   pub fn parse(line: &str) -> Self {
 
@@ -198,10 +193,8 @@ pub enum Status {
   Unknown(u8),
   Junk(String),
 }
-
 impl From<&str> for Status {
   fn from(item: &str) -> Status {
-
     match item.parse::<u8>()
       .map_err(|e| e.to_string()) 
     {

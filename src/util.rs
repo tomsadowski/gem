@@ -8,9 +8,7 @@ use std::{
 use crossterm::{
   style::{Color},
 };
-use url::{
-  Url, ParseError
-};
+use url::{Url, ParseError};
 use toml::{Value};
 use native_tls::TlsConnector;
 
@@ -161,7 +159,6 @@ pub enum Scheme {
   Http, 
   Unknown
 }
-
 impl From<&Url> for Scheme {
   fn from(url: &Url) -> Scheme {
     match url.scheme() {

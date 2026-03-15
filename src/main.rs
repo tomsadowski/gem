@@ -15,7 +15,7 @@ mod text;
 mod tab;
 mod app;
 mod pos;
-mod screen;
+mod page;
 mod msg;
 
 use crate::{

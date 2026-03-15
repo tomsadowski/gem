@@ -1,15 +1,10 @@
-// src/screen.rs
+// src/page.rs
 
 use crate::{
   util::{u16_or_0},
   pos::{Pos},
 };
 use std::cmp::min;
-
-pub trait Dim {
-  fn w(&self) -> usize;
-  fn h(&self) -> usize;
-}
 
 #[derive(Clone)]
 pub struct Rect {
@@ -18,22 +13,20 @@ pub struct Rect {
   pub w: usize,
   pub h: usize,
 }
-
-impl Dim for Rect {
-  fn w(&self) -> usize {
-    self.w
-  }
-  fn h(&self) -> usize {
-    self.h
-  }
-}
-
 impl Rect {
   pub fn new(w: u16, h: u16) -> Self {
     let w = usize::from(w);
     let h = usize::from(h);
 
     Self {x: 0, y: 0, w, h}
+  }
+
+  pub fn w(&self) -> usize {
+    self.w
+  }
+
+  pub fn h(&self) -> usize {
+    self.h
   }
 
   pub fn pos(&self) -> Pos {
@@ -129,7 +122,6 @@ pub struct Range16 {
   pub start:  u16, 
   pub end:    u16
 }
-
 impl Range16 {
   // if for some reason a > b, just swap them
   pub fn new(start: u16, end: u16) -> Range16 {
@@ -170,12 +162,10 @@ impl Range16 {
 
 #[derive(Clone, Debug)]
 pub struct PageRange {
-
   pub scroll: Range16,
   pub text:   Range16,
   pub page:   Range16,
 }
-
 impl PageRange {
 
   pub fn get_data_end(&self, dlen: usize) -> u16 {
@@ -189,24 +179,11 @@ impl PageRange {
 
 #[derive(Clone)]
 pub struct Page {
-
   // scroll <= text <= page
   pub scroll:  Rect, 
   pub text:    Rect,
   pub page:    Rect,
 } 
-
-impl Dim for Page {
-
-  fn w(&self) -> usize {
-    self.page.w
-  }
-
-  fn h(&self) -> usize {
-    self.page.h
-  }
-}
-
 impl Page {
   pub fn new(rect: &Rect) -> Self {
     Self {
@@ -214,6 +191,14 @@ impl Page {
       text: rect.clone(),
       scroll: rect.clone(),
     }
+  }
+
+  pub fn w(&self) -> usize {
+    self.page.w
+  }
+
+  pub fn h(&self) -> usize {
+    self.page.h
   }
 
   pub fn text(mut self, x: u16, y: u16) -> Self {
@@ -230,7 +215,6 @@ impl Page {
   pub fn pos(&self) -> Pos {
     Pos::from(&self.text)
   }
-
 
   pub fn row(&self, r: u16) -> Self {
     Self {

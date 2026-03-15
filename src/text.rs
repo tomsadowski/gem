@@ -1,7 +1,7 @@
 // src/text.rs
 
 use crate::{
-  screen::{Page, Range16},
+  page::{Page, Range16},
   pos::{Pos, PosCol},
   util::{wrap, u16_or_0},
 };
@@ -25,7 +25,6 @@ pub struct Text {
   pub prefix: String,
   pub wrap:   bool,
 }
-
 impl From<&str> for Text {
   fn from(item: &str) -> Self {
     Self {
@@ -39,13 +38,11 @@ impl From<&str> for Text {
     }
   }
 }
-
 impl Default for Text {
   fn default() -> Self {
     Self::from("")
   }
 }
-
 impl Text {
   pub fn write_page<W>(&self, 
                         page: &Page, 
@@ -107,7 +104,6 @@ pub struct Doc {
   pub text:   Vec<Text>,
   pub lines:  Vec<(usize, String)>,
 } 
-
 impl Default for Doc {
   fn default() -> Self {
     Self {
@@ -117,7 +113,6 @@ impl Default for Doc {
     }
   }
 }
-
 impl Doc {
 
   pub fn text(mut self, text: Vec<Text>) -> Self {

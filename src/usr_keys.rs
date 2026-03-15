@@ -75,7 +75,6 @@ pub struct UserKeys {
   pub yes:         KeyCode, 
   pub no:          KeyCode
 } 
-
 impl Default for UserKeys {
   fn default() -> Self {
     Self {
@@ -99,7 +98,6 @@ impl Default for UserKeys {
     }
   }
 }
-
 impl UserKeys {
   fn try_assign(&mut self, key: &Key, value: &Value) 
     -> Result<(), String> 

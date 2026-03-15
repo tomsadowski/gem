@@ -3,7 +3,7 @@
 use crate::{
   gem::{GemTag, GemText},
   text::{Text},
-  screen::{Rect, Page},
+  page::{Rect, Page},
   util::{parse_color},
   usr_text::UserText,
 };
@@ -16,19 +16,6 @@ enum Key {
   Text(TextKey), 
   U16(U16Key),
 }
-#[derive(Debug)]
-enum ColorKey {
-  Bg, Banner, Border, Dlg,
-}
-#[derive(Debug)]
-enum TextKey {
-  Text, H1, H2, H3, Link, BadLink, Quote, List, Preformat,
-}
-#[derive(Debug)]
-enum U16Key {
-  XPage, YPage, XText, YText, ScrollAt,
-}
-
 impl Key {
   pub fn try_from_string(key: &str) 
     -> Result<Self, String> 
@@ -77,6 +64,11 @@ impl Key {
     }
   }
 }
+
+#[derive(Debug)]
+enum ColorKey {
+  Bg, Banner, Border, Dlg,
+}
 impl ColorKey {
   pub fn try_parse_value(&self, value: &Value) 
     -> Result<Color, String>
@@ -86,6 +78,10 @@ impl ColorKey {
   }
 }
 
+#[derive(Debug)]
+enum TextKey {
+  Text, H1, H2, H3, Link, BadLink, Quote, List, Preformat,
+}
 impl TextKey {
   pub fn try_parse_value(&self, value: &Value) 
     -> Result<UserText, String>
@@ -101,6 +97,10 @@ impl TextKey {
   }
 }
 
+#[derive(Debug)]
+enum U16Key {
+  XPage, YPage, XText, YText, ScrollAt,
+}
 impl U16Key {
   pub fn try_parse_value(&self, value: &Value) 
     -> Result<u16, String>
@@ -136,7 +136,6 @@ pub struct UserLayout {
   pub list:       UserText,
   pub preformat:  UserText,
 } 
-
 impl Default for UserLayout {
   fn default() -> Self {
     Self {
@@ -161,7 +160,6 @@ impl Default for UserLayout {
     }
   }
 }
-
 impl UserLayout {
 
   fn try_assign(&mut self, key: &Key, value: &Value) 

@@ -2,7 +2,7 @@
 
 use crate::{
   util::{u16_or_0},
-  screen::{Rect, PageRange, Range16},
+  page::{Rect, PageRange, Range16},
 };
 
 #[derive(Clone, Debug)]
@@ -10,27 +10,21 @@ pub struct PosCol {
   pub cursor: u16, 
   pub scroll: usize
 }
-
 impl Default for PosCol {
   fn default() -> PosCol {
-
     PosCol {cursor: 0, scroll: 0}
   }
 }
-
 impl From<&Range16> for PosCol {
   fn from(rng: &Range16) -> PosCol {
-
     PosCol {cursor: rng.start, scroll: 0}
   }
 }
-
 impl PosCol {
   // index of cursor within its range
   pub fn data_idx(&self, rng: &Range16) -> usize {
 
     if self.cursor > rng.start {
-
       let p = self.cursor.saturating_sub(rng.start);
       self.scroll + usize::from(p)
 
@@ -45,9 +39,8 @@ impl PosCol {
   {
     if len < rng.len() {
       (0, len)
-    } 
-    else {
 
+    } else {
       let end = (self.scroll + rng.len())
         .min(len);
 
@@ -89,7 +82,6 @@ impl PosCol {
       (true, true) => {
         return false
       }
-
       // move scroll
       (true, false) => {
 
@@ -100,7 +92,6 @@ impl PosCol {
           self.scroll = usize::MIN;
         }
       }
-
       // move cursor
       (false, true) => {
 
@@ -111,7 +102,6 @@ impl PosCol {
           self.cursor = rng.text.start;
         }
       }
-
       // move cursor and maybe scroll
       (false, false) => {
 
@@ -140,7 +130,6 @@ impl PosCol {
         }
       }
     }
-
     return true
   }
 
@@ -213,7 +202,6 @@ pub struct Pos {
   pub x: PosCol,
   pub y: PosCol, 
 }
-
 impl Default for Pos {
   fn default() -> Pos {
     Pos {
@@ -222,7 +210,6 @@ impl Default for Pos {
     }
   }
 }
-
 impl From<&Rect> for Pos {
   fn from(rect: &Rect) -> Pos {
     Pos {

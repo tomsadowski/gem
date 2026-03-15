@@ -5,7 +5,7 @@ use crate::{
   util::{Scheme},
   gem::{GemDoc, GemTag, Status},
   text::{Doc},
-  screen::{Page},
+  page::{Page},
   msg::{ViewMsg, InputMsg},
   dlg::{Dialog},
 };
@@ -25,7 +25,6 @@ pub struct Tab {
   pub gdoc:   Option<GemDoc>,
   pub ddoc:   Doc,
 } 
-
 impl Tab {
   pub fn init(page: &Page, url_str: &str, usr: &User) 
     -> Self 
@@ -287,5 +286,4 @@ impl Tab {
         self.none_gem_doc(usr, &e.to_string()),
     }
   }
-
 }

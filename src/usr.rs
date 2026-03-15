@@ -3,7 +3,7 @@
 use crate::{
   gem::{GemDoc},
   text::{Doc, Text, Editor},
-  screen::{Rect, Page},
+  page::{Rect, Page},
   usr_layout::{UserLayout},
   usr_keys::{UserKeys},
   dlg::{Dialog, InputType},
@@ -17,7 +17,6 @@ enum Key {
   Layout,
   Keys,
 }
-
 impl Key {
   pub fn try_from_string(key: &str) 
     -> Result<Self, String> 
@@ -40,7 +39,6 @@ pub struct User {
   pub layout:    UserLayout,
   pub keys:      UserKeys,
 } 
-
 impl Default for User {
   fn default() -> Self {
     Self {
@@ -50,7 +48,6 @@ impl Default for User {
     }
   }
 }
-
 impl User {
 
   pub fn read_table(mut self, table: &Table) 

@@ -7,9 +7,7 @@ use crate::{
 use crossterm::{
   style::{Color},
 };
-use toml::{
-  Table, Value,
-};
+use toml::{Table, Value};
 
 #[derive(Debug)]
 enum Key {
@@ -17,7 +15,6 @@ enum Key {
   Usize(UsizeKey), 
   Prefix,
 }
-
 impl Key {
   pub fn try_from_string(key: &str) 
     -> Result<Self, String> 
@@ -38,7 +35,6 @@ impl Key {
 enum ColorKey {
   Fg, Bg,
 }
-
 impl ColorKey {
   pub fn try_parse_value(&self, value: &Value) 
     -> Result<Color, String>
@@ -74,7 +70,6 @@ pub struct UserText {
   pub below: usize,
   pub prefix: String,
 } 
-
 impl Default for UserText {
   fn default() -> Self {
     Self {
@@ -86,7 +81,6 @@ impl Default for UserText {
     }
   }
 }
-
 impl UserText {
   pub fn get_text(&self, text: &str) -> Text {
     let mut text = Text::from(text)
