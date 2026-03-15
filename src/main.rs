@@ -6,17 +6,14 @@
 
 mod util;
 mod gem;
-mod dlg;
-mod usr;
-mod usr_keys;
-mod usr_layout;
-mod usr_text;
-mod text;
-mod tab;
-mod app;
 mod pos;
 mod page;
+mod usr;
 mod msg;
+mod app;
+mod tab;
+mod text;
+mod dlg;
 
 use crate::{
   app::App,
