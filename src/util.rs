@@ -12,6 +12,7 @@ use url::{Url, ParseError};
 use toml::{Value};
 use native_tls::TlsConnector;
 
+
 pub fn parse_color(value: &Value) -> Result<Color, String> {
   if let Value::String(hex) = value {
     color_from_hex(&hex)
@@ -20,6 +21,7 @@ pub fn parse_color(value: &Value) -> Result<Color, String> {
     Err("fart".into())
   }
 }
+
 
 pub fn try_hex_from_char(u: char) -> Option<u8> {
   match u {
@@ -43,6 +45,7 @@ pub fn try_hex_from_char(u: char) -> Option<u8> {
   }
 }
 
+
 pub fn try_next_u8<I>(v: &mut I) -> Option<u8> 
 where I: Iterator<Item = char>
 {
@@ -50,6 +53,7 @@ where I: Iterator<Item = char>
   let b = v.next().and_then(|c| try_hex_from_char(c));
   a.zip(b).map(|(a, b)| 16 * a + b)
 }
+
 
 pub fn color_from_hex(text: &str) -> Result<Color, String> {
   let mut c = text.chars();
@@ -68,13 +72,16 @@ pub fn color_from_hex(text: &str) -> Result<Color, String> {
   }
 }
 
+
 pub fn u16_or_0(u: usize) -> u16 {
   u16::try_from(u).unwrap_or(u16::MIN)
 }
 
+
 pub fn u16_or_max(u: usize) -> u16 {
   u16::try_from(u).unwrap_or(u16::MAX)
 }
+
 
 pub fn split_whitespace_once(source: &str) 
   -> (&str, &str) 
@@ -89,6 +96,7 @@ pub fn split_whitespace_once(source: &str)
 
   } else {(line, line)}
 }
+
 
 pub fn wrap(line: &str, width: usize) -> Vec<String> {
 
@@ -138,6 +146,7 @@ pub fn wrap(line: &str, width: usize) -> Vec<String> {
   wrapped
 }
 
+
 pub fn join_if_relative(base: &Url, url_str: &str) 
   -> Result<Url, ParseError> 
 {
@@ -151,6 +160,7 @@ pub fn join_if_relative(base: &Url, url_str: &str)
     }
   )
 }
+
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum Scheme {
@@ -170,6 +180,7 @@ impl From<&Url> for Scheme {
     }
   }
 }
+
 
 // returns response and content
 pub fn get_data(url: &Url) 

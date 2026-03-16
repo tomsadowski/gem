@@ -15,12 +15,14 @@ use std::{
   io::{self, Write}
 };
 
+
 #[derive(Clone)]
 pub enum InputType {
   Ack(KeyCode),
   Ask(KeyCode, KeyCode),
   Text(Editor, Pos),
 }
+
 
 #[derive(Clone)]
 pub struct Dialog {
@@ -39,6 +41,7 @@ impl Dialog {
       input_type:   InputType::Ack(KeyCode::Enter),
     }
   }
+
 
   pub fn view<W>(&self, writer: &mut W) -> io::Result<()> 
   where W: Write
@@ -67,10 +70,12 @@ impl Dialog {
     Ok(())
   }
 
+
   pub fn resize(&mut self, page: &Page) {
     self.prompt_page = page.row(3);
     self.input_page  = page.row(6);
   }
+
 
   pub fn update(&mut self, keycode: &KeyCode) 
     -> Option<InputMsg> 
@@ -83,6 +88,7 @@ impl Dialog {
         self.update_input(keycode)
     }
   }
+
 
   fn update_input(&mut self, keycode: &KeyCode) 
     -> Option<InputMsg> 

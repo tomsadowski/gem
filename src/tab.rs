@@ -18,6 +18,12 @@ use std::{
 use url::{Url};
 
 
+pub struct Session {
+  pub seed: Url,
+  pub msgs: Vec<Dialog>,
+}
+
+
 pub struct Tab {
   pub page:  Page,
   pub name:  String,
