@@ -25,9 +25,9 @@ pub enum InputType {
 #[derive(Clone)]
 pub struct Dialog {
   pub prompt_page: Page,
-  pub prompt_text:  Text,
+  pub prompt_text: Text,
   pub input_page:  Page,
-  pub input_type:   InputType,
+  pub input_type:  InputType,
 } 
 impl Dialog {
 

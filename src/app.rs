@@ -37,6 +37,7 @@ pub struct App {
   pub quit:     bool,
 } 
 impl App {
+
   pub fn init(path: &str, w: u16, h: u16) -> Self {
 
     let usr = Self::load_config(path);
@@ -61,6 +62,7 @@ impl App {
     app
   }
 
+
   pub fn view(&self, writer: &mut impl Write) 
     -> io::Result<()> 
   { 
@@ -77,6 +79,7 @@ impl App {
       .queue(cursor::Show)?
       .flush()
   }
+
 
   pub fn update(&mut self, event: Event) -> bool {
 
@@ -128,6 +131,7 @@ impl App {
         false,
     }
   }
+
 
   fn update_from_view_msg(&mut self, msg: ViewMsg) {
 
@@ -189,6 +193,7 @@ impl App {
     }
   }
 
+
   fn resize(&mut self, w: u16, h: u16) {
 
     let (hdr_page, tab_page) = 
@@ -203,16 +208,17 @@ impl App {
     self.update_hdr_text();
   }
 
+
   fn update_hdr_text(&mut self) {
 
     let info = format!("{}/{}: {}", 
                        self.idx + 1, 
                        self.tabs.len(), 
                        &self.tabs[self.idx].name);
-
     self.hdr = self.usr
       .get_hdr_doc(&info, &self.hdr_page);
   }
+
 
   // return default config if error
   fn load_config(path: &str) -> User {
@@ -220,6 +226,7 @@ impl App {
       .map_err(|e| e.to_string())
       .and_then(|txt| User::parse(&txt)).unwrap()
   }
+
 
   fn update_usr(&mut self, usr: User) {
 
@@ -229,6 +236,7 @@ impl App {
       t.update_usr(&self.usr);
     }
   }
+
 
   fn update_global(&mut self, keycode: &KeyCode) 
     -> Option<ViewMsg> 

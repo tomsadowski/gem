@@ -20,12 +20,13 @@ use url::{Url};
 
 pub struct Tab {
   pub page:  Page,
-  pub name:   String,
-  pub dlg:    Option<(ViewMsg, Dialog)>,
-  pub gdoc:   Option<GemDoc>,
-  pub ddoc:   Doc,
+  pub name:  String,
+  pub dlg:   Option<(ViewMsg, Dialog)>,
+  pub gdoc:  Option<GemDoc>,
+  pub ddoc:  Doc,
 } 
 impl Tab {
+
   pub fn init(page: &Page, url_str: &str, usr: &User) 
     -> Self 
   {
@@ -36,10 +37,10 @@ impl Tab {
       page:   page.clone(),
       name:   url_str.into(),
     };
-
     tab.make_request(usr, url_str);
     tab
   }
+
 
   // resize ddoc and dialog
   pub fn resize(&mut self, page: &Page) {
@@ -51,6 +52,7 @@ impl Tab {
       d.resize(page);
     }
   }
+
 
   pub fn update(&mut self, usr: &User, kc: &KeyCode) 
     -> Option<ViewMsg> 
@@ -197,6 +199,7 @@ impl Tab {
       }
   }
 
+
   pub fn update_usr(&mut self, _usr: &User) {
   }
 
@@ -212,6 +215,7 @@ impl Tab {
     }
     Ok(())
   }
+
 
   // might display dialog
   fn some_gem_doc(&mut self, usr: &User, gemdoc: GemDoc) 
@@ -259,6 +263,7 @@ impl Tab {
     self.gdoc = Some(gemdoc);
   }
 
+
   // display dialog
   fn none_gem_doc(&mut self, usr: &User, msg: &str) {
 
@@ -268,6 +273,7 @@ impl Tab {
 
     self.dlg = Some((ViewMsg::DeleteMe, dlg));
   }
+
 
   fn make_request(&mut self, usr: &User, url_str: &str) 
   {

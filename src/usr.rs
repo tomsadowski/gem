@@ -13,13 +13,24 @@ use crossterm::{
 };
 use toml::{Table, Value};
 
+// module: usr
+//
+// a)   Parse '.gemset' file.
+//
+// b)   Help construct items
+//      that require many user parameters.
+//
+// (a) read file, (b) co-author runtime data.
+
+
 #[derive(Debug)]
-enum UsrKey {
+enum UserKey {
   InitUrl,
   Layout,
   Keys,
 }
-impl UsrKey {
+impl UserKey {
+
   pub fn try_from_string(key: &str) 
     -> Result<Self, String> 
   {
@@ -35,6 +46,7 @@ impl UsrKey {
   }
 }
 
+
 #[derive(Clone)]
 pub struct User {
   pub init_url:  String,
@@ -42,6 +54,7 @@ pub struct User {
   pub keys:      UserKeys,
 } 
 impl Default for User {
+
   fn default() -> Self {
     Self {
       init_url: "gemini://datapulp.smol.pub/".into(),
@@ -56,11 +69,12 @@ impl User {
     -> Result<Self, String> 
   {
     for (key, value) in table.iter() {
-      let k = UsrKey::try_from_string(&key)?;
+      let k = UserKey::try_from_string(&key)?;
       self.try_assign(&k, value)?;
     }
     Ok(self)
   }
+
 
   pub fn parse(text: &str) -> Result<Self, String> {
     let table = text.parse::<Table>()
@@ -68,11 +82,12 @@ impl User {
     Self::default().read_table(&table)
   }
 
-  fn try_assign(&mut self, key: &UsrKey, value: &Value) 
+
+  fn try_assign(&mut self, key: &UserKey, value: &Value) 
     -> Result<(), String> 
   {
     match key {
-      UsrKey::InitUrl => {
+      UserKey::InitUrl => {
 
         if let Value::String(s) = value {
           self.init_url = s.into();
@@ -82,7 +97,7 @@ impl User {
             "init_url key expects a string value".into())
         }
       }
-      UsrKey::Layout => {
+      UserKey::Layout => {
 
         if let Value::Table(t) = value {
           self.layout = UserLayout::default()
@@ -93,7 +108,7 @@ impl User {
             "layout key expects a table value".into())
         }
       }
-      UsrKey::Keys => {
+      UserKey::Keys => {
 
         if let Value::Table(t) = value {
           self.keys = UserKeys::default()
@@ -108,11 +123,13 @@ impl User {
     Ok(())
   }
 
+
   pub fn get_layout(&self, w: u16, h: u16) -> (Page, Page) 
   {
     let rect = Rect::new(w, h);
     self.layout.get_layout(&rect)
   }
+
 
   pub fn get_hdr_doc(&self, info: &str, page: &Page) 
     -> Doc 
@@ -133,6 +150,7 @@ impl User {
     )
   }
 
+
   pub fn text(&self, page: &Page, text: &str) -> Dialog {
 
     let mut dlg = Dialog::new(page, text);
@@ -144,12 +162,14 @@ impl User {
     dlg
   }
 
+
   pub fn ack(&self, page: &Page, text: &str) -> Dialog {
 
     let mut dlg = Dialog::new(page, text);
     dlg.input_type = InputType::Ack(self.keys.ack);
     dlg
   }
+
 
   pub fn ask(&self, page: &Page, text: &str) -> Dialog {
 
@@ -159,16 +179,19 @@ impl User {
     dlg
   }
 
+
   pub fn get_doc(&self, gdoc: &GemDoc, page: &Page) -> Doc {
     let text = self.layout.gemtext_to_text(&gdoc.doc);
     Doc::new(text, &page)
   }
+
 
   pub fn get_page(&self, w: u16, h: u16) -> Page {
     let rect = Rect::new(w, h);
     self.layout.get_page_from_rect(&rect)
   }
 }
+
 
 #[derive(Debug)]
 enum KeysKey {
@@ -191,6 +214,7 @@ enum KeysKey {
   Cancel,
 }
 impl KeysKey {
+
   pub fn try_from_string(key: &str) 
     -> Result<Self, String> 
   {
@@ -220,6 +244,7 @@ impl KeysKey {
   }
 }
 
+
 #[derive(Clone)]
 pub struct UserKeys {
   pub global:      KeyCode,
@@ -241,6 +266,7 @@ pub struct UserKeys {
   pub no:          KeyCode
 } 
 impl Default for UserKeys {
+
   fn default() -> Self {
     Self {
       global:      KeyCode::Char('g'),
@@ -264,6 +290,7 @@ impl Default for UserKeys {
   }
 }
 impl UserKeys {
+
   fn try_assign(&mut self, key: &KeysKey, value: &Value) 
     -> Result<(), String> 
   {
@@ -290,6 +317,7 @@ impl UserKeys {
     Ok(())
   }
 
+
   pub fn read_table(mut self, table: &Table) 
     -> Result<Self, String> 
   {
@@ -315,6 +343,7 @@ impl UserKeys {
     }
   }
 
+
   pub fn keycode_from_string(text: &str) -> Option<KeyCode> {
     match text {
       "esc" | "escape"  => Some(KeyCode::Esc),
@@ -333,6 +362,7 @@ impl UserKeys {
   }
 }
 
+
 #[derive(Debug)]
 enum LayoutKey {
   Color(ColorLayoutKey), 
@@ -340,6 +370,7 @@ enum LayoutKey {
   U16(U16LayoutKey),
 }
 impl LayoutKey {
+
   pub fn try_from_string(key: &str) 
     -> Result<Self, String> 
   {
@@ -406,6 +437,7 @@ impl LayoutKey {
   }
 }
 
+
 #[derive(Debug)]
 enum ColorLayoutKey {
   Bg, Banner, Border, Dlg,
@@ -418,6 +450,7 @@ impl ColorLayoutKey {
       .map_err(|e| format!("{:?} : {}", self, e))
   }
 }
+
 
 #[derive(Debug)]
 enum TextLayoutKey {
@@ -445,6 +478,7 @@ impl TextLayoutKey {
     }
   }
 }
+
 
 #[derive(Debug)]
 enum U16LayoutKey {
@@ -486,6 +520,7 @@ pub struct UserLayout {
   pub preformat:  UserText,
 } 
 impl Default for UserLayout {
+
   fn default() -> Self {
     Self {
       scroll_at:  3,
@@ -586,6 +621,7 @@ impl UserLayout {
     Ok(())
   }
 
+
   pub fn read_table(mut self, table: &Table) 
     -> Result<Self, String> 
   {
@@ -595,6 +631,7 @@ impl UserLayout {
     }
     Ok(self)
   }
+
 
   // called infrequently, construct many things
   // based on screensize and usr
@@ -615,11 +652,13 @@ impl UserLayout {
     (hdr, tab)
   }
 
+
   pub fn get_rect_from_dim(&self, w: u16, h: u16) -> Rect {
     Rect::new(w, h)
       .crop_x(self.x_page)
       .crop_y(self.y_page)
   }
+
 
   pub fn get_page_from_rect(&self, rect: &Rect) -> Page {
     let rect = rect
@@ -630,12 +669,14 @@ impl UserLayout {
       .scroll(self.scroll_at, self.scroll_at)
   }
 
+
   pub fn gemtext_to_text(&self, gem: &Vec<GemText>) 
     -> Vec<Text>
   {
     gem.iter()
       .map(|gem| self.get_user_text(&gem)).collect()
   }
+
 
   pub fn get_user_text(&self, gtxt: &GemText) -> Text {
     let text = match gtxt.tag {
@@ -670,6 +711,7 @@ impl UserLayout {
   }
 }
 
+
 #[derive(Debug)]
 enum TextKey {
   Color(ColorTextKey), 
@@ -677,6 +719,7 @@ enum TextKey {
   Prefix,
 }
 impl TextKey {
+
   pub fn try_from_string(key: &str) 
     -> Result<Self, String> 
   {
@@ -704,11 +747,13 @@ impl TextKey {
   }
 }
 
+
 #[derive(Debug)]
 enum ColorTextKey {
   Fg, Bg,
 }
 impl ColorTextKey {
+
   pub fn try_parse_value(&self, value: &Value) 
     -> Result<Color, String>
   {
@@ -717,11 +762,13 @@ impl ColorTextKey {
   }
 }
 
+
 #[derive(Debug)]
 enum UsizeTextKey {
   Above, Below,
 }
 impl UsizeTextKey {
+
   pub fn try_parse_value(&self, value: &Value) 
     -> Result<usize, String>
   {
@@ -735,6 +782,7 @@ impl UsizeTextKey {
   }
 }
 
+
 #[derive(Clone)]
 pub struct UserText {
   pub fg: Option<Color>,
@@ -744,6 +792,7 @@ pub struct UserText {
   pub prefix: String,
 } 
 impl Default for UserText {
+
   fn default() -> Self {
     Self {
       fg: None,
@@ -755,15 +804,6 @@ impl Default for UserText {
   }
 }
 impl UserText {
-  pub fn read_table(mut self, table: &Table) 
-    -> Result<Self, String> 
-  {
-    for (key, value) in table.iter() {
-      let k = TextKey::try_from_string(&key)?;
-      self.try_assign(&k, value)?;
-    }
-    Ok(self)
-  }
 
   pub fn get_text(&self, text: &str) -> Text {
     let mut text = Text::from(text)
@@ -778,6 +818,18 @@ impl UserText {
     }
     text
   }
+
+
+  pub fn read_table(mut self, table: &Table) 
+    -> Result<Self, String> 
+  {
+    for (key, value) in table.iter() {
+      let k = TextKey::try_from_string(&key)?;
+      self.try_assign(&k, value)?;
+    }
+    Ok(self)
+  }
+
 
   fn try_assign(&mut self, key: &TextKey, value: &Value) 
     -> Result<(), String> 

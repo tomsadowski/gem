@@ -33,13 +33,11 @@ impl GemDoc {
         vec![GemText::new(GemTag::Text, &msg)]
       }
     };
-
     let gem_doc = Self {
       url:    url.clone(),
       status: status,
       doc:    doc,
     };
-
     Ok(gem_doc)
   }
 }

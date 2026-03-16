@@ -26,6 +26,7 @@ pub struct Text {
   pub wrap:   bool,
 }
 impl From<&str> for Text {
+
   fn from(item: &str) -> Self {
     Self {
       above:  0,
@@ -39,11 +40,13 @@ impl From<&str> for Text {
   }
 }
 impl Default for Text {
+
   fn default() -> Self {
     Self::from("")
   }
 }
 impl Text {
+
   pub fn write_page<W>(&self, 
                         page: &Page, 
                         wrt: &mut W) 
@@ -63,9 +66,9 @@ impl Text {
         .queue(MoveTo(x_pos, page.text.y))?
         .queue(Print(chars.next().unwrap_or(' ')))?;
     }
-
     Ok(())
   }
+
 
   pub fn prefix(mut self, s: &str) -> Self {
     self.prefix = String::from(s);
@@ -73,25 +76,30 @@ impl Text {
     self
   }
 
+
   pub fn above(mut self, u: usize) -> Self {
     self.above = u;
     self
   }
+
 
   pub fn below(mut self, u: usize) -> Self {
     self.below = u;
     self
   }
 
+
   pub fn fg(mut self, col: Color) -> Self {
     self.fg = col;
     self
   }
 
+
   pub fn bg(mut self, col: Color) -> Self {
     self.bg = col;
     self
   }
+
 
   pub fn wrap(mut self) -> Self {
     self.wrap = true;
@@ -99,12 +107,14 @@ impl Text {
   }
 }
 
+
 pub struct Doc {
   pub pos:    Pos,
   pub text:   Vec<Text>,
   pub lines:  Vec<(usize, String)>,
 } 
 impl Default for Doc {
+
   fn default() -> Self {
     Self {
       pos:    Pos::default(), 
@@ -120,6 +130,7 @@ impl Doc {
     self
   }
 
+
   pub fn new(text: Vec<Text>, page: &Page) -> Self {
 
     let lines = Self::wrap_list(&text, page.text.w);
@@ -128,10 +139,12 @@ impl Doc {
     Self {pos, lines, text}
   }
 
+
   pub fn resize(&mut self, page: &Page) {
     self.lines = 
       Self::wrap_list(&self.text, page.text.w);
   }
+
 
   pub fn select(&self, page: &Page) -> Option<usize> {
 
@@ -143,9 +156,11 @@ impl Doc {
       .map(|(text_idx, _)| *text_idx)
   }
 
+
   fn y(&self) -> usize {
     self.lines.len()
   }
+
 
   fn x(&self, y: usize) -> Option<usize> {
     self.lines
@@ -153,11 +168,13 @@ impl Doc {
       .map(|(_, lines)| lines.len())
   }
 
+
   pub fn move_left(&mut self, page: &Page, step: u16) 
     -> bool 
   {
     self.pos.x.move_backward(&page.x(), step)
   }
+
 
   pub fn move_right(&mut self, page: &Page, step: u16) 
     -> bool 
@@ -169,6 +186,7 @@ impl Doc {
       .unwrap_or(false)
   }
 
+
   pub fn move_up(&mut self, page: &Page, step: u16) 
     -> bool 
   {
@@ -176,6 +194,7 @@ impl Doc {
       self.move_into_x(page); true
     } else {false}
   }
+
 
   pub fn move_down(&mut self, page: &Page, step: u16) 
     -> bool 
@@ -190,6 +209,7 @@ impl Doc {
     }
   }
 
+
   pub fn move_into_x(&mut self, page: &Page) {
     let idx = self.pos.y
       .data_idx(&page.text.y())
@@ -198,6 +218,7 @@ impl Doc {
       .x(idx)
       .inspect(|d| self.pos.x.move_into(&page.x(), *d));
   }
+
 
   pub fn view<W>(&self, page: &Page, wrt: &mut W) 
     -> io::Result<()> 
@@ -242,7 +263,6 @@ impl Doc {
             Print(chars.next().unwrap_or(' ')))?;
       }
     }
-
     wrt
         .queue(
           MoveTo(
@@ -252,6 +272,7 @@ impl Doc {
 
     Ok(())
   }
+
 
   fn wrap_list(lines: &Vec<Text>, w: usize) 
     -> Vec<(usize, String)> 
@@ -284,6 +305,7 @@ impl Doc {
   }
 } 
 
+
 #[derive(Clone)]
 pub struct Editor {
   pub pos:    PosCol,
@@ -291,6 +313,7 @@ pub struct Editor {
   pub color:  Color,
 }
 impl Editor {
+
   pub fn new(page: &Page, txt: &str, color: Color) 
     -> Self 
   {
@@ -301,17 +324,20 @@ impl Editor {
     }
   }
 
+
   pub fn move_left(&mut self, page: &Page, step: u16) 
     -> bool 
   {
     self.pos.move_backward(&page.x(), step)
   }
 
+
   pub fn move_right(&mut self, page: &Page, step: u16) 
     -> bool 
   {
     self.pos.move_forward(&page.x(), self.txt.len(), step)
   }
+
 
   pub fn write_page<W>(&self, page: &Page, wrt: &mut W) 
     -> io::Result<()> 
@@ -339,6 +365,7 @@ impl Editor {
     Ok(())
   }
 
+
   pub fn delete(&mut self, page: &Page, pos: &mut Pos) 
     -> bool 
   {
@@ -348,7 +375,6 @@ impl Editor {
     if idx >= self.txt.len() || self.txt.len() == 0 {
       return false
     }
-
     self.txt.remove(idx);
     if pos.x.cursor + 1 != text.end {
       pos.x.move_forward(&page.x(), self.txt.len(), 1)
@@ -357,13 +383,13 @@ impl Editor {
     }
   }
 
+
   pub fn backspace(&mut self, page: &Page, pos: &mut Pos) 
     -> bool 
   {
     if self.txt.len() == 0 {
       return false
     }
-
     let idx = pos.x.data_idx(&page.text.x());
 
     pos.x.move_backward(&page.x(), 1);
@@ -372,9 +398,9 @@ impl Editor {
     if pos.x.cursor + 1 != page.text.x().end {
       pos.x.move_forward(&page.x(), self.txt.len(), 1);
     }
-
     true
   }
+
 
   pub fn insert(&mut self, 
                 page: &Page, 
