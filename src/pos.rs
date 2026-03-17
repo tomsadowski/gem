@@ -2,7 +2,7 @@
 
 use crate::{
   util::{u16_or_0},
-  page::{Rect, PageRange, Range16},
+  page::{Rect, Page, PageRange, Range16},
 };
 
 
@@ -225,5 +225,40 @@ impl From<&Rect> for Pos {
       x: PosCol::from(&rect.x()),
       y: PosCol::from(&rect.y())
     }
+  }
+}
+impl Pos {
+
+  pub fn move_up( &mut self, 
+                  page: &Page, 
+                  step: u16) -> bool
+  {
+    self.y.move_backward(&page.y(), step)
+  }
+
+
+  pub fn move_down(&mut self,
+                    page: &Page, 
+                    dlen: usize,
+                    step: u16 ) -> bool
+  {
+    self.y.move_forward(&page.y(), dlen, step)
+  }
+
+
+  pub fn move_left( &mut self, 
+                    page: &Page, 
+                    step: u16) -> bool
+  {
+    self.x.move_backward(&page.x(), step)
+  }
+
+
+  pub fn move_right(&mut self,
+                    page: &Page, 
+                    dlen: usize,
+                    step: u16 ) -> bool
+  {
+    self.x.move_forward(&page.x(), dlen, step)
   }
 }

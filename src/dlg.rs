@@ -20,7 +20,7 @@ use std::{
 pub enum InputType {
   Ack(KeyCode),
   Ask(KeyCode, KeyCode),
-  Text(Editor, Pos),
+  Text(Editor),
 }
 
 
@@ -62,9 +62,8 @@ impl Dialog {
           .write_page(&self.input_page, writer)?;
       }
 
-      InputType::Text(editor, pos) => {
+      InputType::Text(editor) => {
         editor.view(&self.input_page, writer)?;
-        writer.queue(MoveTo(pos.x.cursor, pos.y.cursor))?;
       }
     }
     Ok(())
@@ -94,7 +93,7 @@ impl Dialog {
     -> Option<InputMsg> 
   {
     match &mut self.input_type {
-      InputType::Text(editor, pos) => {
+      InputType::Text(editor) => {
         match keycode {
           KeyCode::Enter => {
             Some(InputMsg::Text(editor.text.clone()))
@@ -114,18 +113,18 @@ impl Dialog {
 
           KeyCode::Delete => {
             editor
-              .delete(&self.input_page, pos)
+              .delete(&self.input_page)
               .then_some(InputMsg::Default)
           }
 
           KeyCode::Backspace => {
             editor
-              .backspace(&self.input_page, pos)
+              .backspace(&self.input_page)
               .then_some(InputMsg::Default)
           }
 
           KeyCode::Char(c) => {
-            editor.insert(&self.input_page, pos, *c);
+            editor.insert(&self.input_page, *c);
             Some(InputMsg::Default)
           }
 

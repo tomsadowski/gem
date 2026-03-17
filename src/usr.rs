@@ -154,11 +154,10 @@ impl User {
   pub fn text(&self, page: &Page, text: &str) -> Dialog {
 
     let mut dlg = Dialog::new(page, text);
-    let pos = dlg.input_page.pos();
     let color = self.layout.dialog.unwrap_or(Color::White);
     let editor = Editor::new(&dlg.input_page);
 
-    dlg.input_type = InputType::Text(editor, pos);
+    dlg.input_type = InputType::Text(editor);
     dlg
   }
 

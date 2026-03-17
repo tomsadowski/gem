@@ -65,11 +65,13 @@ pub trait TextWidget {
   fn get_x_iter<'a>(&self, line: &'a String) 
     -> Skip<Chars<'a>>
   {
-      line.chars().skip(
-        line
-          .len()
-          .saturating_sub(1)
-          .min(self.x_scroll()))
+      line
+        .chars()
+        .skip(self
+          .x_scroll()
+          .min(line
+            .len()
+            .saturating_sub(1)))
   }
 
 
@@ -382,7 +384,7 @@ impl Doc {
 
 #[derive(Clone)]
 pub struct Editor {
-  pub pos:   PosCol,
+  pub pos:   Pos,
   pub text:  String,
   pub fg:    Color,
   pub bg:    Color,
@@ -390,20 +392,20 @@ pub struct Editor {
 impl TextWidget for Editor {
 
   fn x_cursor(&self) -> u16 {
-    self.pos.cursor
+    self.pos.x.cursor
   }
 
   fn y_cursor(&self) -> u16 {
-    u16::MIN
+    self.pos.y.cursor
   }
 
 
   fn x_scroll(&self) -> usize {
-    0
+    self.pos.x.scroll
   }
 
   fn y_scroll(&self) -> usize {
-    self.pos.scroll
+    self.pos.y.scroll
   }
 
   fn y_len(&self) -> usize {
@@ -435,7 +437,7 @@ impl Editor {
   pub fn new(page: &Page) -> Self {
 
     Self {
-      pos:    page.pos().x,
+      pos:    page.pos(),
       fg:     Color::White,
       bg:     Color::Black,
       text:   "".into(),
@@ -446,66 +448,57 @@ impl Editor {
   pub fn move_left(&mut self, page: &Page, step: u16) 
     -> bool 
   {
-    self.pos.move_backward(&page.x(), step)
+    self.pos.move_left(&page, step)
   }
 
 
   pub fn move_right(&mut self, page: &Page, step: u16) 
     -> bool 
   {
-    self.pos.move_forward(&page.x(), self.text.len(), step)
+    self.pos.move_right(&page, self.text.len(), step)
   }
 
 
-  pub fn delete(&mut self, page: &Page, pos: &mut Pos) 
-    -> bool 
-  {
+  pub fn delete(&mut self, page: &Page) -> bool {
     let text = page.text.x();
-    let idx = pos.x.data_idx(&text);
+    let idx = self.pos.x.data_idx(&text);
 
     if idx >= self.text.len() || self.text.len() == 0 {
       return false
     }
     self.text.remove(idx);
-    if pos.x.cursor + 1 != text.end {
-      pos.x.move_forward(&page.x(), self.text.len(), 1)
+    if self.pos.x.cursor + 1 != text.end {
+      self.pos.move_right(&page, self.text.len(), 1)
     } else {
       false
     }
   }
 
 
-  pub fn backspace(&mut self, page: &Page, pos: &mut Pos) 
-    -> bool 
-  {
+  pub fn backspace(&mut self, page: &Page) -> bool {
     if self.text.len() == 0 {
       return false
     }
-    let idx = pos.x.data_idx(&page.text.x());
+    let idx = self.pos.x.data_idx(&page.text.x());
 
-    pos.x.move_backward(&page.x(), 1);
+    self.pos.move_left(&page, 1);
     self.text.remove(idx);
 
-    if pos.x.cursor + 1 != page.text.x().end {
-      pos.x.move_forward(&page.x(), self.text.len(), 1);
+    if self.pos.x.cursor + 1 != page.text.x().end {
+      self.pos.move_right(&page, self.text.len(), 1);
     }
     true
   }
 
 
-  pub fn insert(&mut self, 
-                page: &Page, 
-                pos: &mut Pos, 
-                c: char) 
-    -> bool 
-  {
-    let idx = pos.x.data_idx(&page.text.x()) + 1;
+  pub fn insert(&mut self, page: &Page, c: char) -> bool {
+    let idx = self.pos.x.data_idx(&page.text.x()) + 1;
     if idx >= self.text.len() || self.text.len() == 0 {
       self.text.push(c);
     } else {
       self.text.insert(idx, c);
     }
-    pos.x.move_forward(&page.x(), self.text.len(), 1);
+    self.pos.move_right(&page, self.text.len(), 1);
     true
   }
 }
