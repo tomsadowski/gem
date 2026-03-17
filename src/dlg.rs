@@ -3,7 +3,7 @@
 use crate::{
   page::{Page},
   pos::{Pos},
-  text::{Text, Editor},
+  text::{Text, Editor, TextWidget},
   msg::{InputMsg},
 };
 use crossterm::{
@@ -63,7 +63,7 @@ impl Dialog {
       }
 
       InputType::Text(editor, pos) => {
-        editor.write_page(&self.input_page, writer)?;
+        editor.view(&self.input_page, writer)?;
         writer.queue(MoveTo(pos.x.cursor, pos.y.cursor))?;
       }
     }
@@ -97,7 +97,7 @@ impl Dialog {
       InputType::Text(editor, pos) => {
         match keycode {
           KeyCode::Enter => {
-            Some(InputMsg::Text(editor.txt.clone()))
+            Some(InputMsg::Text(editor.text.clone()))
           }
 
           KeyCode::Left => {

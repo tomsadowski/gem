@@ -4,7 +4,7 @@ use crate::{
   usr::{User},
   util::{Scheme},
   gem::{GemDoc, GemTag, Status},
-  text::{Doc},
+  text::{Doc, TextWidget},
   page::{Page},
   msg::{ViewMsg, InputMsg},
   dlg::{Dialog},

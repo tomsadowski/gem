@@ -6,6 +6,19 @@ use crate::{
 };
 use std::cmp::min;
 
+use crate::{
+  pos::{PosCol},
+  util::{wrap},
+};
+use crossterm::{
+  QueueableCommand,
+  style::{
+    Color, SetForegroundColor, 
+    SetBackgroundColor, Print, ResetColor},
+  cursor::MoveTo,
+};
+use std::io::{self, Write};
+
 
 #[derive(Clone)]
 pub struct Rect {
@@ -268,21 +281,6 @@ impl Page {
       scroll: self.scroll.y(), 
       text: self.text.y(), 
       page: self.page.y()
-    }
-  }
-}
-
-
-pub struct GrowablePage {
-  pub max:  Rect,
-  pub text: Rect,
-}
-impl GrowablePage {
-
-  pub fn append_lines(&mut self, lines: usize) {
-
-    if usize::from(lines) < self.text.h {
-      self.text.h -= usize::from(lines);
     }
   }
 }

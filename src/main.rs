@@ -1,7 +1,7 @@
 // src/main.rs
 
 #![allow(dead_code)]
-//#![allow(unused_imports)]
+#![allow(unused_imports)]
 #![allow(unused_variables)]
 
 mod util;
@@ -46,6 +46,9 @@ fn main() -> io::Result<()> {
   }
 
   terminal::disable_raw_mode()?;
-  stdout.queue(terminal::LeaveAlternateScreen)?;
-  stdout.flush()
+
+  stdout
+    .queue(terminal::LeaveAlternateScreen)?
+    .queue(terminal::EnableLineWrap)?
+    .flush()
 }

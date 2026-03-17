@@ -4,7 +4,7 @@ use crate::{
   usr::{User},
   page::{Page},
   msg::{Focus, ViewMsg},
-  text::{Doc},
+  text::{Doc, TextWidget},
   tab::Tab,
 };
 use crossterm::{
@@ -210,7 +210,6 @@ impl App {
 
 
   fn update_hdr_text(&mut self) {
-
     let info = format!("{}/{}: {}", 
                        self.idx + 1, 
                        self.tabs.len(), 
@@ -229,9 +228,7 @@ impl App {
 
 
   fn update_usr(&mut self, usr: User) {
-
     self.usr = usr;
-
     for t in self.tabs.iter_mut() {
       t.update_usr(&self.usr);
     }

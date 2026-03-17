@@ -5,22 +5,26 @@ use crate::{
   page::{Rect, PageRange, Range16},
 };
 
+
 #[derive(Clone, Debug)]
 pub struct PosCol {
   pub cursor: u16, 
   pub scroll: usize
 }
 impl Default for PosCol {
+
   fn default() -> PosCol {
     PosCol {cursor: 0, scroll: 0}
   }
 }
 impl From<&Range16> for PosCol {
+
   fn from(rng: &Range16) -> PosCol {
     PosCol {cursor: rng.start, scroll: 0}
   }
 }
 impl PosCol {
+
   // index of cursor within its range
   pub fn data_idx(&self, rng: &Range16) -> usize {
 
@@ -32,6 +36,7 @@ impl PosCol {
       self.scroll
     }
   }
+
 
   // returns the start and end of displayable text
   pub fn data_range(&self, rng: &Range16, len: usize) 
@@ -47,6 +52,7 @@ impl PosCol {
       (self.scroll, end)
     }
   }
+
 
   pub fn move_into(&mut self, 
                    rng: &PageRange, 
@@ -69,6 +75,7 @@ impl PosCol {
       self.cursor = end;
     }
   }
+
 
   pub fn move_backward( &mut self, 
                         rng: &PageRange, 
@@ -133,6 +140,7 @@ impl PosCol {
     return true
   }
 
+
   pub fn move_forward(&mut self,
                       rng: &PageRange, 
                       dlen: usize,
@@ -196,6 +204,7 @@ impl PosCol {
     return true
   }
 }
+
 
 #[derive(Clone, Debug)]
 pub struct Pos {
