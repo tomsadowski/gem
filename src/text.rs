@@ -351,6 +351,123 @@ impl Doc {
     display
   }
 } 
+#[derive(Clone)]
+pub struct CursorText {
+  pub cursor: usize,
+  pub text:  String,
+}
+impl CursorText {
+
+  pub fn new() -> Self {
+    Self {cursor: 0, text: "".into()}
+  }
+
+  pub fn get_wrap_backward(&self, step: usize) -> usize {
+    if step > self.cursor {
+      step - self.cursor
+    } else {
+      0
+    }
+  }
+
+  pub fn wrap_backward(&mut self, mut step: usize) -> usize {
+    if step > self.cursor {
+      step -= self.cursor;
+      self.cursor = 0;
+      step
+    } else {
+      self.cursor -= step;
+      0
+    }
+  }
+
+  pub fn try_move_backward(&mut self, step: usize) -> bool 
+  {
+    if step > self.cursor {
+      false
+    } else {
+      self.cursor -= step;
+      true
+    }
+  }
+
+  pub fn wrap_forward(&mut self, mut step: usize) -> usize {
+    let max = self.text.len().saturating_sub(1);
+    if self.cursor + step > max {
+      step = self.cursor + step - max;
+      self.cursor = max;
+      step
+    } else {
+      self.cursor += step;
+      0
+    }
+  }
+
+  pub fn get_wrap_forward(&self, step: usize) -> usize {
+    let max = self.text.len().saturating_sub(1);
+    if self.cursor + step > max {
+      self.cursor + step - max
+    } else {
+      0
+    }
+  }
+
+  pub fn try_move_forward(&mut self, step: usize) -> bool {
+    let max = self.text.len().saturating_sub(1);
+    if self.cursor + step > max {
+      false
+
+    } else {
+      self.cursor += step;
+      true
+    }
+  }
+
+  // fix this
+  pub fn delete(&mut self) -> bool {
+    if self.text.len() == 0 || 
+      self.cursor == self.text.len() - 1
+    {
+      return false
+    }
+    self.text.remove(self.cursor);
+
+    if self.text.len() == 0 || 
+      self.cursor == self.text.len() - 1
+    {
+      self.cursor -= 1;
+    }
+    true
+  }
+
+  // fix this
+  pub fn backspace(&mut self) -> bool {
+    if self.text.len() == 0 || self.cursor == 0 {
+      return false
+    }
+    self.text.remove(self.cursor);
+
+    if self.text.len() > 0 {
+      self.cursor -= 1;
+    }
+    true
+  }
+
+  // fix this
+  pub fn insert(&mut self, c: char) -> bool {
+
+    if self.cursor >= self.text.len() || 
+      self.text.len() == 0 
+    {
+      self.text.push(c);
+
+    } else {
+      self.text.insert(self.cursor, c);
+    }
+    self.cursor += 1;
+    true
+  }
+}
 
 #[derive(Clone)]
 pub struct Editor {
