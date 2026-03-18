@@ -14,6 +14,7 @@ mod msg;
 mod app;
 mod tab;
 mod text;
+mod cursor;
 mod dlg;
 
 use crate::{
