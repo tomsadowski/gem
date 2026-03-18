@@ -27,6 +27,11 @@ pub struct Rect {
   pub w: usize,
   pub h: usize,
 }
+impl Default for Rect {
+  fn default() -> Self {
+    Self {x: 0, y: 0, w: 0, h: 0}
+  }
+}
 impl Rect {
 
   pub fn new(w: u16, h: u16) -> Self {
@@ -145,6 +150,11 @@ pub struct Range16 {
   pub start:  u16, 
   pub end:    u16
 }
+impl Default for Range16 {
+  fn default() -> Self {
+    Self {start: 0, end: 0}
+  }
+}
 impl Range16 {
 
   // if for some reason a > b, just swap them
@@ -190,7 +200,7 @@ impl Range16 {
 }
 
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct PageRange {
   pub scroll: Range16,
   pub text:   Range16,
@@ -209,7 +219,7 @@ impl PageRange {
 }
 
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Page {
   // scroll <= text <= page
   pub scroll:  Rect, 

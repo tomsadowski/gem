@@ -72,7 +72,7 @@ impl App {
       writer.queue(Clear(ClearType::All))?;
     }
 
-    self.hdr.view(&self.hdr_page, writer)?;
+    self.hdr.view(writer)?;
     self.tabs[self.idx].view(writer)?;
 
     writer

@@ -551,7 +551,6 @@ impl UserLayout {
     match key {
       LayoutKey::Color(key) => {
         let v = key.try_parse_value(&value)?;
-
         match key {
           ColorLayoutKey::Bg => 
             self.background = Some(v),

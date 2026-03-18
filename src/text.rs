@@ -21,33 +21,25 @@ use std::{
 
 pub trait TextWidget {
 
-  fn x_scroll(&self) -> usize;
-
-  fn y_scroll(&self) -> usize;
-
-  fn x_cursor(&self) -> u16;
-
-  fn y_cursor(&self) -> u16;
+  fn pos(&self) -> &Pos;
+  
+  fn page(&self) -> &Page;
 
   fn y_len(&self) -> usize;
 
   fn lines(&self) -> Vec<(&Color, &Color, &String)>;
 
-  fn fg(&self, idx: usize) -> &Color;
-
-  fn bg(&self, idx: usize) -> &Color;
-
-  fn get_lines(&self, page: &Page) 
+  fn get_lines(&self) 
     -> Vec<(u16, &Color, &Color, &String)> 
   {
     let line_start = 
       self.y_len()
       .saturating_sub(1)
-      .min(self.y_scroll());
+      .min(self.pos().y.scroll);
 
     let line_end = 
       line_start
-      .saturating_add(page.text.h)
+      .saturating_add(self.page().text.h)
       .min(self.y_len());
 
     self.lines()[line_start..line_end]
@@ -67,20 +59,18 @@ pub trait TextWidget {
   {
       line
         .chars()
-        .skip(self
-          .x_scroll()
+        .skip(self.pos().x.scroll
           .min(line
             .len()
             .saturating_sub(1)))
   }
 
 
-  fn view<W>(&self, page: &Page, wrt: &mut W) 
-    -> io::Result<()> 
+  fn view<W>(&self, wrt: &mut W) -> io::Result<()> 
   where W: Write,
   {
     for (scr_idx, fg, bg, line) in 
-      self.get_lines(page).iter()
+      self.get_lines().iter()
     {
       wrt
         .queue(SetForegroundColor(**fg))?
@@ -89,17 +79,19 @@ pub trait TextWidget {
       let mut chars = self.get_x_iter(line);
 
       let Range16 {start: x_start, end: x_end} = 
-        page.text.x();
+        self.page().text.x();
 
       for x_pos in x_start..x_end {
         wrt
-          .queue(MoveTo(x_pos, scr_idx + page.text.y))?
+          .queue(MoveTo(x_pos, scr_idx + self.page().text.y))?
           .queue(Print(chars.next().unwrap_or(' ')))?;
       }
     }
 
     wrt
-      .queue(MoveTo(self.x_cursor(), self.y_cursor()))?;
+      .queue(MoveTo(
+          self.pos().x.cursor, 
+          self.pos().y.cursor))?;
 
     Ok(())
   }
@@ -200,6 +192,7 @@ impl Text {
 
 
 pub struct Doc {
+  pub page:   Page,
   pub pos:    Pos,
   pub text:   Vec<Text>,
   pub lines:  Vec<(usize, String)>,
@@ -208,6 +201,7 @@ impl Default for Doc {
 
   fn default() -> Self {
     Self {
+      page:   Page::default(),
       pos:    Pos::default(), 
       text:   vec![], 
       lines:  vec![]
@@ -215,27 +209,15 @@ impl Default for Doc {
   }
 }
 impl TextWidget for Doc {
-
-  fn x_cursor(&self) -> u16 {
-    self.pos.x.cursor
+  fn pos(&self) -> &Pos {
+    &self.pos
   }
-
-  fn y_cursor(&self) -> u16 {
-    self.pos.y.cursor
+  fn page(&self) -> &Page {
+    &self.page
   }
-
-  fn x_scroll(&self) -> usize {
-    self.pos.x.scroll
-  }
-
-  fn y_scroll(&self) -> usize {
-    self.pos.y.scroll
-  }
-
   fn y_len(&self) -> usize {
     self.lines.len()
   }
-
   fn lines(&self) -> Vec<(&Color, &Color, &String)> {
     self.lines
       .iter()
@@ -246,14 +228,6 @@ impl TextWidget for Doc {
         })
       .collect()
   }
-
-  fn fg(&self, idx: usize) -> &Color {
-    &self.text[idx].fg
-  }
-
-  fn bg(&self, idx: usize) -> &Color {
-    &self.text[idx].bg
-  }
 }
 impl Doc {
 
@@ -262,15 +236,18 @@ impl Doc {
     self
   }
 
+  pub fn page(mut self, page: Page) -> Self {
+    self.page = page;
+    self
+  }
 
   pub fn new(text: Vec<Text>, page: &Page) -> Self {
 
     let lines = Self::wrap_list(&text, page.text.w);
     let pos = page.pos();
 
-    Self {pos, lines, text}
+    Self {pos, lines, text, page: page.clone()}
   }
-
 
   pub fn resize(&mut self, page: &Page) {
     self.lines = 
@@ -301,40 +278,32 @@ impl Doc {
   }
 
 
-  pub fn move_left(&mut self, page: &Page, step: u16) 
-    -> bool 
-  {
-    self.pos.x.move_backward(&page.x(), step)
+  pub fn move_left(&mut self, step: u16) -> bool {
+    self.pos.x.move_backward(&self.page.x(), step)
   }
 
 
-  pub fn move_right(&mut self, page: &Page, step: u16) 
-    -> bool 
-  {
+  pub fn move_right(&mut self, step: u16) -> bool {
     self
-      .x(self.pos.y.data_idx(&page.text.y()))
+      .x(self.pos.y.data_idx(&self.page.text.y()))
       .map(|x| 
-        self.pos.x.move_forward(&page.x(), x, step))
+        self.pos.x.move_forward(&self.page.x(), x, step))
       .unwrap_or(false)
   }
 
 
-  pub fn move_up(&mut self, page: &Page, step: u16) 
-    -> bool 
-  {
-    if self.pos.y.move_backward(&page.y(), step) {
-      self.move_into_x(page); true
+  pub fn move_up(&mut self, step: u16) -> bool {
+    if self.pos.y.move_backward(&self.page.y(), step) {
+      self.move_into_x(); true
     } else {false}
   }
 
 
-  pub fn move_down(&mut self, page: &Page, step: u16) 
-    -> bool 
-  {
+  pub fn move_down(&mut self, step: u16) -> bool {
     if self.pos.y
-      .move_forward(&page.y(), self.y(), step) 
+      .move_forward(&self.page.y(), self.y(), step) 
     {
-      self.move_into_x(page); 
+      self.move_into_x(); 
       true
     } else {
       false
@@ -342,13 +311,14 @@ impl Doc {
   }
 
 
-  pub fn move_into_x(&mut self, page: &Page) {
+  pub fn move_into_x(&mut self) {
     let idx = self.pos.y
-      .data_idx(&page.text.y())
+      .data_idx(&self.page.text.y())
       .min(self.y().saturating_sub(1));
     self
       .x(idx)
-      .inspect(|d| self.pos.x.move_into(&page.x(), *d));
+      .inspect(|d| 
+        self.pos.x.move_into(&self.page.x(), *d));
   }
 
 
@@ -384,44 +354,24 @@ impl Doc {
 
 #[derive(Clone)]
 pub struct Editor {
+  pub page:  Page,
   pub pos:   Pos,
   pub text:  String,
   pub fg:    Color,
   pub bg:    Color,
 }
 impl TextWidget for Editor {
-
-  fn x_cursor(&self) -> u16 {
-    self.pos.x.cursor
+  fn pos(&self) -> &Pos {
+    &self.pos
   }
-
-  fn y_cursor(&self) -> u16 {
-    self.pos.y.cursor
+  fn page(&self) -> &Page {
+    &self.page
   }
-
-
-  fn x_scroll(&self) -> usize {
-    self.pos.x.scroll
-  }
-
-  fn y_scroll(&self) -> usize {
-    self.pos.y.scroll
-  }
-
   fn y_len(&self) -> usize {
-    self.text.len()
+    0
   }
-
   fn lines(&self) -> Vec<(&Color, &Color, &String)> {
     vec![(&self.fg, &self.bg, &self.text)]
-  }
-
-  fn fg(&self, _: usize) -> &Color {
-    &self.fg
-  }
-
-  fn bg(&self, _: usize) -> &Color {
-    &self.bg
   }
 }
 impl Editor {
@@ -435,8 +385,8 @@ impl Editor {
 
 
   pub fn new(page: &Page) -> Self {
-
     Self {
+      page:   page.clone(),
       pos:    page.pos(),
       fg:     Color::White,
       bg:     Color::Black,
@@ -444,23 +394,22 @@ impl Editor {
     }
   }
 
+  pub fn resize(&mut self, page: &Page) {
+    self.page = page.clone()
+  }
 
-  pub fn move_left(&mut self, page: &Page, step: u16) 
-    -> bool 
-  {
-    self.pos.move_left(&page, step)
+  pub fn move_left(&mut self, step: u16) -> bool {
+    self.pos.move_left(&self.page, step)
   }
 
 
-  pub fn move_right(&mut self, page: &Page, step: u16) 
-    -> bool 
-  {
-    self.pos.move_right(&page, self.text.len(), step)
+  pub fn move_right(&mut self, step: u16) -> bool {
+    self.pos.move_right(&self.page, self.text.len(), step)
   }
 
 
-  pub fn delete(&mut self, page: &Page) -> bool {
-    let text = page.text.x();
+  pub fn delete(&mut self) -> bool {
+    let text = self.page.text.x();
     let idx = self.pos.x.data_idx(&text);
 
     if idx >= self.text.len() || self.text.len() == 0 {
@@ -468,38 +417,39 @@ impl Editor {
     }
     self.text.remove(idx);
     if self.pos.x.cursor + 1 != text.end {
-      self.pos.move_right(&page, self.text.len(), 1)
+      self.pos.move_right(&self.page, self.text.len(), 1)
     } else {
       false
     }
   }
 
 
-  pub fn backspace(&mut self, page: &Page) -> bool {
+  pub fn backspace(&mut self) -> bool {
     if self.text.len() == 0 {
       return false
     }
-    let idx = self.pos.x.data_idx(&page.text.x());
+    let idx = self.pos.x.data_idx(&self.page.text.x());
 
-    self.pos.move_left(&page, 1);
+    self.pos.move_left(&self.page, 1);
     self.text.remove(idx);
 
-    if self.pos.x.cursor + 1 != page.text.x().end {
-      self.pos.move_right(&page, self.text.len(), 1);
+    if self.pos.x.cursor + 1 != self.page.text.x().end {
+      self.pos.move_right(&self.page, self.text.len(), 1);
     }
     true
   }
 
 
-  pub fn insert(&mut self, page: &Page, c: char) -> bool {
-    let idx = self.pos.x.data_idx(&page.text.x()) + 1;
+  pub fn insert(&mut self, c: char) -> bool {
+    let idx = self.pos.x
+      .data_idx(&self.page.text.x()) + 1;
+
     if idx >= self.text.len() || self.text.len() == 0 {
       self.text.push(c);
     } else {
       self.text.insert(idx, c);
     }
-    self.pos.move_right(&page, self.text.len(), 1);
+    self.pos.move_right(&self.page, self.text.len(), 1);
     true
   }
 }
-

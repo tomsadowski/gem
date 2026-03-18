@@ -114,22 +114,22 @@ impl Tab {
 
     } else if kc == &usr.keys.move_down {
       self.ddoc
-        .move_down(&self.page, 1)
+        .move_down(1)
         .then_some(ViewMsg::Default)
 
     } else if kc == &usr.keys.move_up {
       self.ddoc
-        .move_up(&self.page, 1)
+        .move_up(1)
         .then_some(ViewMsg::Default)
 
     } else if kc == &usr.keys.move_left {
       self.ddoc
-        .move_left(&self.page, 1)
+        .move_left(1)
         .then_some(ViewMsg::Default)
 
     } else if kc == &usr.keys.move_right {
       self.ddoc
-        .move_right(&self.page, 1)
+        .move_right(1)
         .then_some(ViewMsg::Default)
 
     } else if kc == &usr.keys.cycle_left {
@@ -217,7 +217,7 @@ impl Tab {
       d.view(writer)?;
 
     } else {
-      self.ddoc.view(&self.page, writer)?;
+      self.ddoc.view(writer)?;
     }
     Ok(())
   }
@@ -263,37 +263,28 @@ impl Tab {
         None
       }
     };
-
     self.ddoc = usr.get_doc(&gemdoc, &self.page);
-
     self.gdoc = Some(gemdoc);
   }
 
 
   // display dialog
   fn none_gem_doc(&mut self, usr: &User, msg: &str) {
-
     self.gdoc = None;
-
     let dlg  = usr.ack(&self.page, msg);
-
     self.dlg = Some((ViewMsg::DeleteMe, dlg));
   }
 
 
-  fn make_request(&mut self, usr: &User, url_str: &str) 
-  {
+  fn make_request(&mut self, usr: &User, url_str: &str) {
+
     match Url::parse(url_str) {
-
       Ok(url) => match GemDoc::new(&url) {
-
         Ok(gemdoc) => 
           self.some_gem_doc(usr, gemdoc),
-
         Err(e) => 
           self.none_gem_doc(usr, &e),
       }
-
       Err(e) => 
         self.none_gem_doc(usr, &e.to_string()),
     }

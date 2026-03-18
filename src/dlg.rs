@@ -63,7 +63,7 @@ impl Dialog {
       }
 
       InputType::Text(editor) => {
-        editor.view(&self.input_page, writer)?;
+        editor.view(writer)?;
       }
     }
     Ok(())
@@ -73,6 +73,9 @@ impl Dialog {
   pub fn resize(&mut self, page: &Page) {
     self.prompt_page = page.row(3);
     self.input_page  = page.row(6);
+    if let InputType::Text(editor) = &mut self.input_type {
+      editor.resize(page);
+    }
   }
 
 
@@ -101,30 +104,30 @@ impl Dialog {
 
           KeyCode::Left => {
             editor
-              .move_left(&self.input_page, 1)
+              .move_left(1)
               .then_some(InputMsg::Default)
           }
 
           KeyCode::Right => {
             editor
-              .move_right(&self.input_page, 1)
+              .move_right(1)
               .then_some(InputMsg::Default)
           }
 
           KeyCode::Delete => {
             editor
-              .delete(&self.input_page)
+              .delete()
               .then_some(InputMsg::Default)
           }
 
           KeyCode::Backspace => {
             editor
-              .backspace(&self.input_page)
+              .backspace()
               .then_some(InputMsg::Default)
           }
 
           KeyCode::Char(c) => {
-            editor.insert(&self.input_page, *c);
+            editor.insert(*c);
             Some(InputMsg::Default)
           }
 
