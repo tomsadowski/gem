@@ -1,29 +1,26 @@
 // src/cursor.rs
 
 pub trait Cursor {
-
+  // required
   fn len(&self) -> usize;
 
   fn idx_mut(&mut self) -> &mut usize;
 
   fn idx(&self) -> usize;
 
+  // provided
   fn max(&self) -> usize {
     self.len().saturating_sub(1)
   }
-
   fn fit(&mut self, new_cursor: usize) {
     *self.idx_mut() = self.max().min(new_cursor);
   }
-
   fn move_to_start(&mut self) {
     *self.idx_mut() = 0;
   }
-
   fn move_to_end(&mut self) {
     *self.idx_mut() = self.max();
   }
-
   fn try_backward(&mut self, step: usize) -> bool {
     if step > self.idx() {
       false
@@ -32,7 +29,6 @@ pub trait Cursor {
       true
     }
   }
-
   fn try_forward(&mut self, step: usize) -> bool {
     if self.idx() + step > self.max() {
       false
@@ -42,7 +38,6 @@ pub trait Cursor {
       true
     }
   }
-
   fn get_wrap_backward(&self, mut step: usize) -> usize {
     if step > self.idx() {
       step - self.idx()
@@ -50,7 +45,6 @@ pub trait Cursor {
       0
     }
   }
-
   fn get_wrap_forward(&self, mut step: usize) -> usize {
     let max = self.max();
     if self.idx() + step > max {
@@ -59,7 +53,6 @@ pub trait Cursor {
       0
     }
   }
-
   fn wrap_backward(&mut self, mut step: usize) -> usize {
     if step > self.idx() {
       step -= self.idx();
@@ -70,7 +63,6 @@ pub trait Cursor {
       0
     }
   }
-
   fn wrap_forward(&mut self, mut step: usize) -> usize {
     let max = self.max();
     if self.idx() + step > max {
@@ -98,43 +90,40 @@ impl From<&ScreenRange> for ScreenCursor {
   }
 }
 impl ScreenCursor {
-
   pub fn idx(&self) -> usize {
     self.scroll + usize::from(self.cursor)
   }
-
   pub fn scroll_end_idx(&self, rng: &ScreenRange) -> usize {
-    self.scroll + rng.scroll_end_len()
+    self.scroll + rng.inv_end_width()
   }
   pub fn end_idx(&self, rng: &ScreenRange) -> usize {
     self.scroll + rng.width()
   }
-
-  pub fn update<C>(&mut self, ctext: &C, rng: &ScreenRange) 
+  pub fn update<C>(&mut self, text: &C, rng: &ScreenRange) 
     -> bool
   where C: Cursor
   {
     let cursor = usize::from(self.cursor);
-
     // move forward
-    if ctext.idx() > self.idx() {
-      if ctext.idx() > self.scroll_end_idx(rng) {
-        if ctext.idx() > self.end_idx(rng) {
+    if text.idx() > self.idx() {
+      // |____(___________)__t__|
+      if text.idx() > self.scroll_end_idx(rng) {
+        // |____(___________)_____|t
+        if text.idx() > self.end_idx(rng) {
 
         } else {
+
         }
       } else {
-        let diff = ctext.idx() - self.idx();
+        let diff = text.idx() - self.idx();
       }
       true
-
     // move backward
-    } else if ctext.idx() < self.idx() {
-      if ctext.idx() < self.scroll {
+    } else if text.idx() < self.idx() {
+      if text.idx() < self.scroll {
       } else {
       }
       true
-
     // no change
     } else {
       false
@@ -160,29 +149,57 @@ impl Default for ScreenRange {
   }
 }
 impl ScreenRange {
-
-  pub fn width(&self) -> usize {
-    usize::from(self.end) - usize::from(self.start)
+  pub fn start<C>(&self, text: &C) -> ScreenCursor 
+  where C: Cursor
+  {
   }
-  pub fn scroll_end_len(&self) -> usize {
-    usize::from(self.scroll_end) - 
-      usize::from(self.start)
+  pub fn center<C>(&self, text: &C) -> ScreenCursor 
+  where C: Cursor
+  {
   }
+  pub fn end<C>(&self, text: &C) -> ScreenCursor 
+  where C: Cursor
+  {
+  }
+  //    i___(___)___|
+  pub fn start_size(&self) -> usize {
+    usize::from(self.start)
+  }
+  //    |___i___)___|
+  pub fn scroll_start_size(&self) -> usize {
+    usize::from(self.scroll_start)
+  }
+  //    |___(___i___|
+  pub fn scroll_end_size(&self) -> usize {
+    usize::from(self.scroll_end)
+  }
+  //    |___(___)___i
+  pub fn end_size(&self) -> usize {
+    usize::from(self.end)
+  }
+  //    |...(___)___|
+  pub fn start_width(&self) -> usize {
+    self.scroll_start_size() - self.start_size()
+  }
+  //    |___(...)___|
   pub fn scroll_width(&self) -> usize {
-    usize::from(self.scroll_end) - 
-      usize::from(self.scroll_start)
+    self.scroll_end_size() - self.scroll_start_size()
   }
-  pub fn text_min(&self) -> usize {
-    usize::from(self.start)
+  //    |___(___)...|
+  pub fn end_width(&self) -> usize {
+    self.end_size() - self.scroll_end_size()
   }
-  pub fn text_max(&self) -> usize {
-    usize::from(self.end)
+  //    |...(...)...|
+  pub fn width(&self) -> usize {
+    self.end_size() - self.start_size()
   }
-  pub fn scroll_min(&self) -> usize {
-    usize::from(self.start)
+  //    |...(...)___|
+  pub fn inv_end_width(&self) -> usize {
+    self.scroll_end_size() - self.start_size()
   }
-  pub fn scroll_max(&self) -> usize {
-    usize::from(self.end)
+  //    |___(...)...|
+  pub fn inv_start_width(&self) -> usize {
+    self.end_size() - self.scroll_start_size()
   }
 }
 
@@ -213,30 +230,25 @@ impl Cursor for CursorText {
   }
 }
 impl CursorText {
-
   pub fn delete(&mut self) -> bool {
     if self.get_wrap_forward(1) != 0 ||
       self.text.len() == 0
     {
       false
-
     } else {
       self.text.remove(self.cursor);
       true
     }
   }
-
   pub fn backspace(&mut self) -> bool {
     if self.get_wrap_backward(1) != 0 {
       false
-
     } else {
       self.wrap_backward(1);
       self.text.remove(self.cursor);
       true
     }
   }
-
   pub fn insert(&mut self, c: char) -> bool {
     if self.cursor + 1 == self.text.len() || 
       self.text.len() == 0 
@@ -244,7 +256,6 @@ impl CursorText {
       self.text.push(c);
       self.wrap_forward(1);
       true
-
     } else {
       self.text.insert(self.cursor, c);
       self.wrap_forward(1);
@@ -279,6 +290,12 @@ impl<T> Cursor for CursorDoc<T> {
 impl<T> CursorDoc<T> 
 where T: Cursor
 {
+  pub fn move_left(&mut self, step: usize) -> bool {
+    self.wrap_left(step) == step
+  }
+  pub fn move_right(&mut self, step: usize) -> bool {
+    self.wrap_right(step) == step
+  }
   pub fn move_up(&mut self, step: usize) -> bool {
     let x = self.text[self.cursor].idx();
     if self.wrap_backward(step) == 0 {
@@ -288,7 +305,6 @@ where T: Cursor
       false
     }
   }
-
   pub fn move_down(&mut self, step: usize) -> bool {
     let x = self.text[self.cursor].idx();
     if self.wrap_forward(step) == 0 {
@@ -298,19 +314,9 @@ where T: Cursor
       false
     }
   }
-
-  pub fn move_left(&mut self, step: usize) -> bool {
-    self.wrap_left(step) == step
-  }
-
-  pub fn move_right(&mut self, step: usize) -> bool {
-    self.wrap_right(step) == step
-  }
-
   pub fn wrap_left(&mut self, step: usize) -> usize {
     let remainder = self
       .text[self.cursor].wrap_backward(step);
-
     // no wrapping required
     if remainder == 0 {
       0
@@ -318,16 +324,13 @@ where T: Cursor
     } else if self.wrap_backward(1) == 0 {
       self.text[self.cursor].move_to_end();
       self.wrap_left(remainder)
-
     } else {
       remainder
     }
   }
-
   pub fn wrap_right(&mut self, step: usize) -> usize {
     let remainder = self
       .text[self.cursor].wrap_forward(step);
-
     // no wrapping required
     if remainder == 0 {
       0
