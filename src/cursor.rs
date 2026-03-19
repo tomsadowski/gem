@@ -81,6 +81,11 @@ pub struct ScreenCursor {
   pub scroll: usize,
   pub cursor: u16,
 }
+impl Default for ScreenCursor {
+  fn default() -> Self {
+    Self {scroll: 0, cursor: 0}
+  }
+}
 impl From<&ScreenRange> for ScreenCursor {
   fn from(item: &ScreenRange) -> Self {
     Self {
@@ -92,42 +97,6 @@ impl From<&ScreenRange> for ScreenCursor {
 impl ScreenCursor {
   pub fn idx(&self) -> usize {
     self.scroll + usize::from(self.cursor)
-  }
-  pub fn scroll_end_idx(&self, rng: &ScreenRange) -> usize {
-    self.scroll + rng.inv_end_width()
-  }
-  pub fn end_idx(&self, rng: &ScreenRange) -> usize {
-    self.scroll + rng.width()
-  }
-  pub fn update<C>(&mut self, text: &C, rng: &ScreenRange) 
-    -> bool
-  where C: Cursor
-  {
-    let cursor = usize::from(self.cursor);
-    // move forward
-    if text.idx() > self.idx() {
-      // |____(___________)__t__|
-      if text.idx() > self.scroll_end_idx(rng) {
-        // |____(___________)_____|t
-        if text.idx() > self.end_idx(rng) {
-
-        } else {
-
-        }
-      } else {
-        let diff = text.idx() - self.idx();
-      }
-      true
-    // move backward
-    } else if text.idx() < self.idx() {
-      if text.idx() < self.scroll {
-      } else {
-      }
-      true
-    // no change
-    } else {
-      false
-    }
   }
 }
 
@@ -149,17 +118,20 @@ impl Default for ScreenRange {
   }
 }
 impl ScreenRange {
-  pub fn start<C>(&self, text: &C) -> ScreenCursor 
+
+  pub fn new_screen_cursor<C>(&self, text: &C) 
+    -> ScreenCursor 
   where C: Cursor
   {
-  }
-  pub fn center<C>(&self, text: &C) -> ScreenCursor 
-  where C: Cursor
-  {
-  }
-  pub fn end<C>(&self, text: &C) -> ScreenCursor 
-  where C: Cursor
-  {
+    let scroll = text.idx()
+      .saturating_sub(self.inv_end_width());
+
+    let cursor = self.start_size() + text.idx() - scroll;
+
+    ScreenCursor {
+      scroll,
+      cursor: u16::try_from(cursor).unwrap_or(u16::MIN)
+    }
   }
   //    i___(___)___|
   pub fn start_size(&self) -> usize {
