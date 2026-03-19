@@ -4,51 +4,48 @@ pub trait Cursor {
 
   fn len(&self) -> usize;
 
-  fn cursor(&mut self) -> &mut usize;
+  fn idx_mut(&mut self) -> &mut usize;
 
-  fn get_cursor(&self) -> usize;
+  fn idx(&self) -> usize;
 
   fn max(&self) -> usize {
     self.len().saturating_sub(1)
   }
 
   fn fit(&mut self, new_cursor: usize) {
-    *self.cursor() = self.max().min(new_cursor);
+    *self.idx_mut() = self.max().min(new_cursor);
   }
 
   fn move_to_start(&mut self) {
-    *self.cursor() = 0;
+    *self.idx_mut() = 0;
   }
 
   fn move_to_end(&mut self) {
-    *self.cursor() = self.max();
+    *self.idx_mut() = self.max();
   }
 
   fn try_backward(&mut self, step: usize) -> bool {
-    let cursor = self.get_cursor();
-    if step > cursor {
+    if step > self.idx() {
       false
     } else {
-      *self.cursor() -= step;
+      *self.idx_mut() -= step;
       true
     }
   }
 
   fn try_forward(&mut self, step: usize) -> bool {
-    let cursor = self.get_cursor();
-    if cursor + step > self.max() {
+    if self.idx() + step > self.max() {
       false
 
     } else {
-      *self.cursor() += step;
+      *self.idx_mut() += step;
       true
     }
   }
 
   fn get_wrap_backward(&self, mut step: usize) -> usize {
-    let cursor = self.get_cursor();
-    if step > cursor {
-      step - cursor
+    if step > self.idx() {
+      step - self.idx()
     } else {
       0
     }
@@ -56,60 +53,86 @@ pub trait Cursor {
 
   fn get_wrap_forward(&self, mut step: usize) -> usize {
     let max = self.max();
-    let cursor = self.get_cursor();
-    if cursor + step > max {
-      cursor + step - max
+    if self.idx() + step > max {
+      self.idx() + step - max
     } else {
       0
     }
   }
 
   fn wrap_backward(&mut self, mut step: usize) -> usize {
-    let cursor = self.get_cursor();
-    if step > cursor {
-      step -= cursor;
-      *self.cursor() = 0;
+    if step > self.idx() {
+      step -= self.idx();
+      *self.idx_mut() = 0;
       step
     } else {
-      *self.cursor() -= step;
+      *self.idx_mut() -= step;
       0
     }
   }
 
   fn wrap_forward(&mut self, mut step: usize) -> usize {
     let max = self.max();
-    let cursor = self.get_cursor();
-    if cursor + step > max {
-      step = cursor + step - max;
-      *self.cursor() = max;
+    if self.idx() + step > max {
+      step = self.idx() + step - max;
+      *self.idx_mut() = max;
       step
     } else {
-      *self.cursor() += step;
+      *self.idx_mut() += step;
       0
     }
   }
 }
 
 #[derive(Clone)]
-pub struct ScCurs {
+pub struct ScreenCursor {
   pub scroll: usize,
   pub cursor: u16,
 }
-impl ScCurs {
+impl From<&ScreenRange> for ScreenCursor {
+  fn from(item: &ScreenRange) -> Self {
+    Self {
+      scroll: 0,
+      cursor: item.start,
+    }
+  }
+}
+impl ScreenCursor {
 
-  pub fn update<C>(&mut self, ctext: &C, rng: &ScRange) 
+  pub fn idx(&self) -> usize {
+    self.scroll + usize::from(self.cursor)
+  }
+
+  pub fn scroll_end_idx(&self, rng: &ScreenRange) -> usize {
+    self.scroll + rng.scroll_end_len()
+  }
+  pub fn end_idx(&self, rng: &ScreenRange) -> usize {
+    self.scroll + rng.width()
+  }
+
+  pub fn update<C>(&mut self, ctext: &C, rng: &ScreenRange) 
     -> bool
   where C: Cursor
   {
     let cursor = usize::from(self.cursor);
-    let idx = ctext.get_cursor(); 
 
     // move forward
-    if cursor + self.scroll < idx {
+    if ctext.idx() > self.idx() {
+      if ctext.idx() > self.scroll_end_idx(rng) {
+        if ctext.idx() > self.end_idx(rng) {
+
+        } else {
+        }
+      } else {
+        let diff = ctext.idx() - self.idx();
+      }
       true
 
     // move backward
-    } else if cursor + self.scroll > idx {
+    } else if ctext.idx() < self.idx() {
+      if ctext.idx() < self.scroll {
+      } else {
+      }
       true
 
     // no change
@@ -120,13 +143,13 @@ impl ScCurs {
 }
 
 #[derive(Clone)]
-pub struct ScRange {
+pub struct ScreenRange {
   pub scroll_start: u16,
   pub scroll_end: u16,
   pub start: u16,
   pub end:   u16,
 }
-impl Default for ScRange {
+impl Default for ScreenRange {
   fn default() -> Self {
     Self {
       scroll_start: 0, 
@@ -136,7 +159,31 @@ impl Default for ScRange {
     }
   }
 }
-impl ScRange {
+impl ScreenRange {
+
+  pub fn width(&self) -> usize {
+    usize::from(self.end) - usize::from(self.start)
+  }
+  pub fn scroll_end_len(&self) -> usize {
+    usize::from(self.scroll_end) - 
+      usize::from(self.start)
+  }
+  pub fn scroll_width(&self) -> usize {
+    usize::from(self.scroll_end) - 
+      usize::from(self.scroll_start)
+  }
+  pub fn text_min(&self) -> usize {
+    usize::from(self.start)
+  }
+  pub fn text_max(&self) -> usize {
+    usize::from(self.end)
+  }
+  pub fn scroll_min(&self) -> usize {
+    usize::from(self.start)
+  }
+  pub fn scroll_max(&self) -> usize {
+    usize::from(self.end)
+  }
 }
 
 #[derive(Clone)]
@@ -158,10 +205,10 @@ impl Cursor for CursorText {
   fn len(&self) -> usize {
     self.text.len()
   }
-  fn cursor(&mut self) -> &mut usize {
+  fn idx_mut(&mut self) -> &mut usize {
     &mut self.cursor
   }
-  fn get_cursor(&self) -> usize {
+  fn idx(&self) -> usize {
     self.cursor
   }
 }
@@ -222,10 +269,10 @@ impl<T> Cursor for CursorDoc<T> {
   fn len(&self) -> usize {
     self.text.len()
   }
-  fn cursor(&mut self) -> &mut usize {
+  fn idx_mut(&mut self) -> &mut usize {
     &mut self.cursor
   }
-  fn get_cursor(&self) -> usize {
+  fn idx(&self) -> usize {
     self.cursor
   }
 }
@@ -233,7 +280,7 @@ impl<T> CursorDoc<T>
 where T: Cursor
 {
   pub fn move_up(&mut self, step: usize) -> bool {
-    let x = self.text[self.cursor].get_cursor();
+    let x = self.text[self.cursor].idx();
     if self.wrap_backward(step) == 0 {
       self.text[self.cursor].fit(x);
       true
@@ -243,7 +290,7 @@ where T: Cursor
   }
 
   pub fn move_down(&mut self, step: usize) -> bool {
-    let x = self.text[self.cursor].get_cursor();
+    let x = self.text[self.cursor].idx();
     if self.wrap_forward(step) == 0 {
       self.text[self.cursor].fit(x);
       true
