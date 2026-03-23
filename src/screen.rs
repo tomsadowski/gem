@@ -83,10 +83,42 @@ impl PosCol {
   pub fn new(start: u16, width: u16) -> Self {
     Self {shift: 0, point: start}
   }
-  pub fn head(&self) -> usize {
-    self.shift + usize::from(self.point)
+  pub fn trimmed_point(&self, start: u16) -> u16 {
+    self.point.saturating_sub(start)
+  }
+  pub fn head(&self, start: u16) -> usize {
+    self.shift + usize::from(self.point.saturating_sub(start))
   }
   pub fn update(&mut self, 
+    head: usize, len: usize, 
+    start: u16, width: u16) 
+  {
+    let width_size = usize::from(width);
+    let last_head = self.head(start);
+    let point_size = usize::from(self.point);
+    let start_size = usize::from(start);
+
+    // move forward
+    if head > last_head {
+      let diff = head - last_head;
+      if point_size + diff >= start_size + width_size {
+      }
+      // change shift here
+      // tape.head - shift <= width_size == width: u16
+      self.point = start + 
+        u16::try_from(head - self.shift)
+        .expect("tape.head - shift <= width_size == width: u16");
+    // move backward
+    } else if head < last_head {
+      let diff = last_head - head;
+      // change shift here
+      // tape.head - shift <= width_size == width: u16
+      self.point = start + 
+        u16::try_from(head - self.shift)
+        .expect("tape.head - shift <= width_size == width: u16");
+    }
+  }
+  pub fn uupdate(&mut self, 
     head: usize, len: usize, 
     start: u16, width: u16) 
   {
@@ -105,6 +137,7 @@ impl PosCol {
       if trimmed_point >= trimmed_head {
         if self.shift > head {
           self.shift = head;
+        } else {
         }
       // move forward
       } else {
