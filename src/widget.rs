@@ -73,28 +73,39 @@ impl PageWidget {
     self.doc.resize(&self.text, self.rect.w);
     self.pos.resize(&self.doc, &self.rect)
   }
+  pub fn delete(&mut self) -> bool {
+    let result = self.doc.delete();
+    result.then(|| self.pos.update(&self.doc, &self.rect));
+    result
+  }
+  pub fn backspace(&mut self) -> bool {
+    let result = self.doc.backspace();
+    result.then(|| self.pos.update(&self.doc, &self.rect));
+    result
+  }
+  pub fn insert(&mut self, c: char) -> bool {
+    let result = self.doc.insert(c);
+    result.then(|| self.pos.update(&self.doc, &self.rect));
+    result
+  }
   pub fn left(&mut self) -> bool {
-    if self.doc.left(1) == 0 {
-      self.pos.update(&self.doc, &self.rect);
-      true
-    } else {false}
+    let result = self.doc.left(1) == 0;
+    result.then(|| self.pos.update(&self.doc, &self.rect));
+    result
   }
   pub fn right(&mut self) -> bool {
-    if self.doc.right(1) == 0 {
-      self.pos.update(&self.doc, &self.rect);
-      true
-    } else {false}
+    let result = self.doc.right(1) == 0;
+    result.then(|| self.pos.update(&self.doc, &self.rect));
+    result
   }
   pub fn down(&mut self) -> bool {
-    if self.doc.down(1) {
-      self.pos.update(&self.doc, &self.rect);
-      true
-    } else {false}
+    let result = self.doc.down(1); 
+    result.then(|| self.pos.update(&self.doc, &self.rect));
+    result
   }
   pub fn up(&mut self) -> bool {
-    if self.doc.up(1) {
-      self.pos.update(&self.doc, &self.rect);
-      true
-    } else {false}
+    let result = self.doc.up(1);
+    result.then(|| self.pos.update(&self.doc, &self.rect));
+    result
   }
 }

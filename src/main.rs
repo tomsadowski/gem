@@ -102,17 +102,26 @@ impl App {
         }
       ) => {
         match kc {
-          KeyCode::Char('e') => {
+          KeyCode::Left => {
             self.page.left()
           },
-          KeyCode::Char('i') => {
+          KeyCode::Down => {
             self.page.down()
           },
-          KeyCode::Char('o') => {
+          KeyCode::Up => {
             self.page.up()
           },
-          KeyCode::Char('n') => {
+          KeyCode::Right => {
             self.page.right()
+          },
+          KeyCode::Backspace => {
+            self.page.backspace()
+          },
+          KeyCode::Delete => {
+            self.page.delete()
+          },
+          KeyCode::Char(c) => {
+            self.page.insert(c)
           },
           _ => false,
         }

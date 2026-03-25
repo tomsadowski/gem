@@ -37,9 +37,7 @@ pub trait Linear {
   fn len(&self) -> usize;
   fn head(&self) -> usize;
   fn head_mut(&mut self) -> &mut usize;
-  fn max(&self) -> usize {
-    self.len().saturating_sub(1)
-  }
+  fn max(&self) -> usize;
   fn fit(&mut self, new_cursor: usize) {
     *self.head_mut() = self.max().min(new_cursor);
   }
@@ -97,6 +95,9 @@ impl<P: Planar> Linear for P {
   fn len(&self) -> usize {
     self.y_len()
   }
+  fn max(&self) -> usize {
+    self.y_len().saturating_sub(1)
+  }
   fn head(&self) -> usize {
     self.y_head()
   }
@@ -116,6 +117,9 @@ impl From<&str> for TextLine {
   }
 }
 impl Linear for TextLine {
+  fn max(&self) -> usize {
+    self.text.len()
+  }
   fn len(&self) -> usize {
     self.text.len()
   }
@@ -180,6 +184,25 @@ impl Planar for TextPlane {
   }
 }
 impl TextPlane {
+  pub fn delete(&mut self) -> bool {
+    if !self.text[self.head].delete() {
+      if self.forward(1) == 0 {
+        self.text[self.head].start();
+        self.delete() 
+      } else {false} 
+    } else {true}
+  }
+  pub fn backspace(&mut self) -> bool {
+    if !self.text[self.head].backspace() {
+      if self.backward(1) == 0 {
+        self.text[self.head].end();
+        self.backspace() 
+      } else {false}
+    } else {true}
+  }
+  pub fn insert(&mut self, c: char) -> bool {
+    self.text[self.head].insert(c)
+  }
   pub fn new(text: &str, width: u16) -> Self {
     let text: Vec<TextLine> = 
       wrap_lines(text, width.into())
@@ -211,18 +234,14 @@ impl TextPlane {
     if self.backward(step) == 0 {
       self.text[self.head].fit(x);
       true
-    } else {
-      false
-    }
+    } else {false}
   }
   pub fn down(&mut self, step: usize) -> bool {
     let x = self.x_head();
     if self.forward(step) == 0 {
       self.text[self.head].fit(x);
       true
-    } else {
-      false
-    }
+    } else {false}
   }
   pub fn left(&mut self, step: usize) -> usize {
     let remainder = self.text[self.head].backward(step);
