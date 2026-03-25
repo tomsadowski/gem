@@ -30,7 +30,7 @@ impl PageWidget {
   }
   pub fn debug_cursor(&self) -> String {
     format!(
-      "data (x: {} y: {}) shift(x: {} y: {}) point(x: {} y: {})",
+      "data(x: {} y: {}) shift(x: {} y: {}) point(x: {} y: {})",
       self.doc.x(), 
       self.doc.y(), 
       self.pos.x.shift, 

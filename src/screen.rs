@@ -104,7 +104,7 @@ impl TapeView {
       self.shift = self.head - usize::from(self.size - 1);
     } else {
       self.point = self.start + point_len;
-      self.shift = self.head.saturating_sub(usize::from(self.point));
+      self.shift = self.head.saturating_sub(usize::from(point_len));
     }
   }
   pub fn update(&mut self, new_head: usize) {
