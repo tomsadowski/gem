@@ -37,15 +37,15 @@ pub trait Linear {
   fn len(&self) -> usize;
   fn head(&self) -> usize;
   fn head_mut(&mut self) -> &mut usize;
-  fn max(&self) -> usize;
+  fn max_head(&self) -> usize;
   fn fit(&mut self, new_cursor: usize) {
-    *self.head_mut() = self.max().min(new_cursor);
+    *self.head_mut() = self.max_head().min(new_cursor);
   }
   fn start(&mut self) {
     *self.head_mut() = 0;
   }
   fn end(&mut self) {
-    *self.head_mut() = self.max();
+    *self.head_mut() = self.max_head();
   }
   fn peek_backward(&self, mut step: usize) -> usize {
     if step > self.head() {
@@ -55,9 +55,9 @@ pub trait Linear {
     }
   }
   fn peek_forward(&self, mut step: usize) -> usize {
-    let max = self.max();
-    if self.head() + step > max {
-      self.head() + step - max
+    let max_head = self.max_head();
+    if self.head() + step > max_head {
+      self.head() + step - max_head
     } else {
       0
     }
@@ -73,10 +73,10 @@ pub trait Linear {
     }
   }
   fn forward(&mut self, mut step: usize) -> usize {
-    let max = self.max();
-    if self.head() + step > max {
-      step = self.head() + step - max;
-      *self.head_mut() = max;
+    let max_head = self.max_head();
+    if self.head() + step > max_head {
+      step = self.head() + step - max_head;
+      *self.head_mut() = max_head;
       step
     } else {
       *self.head_mut() += step;
@@ -95,7 +95,7 @@ impl<P: Planar> Linear for P {
   fn len(&self) -> usize {
     self.y_len()
   }
-  fn max(&self) -> usize {
+  fn max_head(&self) -> usize {
     self.y_len().saturating_sub(1)
   }
   fn head(&self) -> usize {
@@ -117,7 +117,7 @@ impl From<&str> for TextLine {
   }
 }
 impl Linear for TextLine {
-  fn max(&self) -> usize {
+  fn max_head(&self) -> usize {
     self.text.len()
   }
   fn len(&self) -> usize {
@@ -132,21 +132,17 @@ impl Linear for TextLine {
 }
 impl TextLine {
   pub fn delete(&mut self) -> bool {
-    if self.peek_forward(1) != 0 || self.text.len() == 0 {
-      false
-    } else {
+    if self.peek_forward(1) == 0 || self.text.len() != 0 {
       self.text.remove(self.head);
       true
-    }
+    } else {false}
   }
   pub fn backspace(&mut self) -> bool {
-    if self.peek_backward(1) != 0 {
-      false
-    } else {
+    if self.peek_backward(1) == 0 {
       self.backward(1);
       self.text.remove(self.head);
       true
-    }
+    } else {false}
   }
   pub fn insert(&mut self, c: char) -> bool {
     if self.head + 1 == self.text.len() || self.text.len() == 0 {
