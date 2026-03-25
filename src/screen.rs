@@ -1,6 +1,6 @@
 // src/screen.rs
 
-use crate::text::{CursorDoc, Tape};
+use crate::text::{Page, Tape};
 
 #[derive(Clone, Default)]
 pub struct Rect {
@@ -58,97 +58,75 @@ impl Rect {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct Pos {
-  pub x: PosCol,
-  pub y: PosCol,
+pub struct PageView {
+  pub x: TapeView,
+  pub y: TapeView,
 }
-impl Pos {
+impl PageView {
   pub fn new(rect: &Rect) -> Self {
     Self {
-      x: PosCol::new(rect.x, rect.w),
-      y: PosCol::new(rect.y, rect.h),
+      x: TapeView::new(rect.x, rect.w),
+      y: TapeView::new(rect.y, rect.h),
     }
   }
-  pub fn update(&mut self, doc: &CursorDoc, rect: &Rect) {
-    self.x.update(doc.x(), doc.x_len(), rect.x, rect.w);
-    self.y.update(doc.y(), doc.y_len(), rect.y, rect.h);
+  pub fn resize(&mut self, doc: &Page, rect: &Rect) {
+    self.x.resize(doc.x(), rect.x, rect.w);
+    self.y.resize(doc.y(), rect.y, rect.h);
+  }
+  pub fn update(&mut self, doc: &Page, rect: &Rect) {
+    self.x.update(doc.x());
+    self.y.update(doc.y());
   }
 }
 #[derive(Clone, Debug, Default)]
-pub struct PosCol {
-  pub shift: usize,
-  pub point: u16,
+pub struct TapeView {
+  pub head:   usize,
+  pub shift:  usize,
+  pub point:  u16,
+  pub start:  u16,
+  pub size:   u16,
 }
-impl PosCol {
-  pub fn new(start: u16, width: u16) -> Self {
-    Self {shift: 0, point: start}
+impl TapeView {
+  pub fn new(start: u16, size: u16) -> Self {
+    Self {shift: 0, head: 0, point: start, start, size}
   }
-  pub fn trimmed_point(&self, start: u16) -> u16 {
-    self.point.saturating_sub(start)
-  }
-  pub fn head(&self, start: u16) -> usize {
-    self.shift + usize::from(self.point.saturating_sub(start))
-  }
-  pub fn update(&mut self, 
-    head: usize, len: usize, 
-    start: u16, width: u16) 
-  {
-    let width_size = usize::from(width);
-    let last_head = self.head(start);
-    let point_size = usize::from(self.point);
-    let start_size = usize::from(start);
-
-    // move forward
-    if head > last_head {
-      let diff = head - last_head;
-      if point_size + diff >= start_size + width_size {
-      }
-      // change shift here
-      // tape.head - shift <= width_size == width: u16
-      self.point = start + 
-        u16::try_from(head - self.shift)
-        .expect("tape.head - shift <= width_size == width: u16");
-    // move backward
-    } else if head < last_head {
-      let diff = last_head - head;
-      // change shift here
-      // tape.head - shift <= width_size == width: u16
-      self.point = start + 
-        u16::try_from(head - self.shift)
-        .expect("tape.head - shift <= width_size == width: u16");
-    }
-  }
-  pub fn uupdate(&mut self, 
-    head: usize, len: usize, 
-    start: u16, width: u16) 
-  {
-    let trimmed_point = usize::from(self.point.saturating_sub(start));
-    let trimmed_head = head.saturating_sub(self.shift);
-    let window = usize::from(width);
-
-    if window >= len {
-      // tape.head < head <= window == width: u16
+  // damage control
+  pub fn resize(&mut self, new_head: usize, new_start: u16, new_size: u16) {
+    let point_len = self.point - self.start;
+    self.start = new_start;
+    self.size  = new_size;
+    self.head  = new_head;
+    if new_head < usize::from(self.size) {
       self.shift = 0;
-      self.point = start + u16::try_from(head)
-        .expect("tape.head < tape.len <= window == width: u16");
-
+      self.point = self.start + u16::try_from(self.head).unwrap();
+    } else if point_len > self.size - 1 {
+      self.point = self.start + self.size - 1;
+      self.shift = self.head - usize::from(self.size - 1);
     } else {
-      // move backward
-      if trimmed_point >= trimmed_head {
-        if self.shift > head {
-          self.shift = head;
-        } else {
-        }
-      // move forward
-      } else {
-        if trimmed_head >= window {
-          self.shift = self.shift + trimmed_head.saturating_sub(trimmed_point);
-        }
-      }
-      // tape.head - shift <= window == width: u16
-      self.point = start + 
-        u16::try_from(head - self.shift)
-        .expect("tape.head - shift <= window == width: u16");
+      self.point = self.start + point_len;
+      self.shift = self.head.saturating_sub(usize::from(self.point));
     }
+  }
+  pub fn update(&mut self, new_head: usize) {
+    // move forward
+    if new_head > self.head {
+      let diff = new_head - self.head;
+      let proposed = usize::from(self.point) + diff;
+      let max = usize::from(self.start) + usize::from(self.size) - 1;
+      // shift forward
+      if proposed >= max {
+        self.shift = self.shift + proposed - max;
+      }
+    // move backward
+    } else if new_head < self.head {
+      let diff = self.head - new_head;
+      let max_diff = usize::from(self.point.saturating_sub(self.start));
+      // shift backward
+      if diff > max_diff {
+        self.shift = self.shift.saturating_sub(diff - max_diff);
+      }
+    }
+    self.point = self.start + u16::try_from(new_head - self.shift).unwrap();
+    self.head = new_head;
   }
 }

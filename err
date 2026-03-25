@@ -1,6 +1,2 @@
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.04s
      Running `target/debug/gem src/main.rs`
-
-thread 'main' (44231) panicked at src/page.rs:50:32:
-byte index 8 is out of bounds of `};`
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

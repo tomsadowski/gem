@@ -1,7 +1,5 @@
 // src/text.rs
 
-use std::iter;
-
 pub fn wrap_lines(text: &str, width: usize) -> Vec<String> {
   text
     .lines()
@@ -45,10 +43,10 @@ pub trait Tape {
   fn fit(&mut self, new_cursor: usize) {
     *self.head_mut() = self.max().min(new_cursor);
   }
-  fn move_to_start(&mut self) {
+  fn start(&mut self) {
     *self.head_mut() = 0;
   }
-  fn move_to_end(&mut self) {
+  fn end(&mut self) {
     *self.head_mut() = self.max();
   }
   fn peek_backward(&self, mut step: usize) -> usize {
@@ -142,11 +140,11 @@ impl TextTape {
 }
 
 #[derive(Clone, Default)]
-pub struct CursorDoc {
+pub struct Page {
   pub head: usize,
   pub text: Vec<TextTape>,
 }
-impl Tape for CursorDoc {
+impl Tape for Page {
   fn len(&self) -> usize {
     self.text.len()
   }
@@ -157,7 +155,7 @@ impl Tape for CursorDoc {
     self.head
   }
 }
-impl CursorDoc {
+impl Page {
   pub fn x_len(&self) -> usize {
     self.text[self.head()].len()
   }
@@ -182,7 +180,7 @@ impl CursorDoc {
     self.text[..self.head()]
       .iter()
       .map(|line| line.len())
-      .chain(iter::once(self.x()))
+      .chain(std::iter::once(self.x()))
       .sum()
   }
   pub fn resize(&mut self, text: &str, width: u16) {
@@ -219,7 +217,7 @@ impl CursorDoc {
     if remainder == 0 {
       0
     } else if self.backward(1) == 0 {
-      self.text[self.head].move_to_end();
+      self.text[self.head].end();
       self.left(remainder.saturating_sub(1))
     } else {
       remainder
@@ -230,7 +228,7 @@ impl CursorDoc {
     if remainder == 0 {
       0
     } else if self.forward(1) == 0 {
-      self.text[self.head].move_to_start();
+      self.text[self.head].start();
       self.right(remainder.saturating_sub(1))
     } else {
       remainder

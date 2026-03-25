@@ -7,12 +7,12 @@
 
 mod text;
 mod screen;
-mod page;
+mod widget;
 
 use crate::{
-  text::{CursorDoc, Tape},
-  screen::{Rect, PosCol, Pos},
-  page::{Page},
+  text::{Page, Tape},
+  screen::{Rect},
+  widget::{PageWidget},
 };
 use crossterm::{
   QueueableCommand,
@@ -35,16 +35,13 @@ fn main() -> io::Result<()> {
   let text = fs::read_to_string(path).unwrap();
 
   terminal::enable_raw_mode()?;
-
   let (w, h) = terminal::size()?;
   let mut stdout = stdout();
-
   stdout
     .queue(terminal::EnterAlternateScreen)?
     .queue(terminal::DisableLineWrap)?;
 
   let mut ui = App::init(&text, w, h);
-
   ui.view(&mut stdout)?;
 
   while !ui.quit {
@@ -60,14 +57,14 @@ fn main() -> io::Result<()> {
 }
 
 pub struct App {
-  pub page:    Page,
+  pub page:  PageWidget,
   pub clear: bool,
-  pub quit:    bool,
+  pub quit:  bool,
 } 
 impl App {
   pub fn init(text: &str, w: u16, h: u16) -> Self {
     Self {
-      page: Page::new(text, w, h),
+      page: PageWidget::new(text, w, h),
       quit: false, 
       clear: false
     }

@@ -1,8 +1,8 @@
-// src/page.rs
+// src/widget.rs
 
 use crate::{
-  text::{CursorDoc, Tape},
-  screen::{Rect, PosCol, Pos},
+  text::{Page, Tape},
+  screen::{Rect, PageView},
 };
 use crossterm::{
   QueueableCommand,
@@ -14,17 +14,18 @@ use crossterm::{
 };
 use std::io::{self, stdout, Write};
 
-pub struct Page {
-  pub pos:  Pos,
+// coordinate Page and PageView
+pub struct PageWidget {
+  pub doc:  Page,
+  pub pos:  PageView,
   pub rect: Rect,
   pub text: String,
-  pub doc:  CursorDoc,
 }
-impl Page {
+impl PageWidget {
   pub fn new(text: &str, w: u16, h: u16) -> Self {
     let rect = Rect::new(w, h).crop_x(3).crop_y(3);
-    let doc = CursorDoc::new(text, rect.w);
-    let pos = Pos::new(&rect);
+    let doc = Page::new(text, rect.w);
+    let pos = PageView::new(&rect);
     Self {pos, rect, doc, text: text.into()}
   }
   pub fn debug_cursor(&self) -> String {
@@ -68,9 +69,9 @@ impl Page {
     Ok(())
   }
   pub fn resize(&mut self, w: u16, h: u16) {
-    self.rect = Rect::new(w, h).crop_x(3).crop_y(3);
+    self.rect = Rect::new(w, h).crop_x(4).crop_y(4);
     self.doc.resize(&self.text, self.rect.w);
-    self.pos.update(&self.doc, &self.rect)
+    self.pos.resize(&self.doc, &self.rect)
   }
   pub fn left(&mut self) -> bool {
     if self.doc.left(1) == 0 {
