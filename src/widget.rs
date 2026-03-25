@@ -1,8 +1,8 @@
 // src/widget.rs
 
 use crate::{
-  text::{Page, Tape},
-  screen::{Rect, PageView},
+  text::{TextPlane, Linear, Planar},
+  screen::{Rect, PlaneView},
 };
 use crossterm::{
   QueueableCommand,
@@ -16,23 +16,23 @@ use std::io::{self, stdout, Write};
 
 // coordinate Page and PageView
 pub struct PageWidget {
-  pub doc:  Page,
-  pub pos:  PageView,
+  pub doc:  TextPlane,
+  pub pos:  PlaneView,
   pub rect: Rect,
   pub text: String,
 }
 impl PageWidget {
   pub fn new(text: &str, w: u16, h: u16) -> Self {
     let rect = Rect::new(w, h).crop_x(3).crop_y(3);
-    let doc = Page::new(text, rect.w);
-    let pos = PageView::new(&rect);
+    let doc = TextPlane::new(text, rect.w);
+    let pos = PlaneView::new(&rect);
     Self {pos, rect, doc, text: text.into()}
   }
   pub fn debug_cursor(&self) -> String {
     format!(
       "data(x: {} y: {}) shift(x: {} y: {}) point(x: {} y: {})",
-      self.doc.x(), 
-      self.doc.y(), 
+      self.doc.x_head(), 
+      self.doc.y_head(), 
       self.pos.x.shift, 
       self.pos.y.shift,
       self.pos.x.point, 

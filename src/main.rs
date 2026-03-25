@@ -10,7 +10,7 @@ mod screen;
 mod widget;
 
 use crate::{
-  text::{Page, Tape},
+  text::{TextPlane, Linear},
   screen::{Rect},
   widget::{PageWidget},
 };

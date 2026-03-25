@@ -33,7 +33,7 @@ pub fn to_last_space(text: &str, width: usize) -> String {
     }
   }
 }
-pub trait Tape {
+pub trait Linear {
   fn len(&self) -> usize;
   fn head(&self) -> usize;
   fn head_mut(&mut self) -> &mut usize;
@@ -86,18 +86,36 @@ pub trait Tape {
     }
   }
 }
+pub trait Planar {
+  fn x_len(&self) -> usize;
+  fn x_head(&self) -> usize;
+  fn y_len(&self) -> usize;
+  fn y_head(&self) -> usize;
+  fn y_head_mut(&mut self) -> &mut usize;
+}
+impl<P: Planar> Linear for P {
+  fn len(&self) -> usize {
+    self.y_len()
+  }
+  fn head(&self) -> usize {
+    self.y_head()
+  }
+  fn head_mut(&mut self) -> &mut usize {
+    self.y_head_mut()
+  }
+}
 
 #[derive(Clone, Debug, Default)]
-pub struct TextTape {
+pub struct TextLine {
   pub head: usize,
   pub text: String,
 }
-impl From<&str> for TextTape {
+impl From<&str> for TextLine {
   fn from(item: &str) -> Self {
     Self {head: 0, text: item.into()}
   }
 }
-impl Tape for TextTape {
+impl Linear for TextLine {
   fn len(&self) -> usize {
     self.text.len()
   }
@@ -108,7 +126,7 @@ impl Tape for TextTape {
     self.head
   }
 }
-impl TextTape {
+impl TextLine {
   pub fn delete(&mut self) -> bool {
     if self.peek_forward(1) != 0 || self.text.len() == 0 {
       false
@@ -140,39 +158,33 @@ impl TextTape {
 }
 
 #[derive(Clone, Default)]
-pub struct Page {
+pub struct TextPlane {
   pub head: usize,
-  pub text: Vec<TextTape>,
+  pub text: Vec<TextLine>,
 }
-impl Tape for Page {
-  fn len(&self) -> usize {
+impl Planar for TextPlane {
+  fn x_len(&self) -> usize {
+    self.text[self.head].len()
+  }
+  fn x_head(&self) -> usize {
+    self.text[self.head].head()
+  }
+  fn y_len(&self) -> usize {
     self.text.len()
   }
-  fn head_mut(&mut self) -> &mut usize {
-    &mut self.head
-  }
-  fn head(&self) -> usize {
+  fn y_head(&self) -> usize {
     self.head
   }
+  fn y_head_mut(&mut self) -> &mut usize {
+    &mut self.head
+  }
 }
-impl Page {
-  pub fn x_len(&self) -> usize {
-    self.text[self.head()].len()
-  }
-  pub fn y_len(&self) -> usize {
-    self.len()
-  }
-  pub fn x(&self) -> usize {
-    self.text[self.head()].head()
-  }
-  pub fn y(&self) -> usize {
-    self.head()
-  }
+impl TextPlane {
   pub fn new(text: &str, width: u16) -> Self {
-    let text: Vec<TextTape> = 
+    let text: Vec<TextLine> = 
       wrap_lines(text, width.into())
         .iter()
-        .map(|line| TextTape::from(line.as_str()))
+        .map(|line| TextLine::from(line.as_str()))
         .collect();
     Self {head: 0, text}
   }
@@ -180,7 +192,7 @@ impl Page {
     self.text[..self.head()]
       .iter()
       .map(|line| line.len())
-      .chain(std::iter::once(self.x()))
+      .chain(std::iter::once(self.x_head()))
       .sum()
   }
   pub fn resize(&mut self, text: &str, width: u16) {
@@ -188,14 +200,14 @@ impl Page {
     self.text = 
       wrap_lines(text, width.into())
         .into_iter()
-        .map(|line| TextTape::from(line.as_str()))
+        .map(|line| TextLine::from(line.as_str()))
         .collect();
     self.text[0].head = 0;
     self.head = 0;
     self.right(idx);
   }
   pub fn up(&mut self, step: usize) -> bool {
-    let x = self.text[self.head].head();
+    let x = self.x_head();
     if self.backward(step) == 0 {
       self.text[self.head].fit(x);
       true
@@ -204,7 +216,7 @@ impl Page {
     }
   }
   pub fn down(&mut self, step: usize) -> bool {
-    let x = self.text[self.head].head();
+    let x = self.x_head();
     if self.forward(step) == 0 {
       self.text[self.head].fit(x);
       true

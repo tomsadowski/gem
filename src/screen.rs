@@ -1,6 +1,6 @@
 // src/screen.rs
 
-use crate::text::{Page, Tape};
+use crate::text::{TextPlane, Linear, Planar};
 
 #[derive(Clone, Default)]
 pub struct Rect {
@@ -58,35 +58,35 @@ impl Rect {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct PageView {
-  pub x: TapeView,
-  pub y: TapeView,
+pub struct PlaneView {
+  pub x: LineView,
+  pub y: LineView,
 }
-impl PageView {
+impl PlaneView {
   pub fn new(rect: &Rect) -> Self {
     Self {
-      x: TapeView::new(rect.x, rect.w),
-      y: TapeView::new(rect.y, rect.h),
+      x: LineView::new(rect.x, rect.w),
+      y: LineView::new(rect.y, rect.h),
     }
   }
-  pub fn resize(&mut self, doc: &Page, rect: &Rect) {
-    self.x.resize(doc.x(), rect.x, rect.w);
-    self.y.resize(doc.y(), rect.y, rect.h);
+  pub fn resize<P: Planar>(&mut self, doc: &P, rect: &Rect) {
+    self.x.resize(doc.x_head(), rect.x, rect.w);
+    self.y.resize(doc.y_head(), rect.y, rect.h);
   }
-  pub fn update(&mut self, doc: &Page, rect: &Rect) {
-    self.x.update(doc.x());
-    self.y.update(doc.y());
+  pub fn update<P: Planar>(&mut self, doc: &P, rect: &Rect) {
+    self.x.update(doc.x_head());
+    self.y.update(doc.y_head());
   }
 }
 #[derive(Clone, Debug, Default)]
-pub struct TapeView {
+pub struct LineView {
   pub head:   usize,
   pub shift:  usize,
   pub point:  u16,
   pub start:  u16,
   pub size:   u16,
 }
-impl TapeView {
+impl LineView {
   pub fn new(start: u16, size: u16) -> Self {
     Self {shift: 0, head: 0, point: start, start, size}
   }
