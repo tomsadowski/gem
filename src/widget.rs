@@ -69,7 +69,7 @@ impl PageWidget {
     Ok(())
   }
   pub fn resize(&mut self, w: u16, h: u16) {
-    self.rect = Rect::new(w, h).crop_x(4).crop_y(4);
+    self.rect = Rect::new(w, h).crop_x(3).crop_y(3);
     self.doc.resize(&self.text, self.rect.w);
     self.pos.resize(&self.doc, &self.rect)
   }
