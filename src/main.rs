@@ -9,6 +9,7 @@ mod text;
 mod screen;
 mod widget;
 mod usr;
+mod util;
 
 use crate::{
   text::{TextPlane},

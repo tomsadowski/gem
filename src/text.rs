@@ -1,38 +1,7 @@
 // src/text.rs
 
-pub fn wrap_lines(text: &str, width: usize) -> Vec<String> {
-  text
-    .lines()
-    .map(|l| wrap(l, width))
-    .flatten()
-    .collect()
-}
-pub fn wrap(text: &str, width: usize) -> Vec<String> {
-  let mut idx = usize::MIN;
-  let mut vec: Vec<String> = vec![];
-  while idx < text.len() {
-    let line = to_last_space(&text[idx..], width);
-    idx += line.len();
-    vec.push(line);
-  }
-  vec
-}
-pub fn to_last_space(text: &str, width: usize) -> String {
-  if text.len() <= width {
-    text.into()
-  } else {
-    let s: String = text[..width]
-      .chars()
-      .rev()
-      .skip_while(|c| !c.is_whitespace())
-      .collect();
-    if s.len() == 0 {
-      text[..width].into()
-    } else {
-      s.chars().rev().collect()
-    }
-  }
-}
+use crate::util;
+
 pub trait Linear {
   fn len(&self) -> usize;
   fn head(&self) -> usize;
@@ -203,7 +172,7 @@ impl TextPlane {
   }
   pub fn new(text: &str, width: u16) -> Self {
     let text: Vec<TextLine> = 
-      wrap_lines(text, width.into())
+      util::wrap_lines(text, width.into())
         .iter()
         .map(|line| TextLine::from(line.as_str()))
         .collect();
@@ -219,7 +188,7 @@ impl TextPlane {
   pub fn resize(&mut self, text: &str, width: u16) {
     let idx = self.flat_head();
     self.text = 
-      wrap_lines(text, width.into())
+      util::wrap_lines(text, width.into())
         .into_iter()
         .map(|line| TextLine::from(line.as_str()))
         .collect();

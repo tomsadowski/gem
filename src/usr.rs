@@ -4,6 +4,7 @@ use crate::{
   text::{TextPlane, Planar, Linear},
   screen::{Rect, PlaneView},
   widget::{TextBox},
+  util,
 };
 use crossterm::{
   style::Color,
@@ -17,55 +18,6 @@ use toml::{Table, Value};
 //      that require many user parameters.
 // (a) read file, (b) co-author runtime data.
 
-pub fn parse_color(value: &Value) -> Result<Color, String> {
-  if let Value::String(hex) = value {
-    color_from_hex(&hex)
-  } else {
-    Err("could not parse color from value".into())
-  }
-}
-pub fn try_hex_from_char(u: char) -> Option<u8> {
-  match u {
-    '0' => Some(0),
-    '1' => Some(1),
-    '2' => Some(2),
-    '3' => Some(3),
-    '4' => Some(4),
-    '5' => Some(5),
-    '6' => Some(6),
-    '7' => Some(7),
-    '8' => Some(8),
-    '9' => Some(9),
-    'a' => Some(10),
-    'b' => Some(11),
-    'c' => Some(12),
-    'd' => Some(13),
-    'e' => Some(14),
-    'f' => Some(15),
-    _ => None,
-  }
-}
-pub fn try_next_u8<I>(v: &mut I) -> Option<u8> 
-where I: Iterator<Item = char>
-{
-  let a = v.next().and_then(|c| try_hex_from_char(c));
-  let b = v.next().and_then(|c| try_hex_from_char(c));
-  a.zip(b).map(|(a, b)| 16 * a + b)
-}
-pub fn color_from_hex(text: &str) -> Result<Color, String> {
-  let mut c = text.chars();
-  let r = try_next_u8(&mut c);
-  let g = try_next_u8(&mut c);
-  let b = try_next_u8(&mut c);
-  match (r, g, b) {
-    (Some(r), Some(g), Some(b)) => {
-      Ok(Color::Rgb {r, g, b})
-    }
-    _ => {
-      Err("this... is not hex".into())
-    }
-  }
-}
 pub trait Field: Sized {
   fn try_from_string(s: &str) -> Result<Self, String>;
 }
@@ -85,14 +37,14 @@ pub trait UserMod<F: Field>: Sized {
 enum UserField {
   InitPath,
   Layout,
-  Fields,
+  Keys,
 }
 impl Field for UserField {
   fn try_from_string(s: &str) -> Result<Self, String> {
     match s {
       "init_url" => Ok(Self::InitPath),
       "layout"   => Ok(Self::Layout),
-      "keys"     => Ok(Self::Fields),
+      "keys"     => Ok(Self::Keys),
       s => 
         Err(format!("No field {} in User table", s)),
     }
@@ -102,22 +54,21 @@ impl Field for UserField {
 #[derive(Clone)]
 pub struct User {
   pub init_path: String,
-  pub layout:    UserLayout,
+  pub layout:    Layout,
   pub keys:      UserKeys,
 } 
 impl Default for User {
   fn default() -> Self {
     Self {
       init_path: ".".into(),
-      layout:    UserLayout::default(),
+      layout:    Layout::default(),
       keys:      UserKeys::default(),
     }
   }
 }
 impl Field for User {
   fn try_from_string(s: &str) -> Result<Self, String> {
-    let table = s.parse::<Table>()
-      .map_err(|e| e.to_string())?;
+    let table = s.parse::<Table>().map_err(|e| e.to_string())?;
     Self::default().read_table(&table)
   }
 }
@@ -135,13 +86,12 @@ impl UserMod<UserField> for User {
       }
       UserField::Layout => {
         if let Value::Table(t) = value {
-          self.layout = UserLayout::default()
-            .read_table(t)?;
+          self.layout = Layout::default().read_table(t)?;
         } else {
           return Err("layout field expects a table value".into())
         }
       }
-      UserField::Fields => {
+      UserField::Keys => {
         if let Value::Table(t) = value {
           self.keys = UserKeys::default().read_table(t)?;
         } else {
@@ -154,7 +104,7 @@ impl UserMod<UserField> for User {
 }
 
 #[derive(Debug)]
-enum KeysField {
+enum UserKeysField {
   Global, 
   LoadUser,
   MsgView, 
@@ -173,7 +123,7 @@ enum KeysField {
   No, 
   Cancel,
 }
-impl Field for KeysField {
+impl Field for UserKeysField {
   fn try_from_string(s: &str) -> Result<Self, String> {
     match s {
       "global"      => Ok(Self::Global),
@@ -242,29 +192,29 @@ impl Default for UserKeys {
     }
   }
 }
-impl UserMod<KeysField> for UserKeys {
-  fn try_assign(&mut self, field: &KeysField, value: &Value) 
+impl UserMod<UserKeysField> for UserKeys {
+  fn try_assign(&mut self, field: &UserKeysField, value: &Value) 
     -> Result<(), String> 
   {
-    let v = Self::try_from_value(value)?;
+    let value = Self::try_from_value(value)?;
     match field {
-      KeysField::Global     => self.global = v,
-      KeysField::MsgView    => self.msg_view = v,
-      KeysField::LoadUser   => self.load_usr = v,
-      KeysField::TabView    => self.tab_view = v,
-      KeysField::MoveUp     => self.move_up = v,
-      KeysField::MoveDown   => self.move_down = v,
-      KeysField::MoveLeft   => self.move_left = v,
-      KeysField::MoveRight  => self.move_right = v,
-      KeysField::CycleLeft  => self.cycle_left = v,
-      KeysField::CycleRight => self.cycle_right = v,
-      KeysField::DelTab     => self.delete_tab = v,
-      KeysField::NewTab     => self.new_tab = v,
-      KeysField::Inspect    => self.inspect = v,
-      KeysField::Ack        => self.ack = v,
-      KeysField::Yes        => self.yes = v,
-      KeysField::No         => self.no = v,
-      KeysField::Cancel     => self.cancel = v,
+      UserKeysField::Global     => self.global      = value,
+      UserKeysField::MsgView    => self.msg_view    = value,
+      UserKeysField::LoadUser   => self.load_usr    = value,
+      UserKeysField::TabView    => self.tab_view    = value,
+      UserKeysField::MoveUp     => self.move_up     = value,
+      UserKeysField::MoveDown   => self.move_down   = value,
+      UserKeysField::MoveLeft   => self.move_left   = value,
+      UserKeysField::MoveRight  => self.move_right  = value,
+      UserKeysField::CycleLeft  => self.cycle_left  = value,
+      UserKeysField::CycleRight => self.cycle_right = value,
+      UserKeysField::DelTab     => self.delete_tab  = value,
+      UserKeysField::NewTab     => self.new_tab     = value,
+      UserKeysField::Inspect    => self.inspect     = value,
+      UserKeysField::Ack        => self.ack         = value,
+      UserKeysField::Yes        => self.yes         = value,
+      UserKeysField::No         => self.no          = value,
+      UserKeysField::Cancel     => self.cancel      = value,
     }
     Ok(())
   }
@@ -298,26 +248,20 @@ impl UserKeys {
 
 #[derive(Debug)]
 enum LayoutField {
-  Color(ColorLayoutField), 
-  U16(U16LayoutField),
+  Color(LayoutColorField), 
+  U16(LayoutDimField),
 }
 impl Field for LayoutField {
   fn try_from_string(s: &str) -> Result<Self, String> {
     match s {
-      "x_text" => 
-        Ok(Self::U16(U16LayoutField::XText)),
-      "y_text" => 
-        Ok(Self::U16(U16LayoutField::YText)),
-      "x_page" => 
-        Ok(Self::U16(U16LayoutField::XPage)),
-      "y_page" => 
-        Ok(Self::U16(U16LayoutField::YPage)),
-      "scroll_at" => 
-        Ok(Self::U16(U16LayoutField::ScrollAt)),
-      "background" | "bg" => 
-        Ok(Self::Color(ColorLayoutField::Bg)),
-      "banner" => 
-        Ok(Self::Color(ColorLayoutField::Banner)),
+      "x_text" => Ok(Self::U16(LayoutDimField::XText)),
+      "y_text" => Ok(Self::U16(LayoutDimField::YText)),
+      "x_page" => Ok(Self::U16(LayoutDimField::XPage)),
+      "y_page" => Ok(Self::U16(LayoutDimField::YPage)),
+      "banner" => Ok(Self::Color(LayoutColorField::Banner)),
+      "text"   => Ok(Self::Color(LayoutColorField::Text)),
+      "background" | "bg" 
+               => Ok(Self::Color(LayoutColorField::Bg)),
       s => 
         Err(format!("Layout table does not contain field {}.", s)),
     }
@@ -325,20 +269,20 @@ impl Field for LayoutField {
 }
 
 #[derive(Debug)]
-enum ColorLayoutField {
-  Bg, Banner, Border, Dlg,
+enum LayoutColorField {
+  Text, Bg, Banner, Border, Dlg,
 }
-impl ColorLayoutField {
+impl LayoutColorField {
   pub fn try_parse_value(&self, value: &Value) -> Result<Color, String> {
-    parse_color(value).map_err(|e| format!("{:?} : {}", self, e))
+    util::parse_color(value).map_err(|e| format!("{:?} : {}", self, e))
   }
 }
 
 #[derive(Debug)]
-enum U16LayoutField {
-  XPage, YPage, XText, YText, ScrollAt,
+enum LayoutDimField {
+  XPage, YPage, XText, YText
 }
-impl U16LayoutField {
+impl LayoutDimField {
   pub fn try_parse_value(&self, value: &Value) -> Result<u16, String> {
     if let Value::Integer(t) = value {
       u16::try_from(*t).map_err(|e| format!("{:?} : {}", self, e))
@@ -349,22 +293,20 @@ impl U16LayoutField {
 }
 
 #[derive(Clone)]
-pub struct UserLayout {
-  pub x_text:    u16,
-  pub y_text:    u16,
-  pub x_page:    u16,
-  pub y_page:    u16,
-  pub scroll_at: u16,
+pub struct Layout {
+  pub x_text:     u16,
+  pub y_text:     u16,
+  pub x_page:     u16,
+  pub y_page:     u16,
   pub background: Option<Color>,
   pub banner:     Option<Color>,
   pub border:     Option<Color>,
   pub dialog:     Option<Color>,
-  pub text:       UserText,
+  pub text:       Option<Color>,
 } 
-impl Default for UserLayout {
+impl Default for Layout {
   fn default() -> Self {
     Self {
-      scroll_at:  3,
       x_text:     0,
       y_text:     0,
       x_page:     0,
@@ -373,11 +315,11 @@ impl Default for UserLayout {
       banner:     None,
       border:     None,
       dialog:     None,
-      text:       UserText::default(),
+      text:       None,
     }
   }
 }
-impl UserMod<LayoutField> for UserLayout {
+impl UserMod<LayoutField> for Layout {
   fn try_assign(&mut self, field: &LayoutField, value: &Value) 
     -> Result<(), String> 
   {
@@ -385,124 +327,28 @@ impl UserMod<LayoutField> for UserLayout {
       LayoutField::Color(field) => {
         let v = field.try_parse_value(&value)?;
         match field {
-          ColorLayoutField::Bg      => self.background = Some(v),
-          ColorLayoutField::Banner  => self.banner = Some(v),
-          ColorLayoutField::Border  => self.border = Some(v),
-          ColorLayoutField::Dlg     => self.dialog = Some(v),
+          LayoutColorField::Bg     => self.background = Some(v),
+          LayoutColorField::Banner => self.banner     = Some(v),
+          LayoutColorField::Border => self.border     = Some(v),
+          LayoutColorField::Dlg    => self.dialog     = Some(v),
+          LayoutColorField::Text   => self.text       = Some(v),
         }
       }
       LayoutField::U16(field) => {
         let v = field.try_parse_value(&value)?;
         match field {
-          U16LayoutField::XText     => self.x_text = v,
-          U16LayoutField::YText     => self.y_text = v,
-          U16LayoutField::XPage     => self.x_page = v,
-          U16LayoutField::YPage     => self.y_page = v,
-          U16LayoutField::ScrollAt  => self.scroll_at = v,
+          LayoutDimField::XText => self.x_text = v,
+          LayoutDimField::YText => self.y_text = v,
+          LayoutDimField::XPage => self.x_page = v,
+          LayoutDimField::YPage => self.y_page = v,
         }
       }
     }
     Ok(())
   }
 }
-impl UserLayout {
+impl Layout {
   pub fn get_rect_from_dim(&self, w: u16, h: u16) -> Rect {
-    Rect::new(w, h)
-      .crop_x(self.x_page)
-      .crop_y(self.y_page)
-  }
-}
-
-#[derive(Debug)]
-enum TextField {
-  Color(ColorTextField), 
-  Usize(UsizeTextField), 
-  Prefix,
-}
-impl Field for TextField {
-  fn try_from_string(s: &str) -> Result<Self, String> {
-    match s {
-      "fg"      => Ok(Self::Color(ColorTextField::Fg)),
-      "bg"      => Ok(Self::Color(ColorTextField::Bg)),
-      "above"   => Ok(Self::Usize(UsizeTextField::Above)),
-      "below"   => Ok(Self::Usize(UsizeTextField::Below)),
-      "prefix"  => Ok(Self::Prefix),
-      s => Err(format!("{} no such field in the table", s)),
-    }
-  }
-}
-
-#[derive(Debug)]
-enum ColorTextField {
-  Fg, Bg,
-}
-impl ColorTextField {
-  pub fn try_parse_value(&self, value: &Value) -> Result<Color, String> {
-    parse_color(value).map_err(|e| format!("{:?} : {}", self, e))
-  }
-}
-
-#[derive(Debug)]
-enum UsizeTextField {
-  Above, Below,
-}
-impl UsizeTextField {
-  pub fn try_parse_value(&self, value: &Value) -> Result<usize, String> {
-    match value {
-      Value::Integer(i) => 
-        usize::try_from(*i).map_err(|e| format!("{:?} : {}", self, e)),
-      value => 
-        Err(format!("{:?} doesn't take {:?}", self, value)),
-    }
-  }
-}
-
-#[derive(Clone)]
-pub struct UserText {
-  pub fg: Option<Color>,
-  pub bg: Option<Color>,
-  pub above: usize,
-  pub below: usize,
-  pub prefix: String,
-} 
-impl Default for UserText {
-  fn default() -> Self {
-    Self {
-      fg: None,
-      bg: None,
-      above: 0,
-      below: 0,
-      prefix: "".to_string(),
-    }
-  }
-}
-impl UserMod<TextField> for UserText {
-  fn try_assign(&mut self, field: &TextField, value: &Value) 
-    -> Result<(), String> 
-  {
-    match field {
-      TextField::Color(field) => {
-        let v = field.try_parse_value(&value)?;
-        match field {
-          ColorTextField::Fg => self.fg = Some(v),
-          ColorTextField::Bg => self.bg = Some(v),
-        }
-      }
-      TextField::Usize(field) => {
-        let v = field.try_parse_value(&value)?;
-        match field {
-          UsizeTextField::Above => self.above = v,
-          UsizeTextField::Below => self.below = v,
-        }
-      }
-      TextField::Prefix => {
-        if let Value::String(s) = value {
-          self.prefix = s.into(); 
-        } else {
-          return Err(format!("prefix doesnt take {:?}", value))
-        }
-      }
-    }
-    Ok(())
+    Rect::new(w, h).crop_x(self.x_page).crop_y(self.y_page)
   }
 }
