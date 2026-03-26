@@ -1,11 +1,9 @@
 // src/usr.rs
 
 use crate::{
-  gem::{GemDoc, GemTag, GemText},
-  text::{Doc, Text, Editor},
-  page::{Rect, Page},
-  util::{parse_color},
-  dlg::{Dialog, InputType},
+  text::{TextPlane, Planar, Linear},
+  screen::{Rect, PlaneView},
+  widget::{TextBox},
 };
 use crossterm::{
   style::Color,
@@ -14,190 +12,152 @@ use crossterm::{
 use toml::{Table, Value};
 
 // module: usr
-//
 // a)   Parse '.gemset' file.
-//
 // b)   Help construct items
 //      that require many user parameters.
-//
 // (a) read file, (b) co-author runtime data.
 
+pub fn parse_color(value: &Value) -> Result<Color, String> {
+  if let Value::String(hex) = value {
+    color_from_hex(&hex)
+  } else {
+    Err("could not parse color from value".into())
+  }
+}
+pub fn try_hex_from_char(u: char) -> Option<u8> {
+  match u {
+    '0' => Some(0),
+    '1' => Some(1),
+    '2' => Some(2),
+    '3' => Some(3),
+    '4' => Some(4),
+    '5' => Some(5),
+    '6' => Some(6),
+    '7' => Some(7),
+    '8' => Some(8),
+    '9' => Some(9),
+    'a' => Some(10),
+    'b' => Some(11),
+    'c' => Some(12),
+    'd' => Some(13),
+    'e' => Some(14),
+    'f' => Some(15),
+    _ => None,
+  }
+}
+pub fn try_next_u8<I>(v: &mut I) -> Option<u8> 
+where I: Iterator<Item = char>
+{
+  let a = v.next().and_then(|c| try_hex_from_char(c));
+  let b = v.next().and_then(|c| try_hex_from_char(c));
+  a.zip(b).map(|(a, b)| 16 * a + b)
+}
+pub fn color_from_hex(text: &str) -> Result<Color, String> {
+  let mut c = text.chars();
+  let r = try_next_u8(&mut c);
+  let g = try_next_u8(&mut c);
+  let b = try_next_u8(&mut c);
+  match (r, g, b) {
+    (Some(r), Some(g), Some(b)) => {
+      Ok(Color::Rgb {r, g, b})
+    }
+    _ => {
+      Err("this... is not hex".into())
+    }
+  }
+}
+pub trait Field: Sized {
+  fn try_from_string(s: &str) -> Result<Self, String>;
+}
+pub trait UserMod<F: Field>: Sized {
+  fn try_assign(&mut self, field: &F, value: &Value) -> Result<(), String>;
+
+  fn read_table(mut self, table: &Table) -> Result<Self, String> {
+    for (key, value) in table.iter() {
+      let field = F::try_from_string(&key)?;
+      self.try_assign(&field, value)?;
+    }
+    Ok(self)
+  }
+}
 
 #[derive(Debug)]
-enum UserKey {
-  InitUrl,
+enum UserField {
+  InitPath,
   Layout,
-  Keys,
+  Fields,
 }
-impl UserKey {
-
-  pub fn try_from_string(key: &str) 
-    -> Result<Self, String> 
-  {
-    match key {
-      "init_url" => Ok(Self::InitUrl),
+impl Field for UserField {
+  fn try_from_string(s: &str) -> Result<Self, String> {
+    match s {
+      "init_url" => Ok(Self::InitPath),
       "layout"   => Ok(Self::Layout),
-      "keys"     => Ok(Self::Keys),
-      key => 
-        Err(
-          format!(
-            "No key named {} in User table", key)),
+      "keys"     => Ok(Self::Fields),
+      s => 
+        Err(format!("No field {} in User table", s)),
     }
   }
 }
 
-
 #[derive(Clone)]
 pub struct User {
-  pub init_url:  String,
+  pub init_path: String,
   pub layout:    UserLayout,
   pub keys:      UserKeys,
 } 
 impl Default for User {
-
   fn default() -> Self {
     Self {
-      init_url: "gemini://datapulp.smol.pub/".into(),
+      init_path: ".".into(),
       layout:    UserLayout::default(),
       keys:      UserKeys::default(),
     }
   }
 }
-impl User {
-
-  pub fn read_table(mut self, table: &Table) 
-    -> Result<Self, String> 
-  {
-    for (key, value) in table.iter() {
-      let k = UserKey::try_from_string(&key)?;
-      self.try_assign(&k, value)?;
-    }
-    Ok(self)
-  }
-
-
-  pub fn parse(text: &str) -> Result<Self, String> {
-    let table = text.parse::<Table>()
+impl Field for User {
+  fn try_from_string(s: &str) -> Result<Self, String> {
+    let table = s.parse::<Table>()
       .map_err(|e| e.to_string())?;
     Self::default().read_table(&table)
   }
-
-
-  fn try_assign(&mut self, key: &UserKey, value: &Value) 
+}
+impl UserMod<UserField> for User {
+  fn try_assign(&mut self, field: &UserField, value: &Value) 
     -> Result<(), String> 
   {
-    match key {
-      UserKey::InitUrl => {
-
+    match field {
+      UserField::InitPath => {
         if let Value::String(s) = value {
-          self.init_url = s.into();
-
+          self.init_path = s.into();
         } else {
-          return Err(
-            "init_url key expects a string value".into())
+          return Err("init_path field expects a string value".into())
         }
       }
-      UserKey::Layout => {
-
+      UserField::Layout => {
         if let Value::Table(t) = value {
           self.layout = UserLayout::default()
             .read_table(t)?;
-
         } else {
-          return Err(
-            "layout key expects a table value".into())
+          return Err("layout field expects a table value".into())
         }
       }
-      UserKey::Keys => {
-
+      UserField::Fields => {
         if let Value::Table(t) = value {
-          self.keys = UserKeys::default()
-            .read_table(t)?;
-
+          self.keys = UserKeys::default().read_table(t)?;
         } else {
-          return Err(
-            "keys key expects a table value".into())
+          return Err("keys field expects a table value".into())
         }
       }
     }
     Ok(())
   }
-
-
-  pub fn get_layout(&self, w: u16, h: u16) -> (Page, Page) 
-  {
-    let rect = Rect::new(w, h);
-    self.layout.get_layout(&rect)
-  }
-
-
-  pub fn get_hdr_doc(&self, info: &str, page: &Page) 
-    -> Doc 
-  {
-    let fg = self.layout.banner
-      .unwrap_or(Color::White);
-    let bg = self.layout.background
-      .unwrap_or(Color::Black);
-    let line = &String::from("-")
-      .repeat(page.text.w);
-
-    Doc::new(
-      vec![
-        Text::from(info).fg(fg).bg(bg),
-        Text::from(line.as_str()).fg(fg).bg(bg), 
-      ],
-      &page
-    )
-  }
-
-
-  pub fn text(&self, page: &Page, text: &str) -> Dialog {
-
-    let mut dlg = Dialog::new(page, text);
-    let pos = dlg.input_page.pos();
-    let color = self.layout.dialog.unwrap_or(Color::White);
-    let editor = Editor::new(&dlg.input_page, "", color);
-
-    dlg.input_type = InputType::Text(editor, pos);
-    dlg
-  }
-
-
-  pub fn ack(&self, page: &Page, text: &str) -> Dialog {
-
-    let mut dlg = Dialog::new(page, text);
-    dlg.input_type = InputType::Ack(self.keys.ack);
-    dlg
-  }
-
-
-  pub fn ask(&self, page: &Page, text: &str) -> Dialog {
-
-    let mut dlg = Dialog::new(page, text);
-    dlg.input_type = InputType::Ask
-      (self.keys.yes, self.keys.no);
-    dlg
-  }
-
-
-  pub fn get_doc(&self, gdoc: &GemDoc, page: &Page) -> Doc {
-    let text = self.layout.gemtext_to_text(&gdoc.doc);
-    Doc::new(text, &page)
-  }
-
-
-  pub fn get_page(&self, w: u16, h: u16) -> Page {
-    let rect = Rect::new(w, h);
-    self.layout.get_page_from_rect(&rect)
-  }
 }
 
-
 #[derive(Debug)]
-enum KeysKey {
+enum KeysField {
   Global, 
-  MsgView, 
   LoadUser,
+  MsgView, 
   TabView, 
   MoveUp, 
   MoveDown, 
@@ -213,12 +173,9 @@ enum KeysKey {
   No, 
   Cancel,
 }
-impl KeysKey {
-
-  pub fn try_from_string(key: &str) 
-    -> Result<Self, String> 
-  {
-    match key {
+impl Field for KeysField {
+  fn try_from_string(s: &str) -> Result<Self, String> {
+    match s {
       "global"      => Ok(Self::Global),
       "msg_view"    => Ok(Self::MsgView),
       "tab_view"    => Ok(Self::TabView),
@@ -236,14 +193,11 @@ impl KeysKey {
       "yes"         => Ok(Self::Yes),
       "no"          => Ok(Self::No),
       "cancel"      => Ok(Self::Cancel),
-      key => 
-        Err(
-          format!(
-            "KeysKeys table does not contain key {}.", key)),
+      s => 
+        Err(format!("No field {} in UserKeys table", s)),
     }
   }
 }
-
 
 #[derive(Clone)]
 pub struct UserKeys {
@@ -266,7 +220,6 @@ pub struct UserKeys {
   pub no:          KeyCode
 } 
 impl Default for UserKeys {
-
   fn default() -> Self {
     Self {
       global:      KeyCode::Char('g'),
@@ -289,63 +242,47 @@ impl Default for UserKeys {
     }
   }
 }
-impl UserKeys {
-
-  fn try_assign(&mut self, key: &KeysKey, value: &Value) 
+impl UserMod<KeysField> for UserKeys {
+  fn try_assign(&mut self, field: &KeysField, value: &Value) 
     -> Result<(), String> 
   {
     let v = Self::try_from_value(value)?;
-    match key {
-      KeysKey::Global     => self.global = v,
-      KeysKey::MsgView    => self.msg_view = v,
-      KeysKey::LoadUser   => self.load_usr = v,
-      KeysKey::TabView    => self.tab_view = v,
-      KeysKey::MoveUp     => self.move_up = v,
-      KeysKey::MoveDown   => self.move_down = v,
-      KeysKey::MoveLeft   => self.move_left = v,
-      KeysKey::MoveRight  => self.move_right = v,
-      KeysKey::CycleLeft  => self.cycle_left = v,
-      KeysKey::CycleRight => self.cycle_right = v,
-      KeysKey::DelTab     => self.delete_tab = v,
-      KeysKey::NewTab     => self.new_tab = v,
-      KeysKey::Inspect    => self.inspect = v,
-      KeysKey::Ack        => self.ack = v,
-      KeysKey::Yes        => self.yes = v,
-      KeysKey::No         => self.no = v,
-      KeysKey::Cancel     => self.cancel = v,
+    match field {
+      KeysField::Global     => self.global = v,
+      KeysField::MsgView    => self.msg_view = v,
+      KeysField::LoadUser   => self.load_usr = v,
+      KeysField::TabView    => self.tab_view = v,
+      KeysField::MoveUp     => self.move_up = v,
+      KeysField::MoveDown   => self.move_down = v,
+      KeysField::MoveLeft   => self.move_left = v,
+      KeysField::MoveRight  => self.move_right = v,
+      KeysField::CycleLeft  => self.cycle_left = v,
+      KeysField::CycleRight => self.cycle_right = v,
+      KeysField::DelTab     => self.delete_tab = v,
+      KeysField::NewTab     => self.new_tab = v,
+      KeysField::Inspect    => self.inspect = v,
+      KeysField::Ack        => self.ack = v,
+      KeysField::Yes        => self.yes = v,
+      KeysField::No         => self.no = v,
+      KeysField::Cancel     => self.cancel = v,
     }
     Ok(())
   }
-
-
-  pub fn read_table(mut self, table: &Table) 
-    -> Result<Self, String> 
-  {
-    for (key, value) in table.iter() {
-      let k = KeysKey::try_from_string(&key)?;
-      self.try_assign(&k, value)?;
-    }
-    Ok(self)
-  }
-
-
-  pub fn try_from_value(value: &Value) 
-    -> Result<KeyCode, String> 
-  {
+}
+impl UserKeys {
+  pub fn try_from_value(value: &Value) -> Result<KeyCode, String> {
     if let Value::String(s) = value {
-      if let Some(kc) = Self::keycode_from_string(&s) {
-        Ok(kc)
+      if let Some(keycode) = Self::keycode_from_string(&s) {
+        Ok(keycode)
       } else {
-        Err("i cant do it".into())
+        Err("could not parse keycode from string".into())
       }
     } else {
-      Err("i cant do it".into())
+      Err("could not parse keycode from value".into())
     }
   }
-
-
-  pub fn keycode_from_string(text: &str) -> Option<KeyCode> {
-    match text {
+  fn keycode_from_string(s: &str) -> Option<KeyCode> {
+    match s {
       "esc" | "escape"  => Some(KeyCode::Esc),
       "ent" | "enter"   => Some(KeyCode::Enter),
       "space"           => Some(KeyCode::Char(' ')),
@@ -353,145 +290,58 @@ impl UserKeys {
       "up"              => Some(KeyCode::Up),
       "down"            => Some(KeyCode::Down),
       "right"           => Some(KeyCode::Right),
-      t => 
-        t
-          .chars()
-          .next()
-          .map(|c| KeyCode::Char(c)),
+      s => 
+        s.chars().next().map(|c| KeyCode::Char(c)),
     }
   }
 }
 
-
 #[derive(Debug)]
-enum LayoutKey {
-  Color(ColorLayoutKey), 
-  Text(TextLayoutKey), 
-  U16(U16LayoutKey),
+enum LayoutField {
+  Color(ColorLayoutField), 
+  U16(U16LayoutField),
 }
-impl LayoutKey {
-
-  pub fn try_from_string(key: &str) 
-    -> Result<Self, String> 
-  {
-    match key {
+impl Field for LayoutField {
+  fn try_from_string(s: &str) -> Result<Self, String> {
+    match s {
       "x_text" => 
-        Ok(Self::U16(U16LayoutKey::XText)),
-
+        Ok(Self::U16(U16LayoutField::XText)),
       "y_text" => 
-        Ok(Self::U16(U16LayoutKey::YText)),
-
+        Ok(Self::U16(U16LayoutField::YText)),
       "x_page" => 
-        Ok(Self::U16(U16LayoutKey::XPage)),
-
+        Ok(Self::U16(U16LayoutField::XPage)),
       "y_page" => 
-        Ok(Self::U16(U16LayoutKey::YPage)),
-
+        Ok(Self::U16(U16LayoutField::YPage)),
       "scroll_at" => 
-        Ok(Self::U16(U16LayoutKey::ScrollAt)),
-
+        Ok(Self::U16(U16LayoutField::ScrollAt)),
       "background" | "bg" => 
-        Ok(Self::Color(ColorLayoutKey::Bg)),
-
-      "dialog" | "dlg" => 
-        Ok(Self::Color(ColorLayoutKey::Dlg)),
-
+        Ok(Self::Color(ColorLayoutField::Bg)),
       "banner" => 
-        Ok(Self::Color(ColorLayoutKey::Banner)),
-
-      "border" => 
-        Ok(Self::Color(ColorLayoutKey::Border)),
-
-      "text" => 
-        Ok(Self::Text(TextLayoutKey::Text)),
-
-      "header1" | "h1" => 
-        Ok(Self::Text(TextLayoutKey::H1)),
-
-      "header2" | "h2" => 
-        Ok(Self::Text(TextLayoutKey::H2)),
-
-      "header3" | "h3" => 
-        Ok(Self::Text(TextLayoutKey::H3)),
-
-      "link" => 
-        Ok(Self::Text(TextLayoutKey::Link)),
-
-      "badlink" => 
-        Ok(Self::Text(TextLayoutKey::BadLink)),
-
-      "quote" => 
-        Ok(Self::Text(TextLayoutKey::Quote)),
-
-      "list" => 
-        Ok(Self::Text(TextLayoutKey::List)),
-
-      "preformat" => 
-        Ok(Self::Text(TextLayoutKey::Preformat)),
-
-      key => 
-        Err(
-          format!(
-            "Layout table does not contain key {}.", key)),
+        Ok(Self::Color(ColorLayoutField::Banner)),
+      s => 
+        Err(format!("Layout table does not contain field {}.", s)),
     }
   }
 }
 
-
 #[derive(Debug)]
-enum ColorLayoutKey {
+enum ColorLayoutField {
   Bg, Banner, Border, Dlg,
 }
-impl ColorLayoutKey {
-  pub fn try_parse_value(&self, value: &Value) 
-    -> Result<Color, String>
-  {
-    parse_color(value)
-      .map_err(|e| format!("{:?} : {}", self, e))
+impl ColorLayoutField {
+  pub fn try_parse_value(&self, value: &Value) -> Result<Color, String> {
+    parse_color(value).map_err(|e| format!("{:?} : {}", self, e))
   }
 }
 
-
 #[derive(Debug)]
-enum TextLayoutKey {
-  Text, 
-  H1, 
-  H2, 
-  H3, 
-  Link, 
-  BadLink, 
-  Quote, 
-  List, 
-  Preformat,
-}
-impl TextLayoutKey {
-  pub fn try_parse_value(&self, value: &Value) 
-    -> Result<UserText, String>
-  {
-    if let Value::Table(t) = value {
-      UserText::default()
-        .read_table(t)
-        .map_err(|e| format!("{:?} : {}", self, e))
-
-    } else {
-      Err(format!("prefix doesnt take {:?}", value))
-    }
-  }
-}
-
-
-#[derive(Debug)]
-enum U16LayoutKey {
+enum U16LayoutField {
   XPage, YPage, XText, YText, ScrollAt,
 }
-impl U16LayoutKey {
-  pub fn try_parse_value(&self, value: &Value) 
-    -> Result<u16, String>
-  {
+impl U16LayoutField {
+  pub fn try_parse_value(&self, value: &Value) -> Result<u16, String> {
     if let Value::Integer(t) = value {
-        u16::try_from(*t)
-        .map_err(|e| format!("{:?} : {}", self, e))
-
+      u16::try_from(*t).map_err(|e| format!("{:?} : {}", self, e))
     } else {
       Err(format!("prefix doesnt take {:?}", value))
     }
@@ -510,17 +360,8 @@ pub struct UserLayout {
   pub border:     Option<Color>,
   pub dialog:     Option<Color>,
   pub text:       UserText,
-  pub heading1:   UserText,
-  pub heading2:   UserText,
-  pub heading3:   UserText,
-  pub link:       UserText,
-  pub badlink:    UserText,
-  pub quote:      UserText,
-  pub list:       UserText,
-  pub preformat:  UserText,
 } 
 impl Default for UserLayout {
-
   fn default() -> Self {
     Self {
       scroll_at:  3,
@@ -533,255 +374,88 @@ impl Default for UserLayout {
       border:     None,
       dialog:     None,
       text:       UserText::default(),
-      heading1:   UserText::default(),
-      heading2:   UserText::default(),
-      heading3:   UserText::default(),
-      link:       UserText::default(),
-      badlink:    UserText::default(),
-      quote:      UserText::default(),
-      list:       UserText::default(),
-      preformat:  UserText::default(),
     }
   }
 }
-impl UserLayout {
-
-  fn try_assign(&mut self, key: &LayoutKey, value: &Value) 
+impl UserMod<LayoutField> for UserLayout {
+  fn try_assign(&mut self, field: &LayoutField, value: &Value) 
     -> Result<(), String> 
   {
-    match key {
-      LayoutKey::Color(key) => {
-        let v = key.try_parse_value(&value)?;
-
-        match key {
-          ColorLayoutKey::Bg => 
-            self.background = Some(v),
-
-          ColorLayoutKey::Banner => 
-            self.banner = Some(v),
-
-          ColorLayoutKey::Border => 
-            self.border = Some(v),
-
-          ColorLayoutKey::Dlg => 
-            self.dialog = Some(v),
+    match field {
+      LayoutField::Color(field) => {
+        let v = field.try_parse_value(&value)?;
+        match field {
+          ColorLayoutField::Bg      => self.background = Some(v),
+          ColorLayoutField::Banner  => self.banner = Some(v),
+          ColorLayoutField::Border  => self.border = Some(v),
+          ColorLayoutField::Dlg     => self.dialog = Some(v),
         }
       }
-      LayoutKey::U16(key) => {
-        let v = key.try_parse_value(&value)?;
-        match key {
-          U16LayoutKey::XText => 
-            self.x_text = v,
-
-          U16LayoutKey::YText => 
-            self.y_text = v,
-
-          U16LayoutKey::XPage => 
-            self.x_page = v,
-
-          U16LayoutKey::YPage => 
-            self.y_page = v,
-
-          U16LayoutKey::ScrollAt => 
-            self.scroll_at = v,
-        }
-      }
-      LayoutKey::Text(key) => {
-        let v = key.try_parse_value(&value)?;
-        match key {
-          TextLayoutKey::Text => 
-            self.text = v,
-
-          TextLayoutKey::H1 => 
-            self.heading1 = v,
-
-          TextLayoutKey::H2 => 
-            self.heading2 = v,
-
-          TextLayoutKey::H3 => 
-            self.heading3 = v,
-
-          TextLayoutKey::Link => 
-            self.link = v,
-
-          TextLayoutKey::BadLink => 
-            self.badlink = v,
-
-          TextLayoutKey::Quote => 
-            self.quote = v,
-
-          TextLayoutKey::List => 
-            self.list = v,
-
-          TextLayoutKey::Preformat => 
-            self.preformat = v,
+      LayoutField::U16(field) => {
+        let v = field.try_parse_value(&value)?;
+        match field {
+          U16LayoutField::XText     => self.x_text = v,
+          U16LayoutField::YText     => self.y_text = v,
+          U16LayoutField::XPage     => self.x_page = v,
+          U16LayoutField::YPage     => self.y_page = v,
+          U16LayoutField::ScrollAt  => self.scroll_at = v,
         }
       }
     }
     Ok(())
   }
-
-
-  pub fn read_table(mut self, table: &Table) 
-    -> Result<Self, String> 
-  {
-    for (key, value) in table.iter() {
-      let k = LayoutKey::try_from_string(&key)?;
-      self.try_assign(&k, value)?;
-    }
-    Ok(self)
-  }
-
-
-  // called infrequently, construct many things
-  // based on screensize and usr
-  pub fn get_layout(&self, rect: &Rect) -> (Page, Page) {
-
-    let (hdr_rect, tab_rect) = {
-      let rect = rect
-          .crop_x(self.x_page)
-          .crop_y(self.y_page);
-      (rect.crop_south(rect.y().len16() - 2), 
-       rect.crop_north(2))
-    };
-    let hdr = Page::new(&hdr_rect)
-      .text(self.x_text, 0);
-    let tab = Page::new(&tab_rect)
-      .text(self.x_text, self.y_text)
-      .scroll(self.scroll_at, self.scroll_at);
-    (hdr, tab)
-  }
-
-
+}
+impl UserLayout {
   pub fn get_rect_from_dim(&self, w: u16, h: u16) -> Rect {
     Rect::new(w, h)
       .crop_x(self.x_page)
       .crop_y(self.y_page)
   }
-
-
-  pub fn get_page_from_rect(&self, rect: &Rect) -> Page {
-    let rect = rect
-      .crop_x(self.x_page)
-      .crop_y(self.y_page);
-    Page::new(&rect)
-      .text(self.x_text, self.y_text)
-      .scroll(self.scroll_at, self.scroll_at)
-  }
-
-
-  pub fn gemtext_to_text(&self, gem: &Vec<GemText>) 
-    -> Vec<Text>
-  {
-    gem.iter()
-      .map(|gem| self.get_user_text(&gem)).collect()
-  }
-
-
-  pub fn get_user_text(&self, gtxt: &GemText) -> Text {
-    let text = match gtxt.tag {
-      GemTag::HeadingOne => 
-        self.heading1.get_text(&gtxt.txt).wrap(),
-
-      GemTag::HeadingTwo => 
-        self.heading2.get_text(&gtxt.txt).wrap(),
-
-      GemTag::HeadingThree => 
-        self.heading3.get_text(&gtxt.txt).wrap(),
-
-      GemTag::Text => 
-        self.text.get_text(&gtxt.txt).wrap(),
-
-      GemTag::PreFormat => 
-        self.preformat.get_text(&gtxt.txt),
-
-      GemTag::Link(_, _) => 
-        self.link.get_text(&gtxt.txt).wrap(),
-
-      GemTag::BadLink(_) => 
-        self.badlink.get_text(&gtxt.txt),
-
-      GemTag::ListItem => 
-        self.list.get_text(&gtxt.txt).wrap(),
-
-      GemTag::Quote => 
-        self.quote.get_text(&gtxt.txt).wrap(),
-    };
-    text.bg(self.background.unwrap_or(Color::Black))
-  }
 }
 
-
 #[derive(Debug)]
-enum TextKey {
-  Color(ColorTextKey), 
-  Usize(UsizeTextKey), 
+enum TextField {
+  Color(ColorTextField), 
+  Usize(UsizeTextField), 
   Prefix,
 }
-impl TextKey {
-
-  pub fn try_from_string(key: &str) 
-    -> Result<Self, String> 
-  {
-    match key {
-      "fg" => 
-        Ok(Self::Color(ColorTextKey::Fg)),
-
-      "bg" => 
-        Ok(Self::Color(ColorTextKey::Bg)),
-
-      "above" => 
-        Ok(Self::Usize(UsizeTextKey::Above)),
-
-      "below" => 
-        Ok(Self::Usize(UsizeTextKey::Below)),
-
-      "prefix" => 
-        Ok(Self::Prefix),
-
-      key => 
-        Err(
-          format!(
-            "{} no such field in the table", key)),
+impl Field for TextField {
+  fn try_from_string(s: &str) -> Result<Self, String> {
+    match s {
+      "fg"      => Ok(Self::Color(ColorTextField::Fg)),
+      "bg"      => Ok(Self::Color(ColorTextField::Bg)),
+      "above"   => Ok(Self::Usize(UsizeTextField::Above)),
+      "below"   => Ok(Self::Usize(UsizeTextField::Below)),
+      "prefix"  => Ok(Self::Prefix),
+      s => Err(format!("{} no such field in the table", s)),
     }
   }
 }
 
-
 #[derive(Debug)]
-enum ColorTextKey {
+enum ColorTextField {
   Fg, Bg,
 }
-impl ColorTextKey {
-
-  pub fn try_parse_value(&self, value: &Value) 
-    -> Result<Color, String>
-  {
-    parse_color(value)
-      .map_err(|e| format!("{:?} : {}", self, e))
+impl ColorTextField {
+  pub fn try_parse_value(&self, value: &Value) -> Result<Color, String> {
+    parse_color(value).map_err(|e| format!("{:?} : {}", self, e))
   }
 }
 
-
 #[derive(Debug)]
-enum UsizeTextKey {
+enum UsizeTextField {
   Above, Below,
 }
-impl UsizeTextKey {
-
-  pub fn try_parse_value(&self, value: &Value) 
-    -> Result<usize, String>
-  {
+impl UsizeTextField {
+  pub fn try_parse_value(&self, value: &Value) -> Result<usize, String> {
     match value {
       Value::Integer(i) => 
-        usize::try_from(*i)
-          .map_err(|e| format!("{:?} : {}", self, e)),
-      v => 
-        Err(format!("{:?} doesn't take {:?}", self, v)),
+        usize::try_from(*i).map_err(|e| format!("{:?} : {}", self, e)),
+      value => 
+        Err(format!("{:?} doesn't take {:?}", self, value)),
     }
   }
 }
-
 
 #[derive(Clone)]
 pub struct UserText {
@@ -792,7 +466,6 @@ pub struct UserText {
   pub prefix: String,
 } 
 impl Default for UserText {
-
   fn default() -> Self {
     Self {
       fg: None,
@@ -803,58 +476,30 @@ impl Default for UserText {
     }
   }
 }
-impl UserText {
-
-  pub fn get_text(&self, text: &str) -> Text {
-    let mut text = Text::from(text)
-      .above(self.above)
-      .below(self.below)
-      .prefix(&self.prefix);
-    if let Some(fg) = self.fg {
-      text = text.fg(fg);
-    }
-    if let Some(bg) = self.bg {
-      text = text.bg(bg);
-    }
-    text
-  }
-
-
-  pub fn read_table(mut self, table: &Table) 
-    -> Result<Self, String> 
-  {
-    for (key, value) in table.iter() {
-      let k = TextKey::try_from_string(&key)?;
-      self.try_assign(&k, value)?;
-    }
-    Ok(self)
-  }
-
-
-  fn try_assign(&mut self, key: &TextKey, value: &Value) 
+impl UserMod<TextField> for UserText {
+  fn try_assign(&mut self, field: &TextField, value: &Value) 
     -> Result<(), String> 
   {
-    match key {
-      TextKey::Color(k) => {
-        let v = k.try_parse_value(&value)?;
-        match k {
-          ColorTextKey::Fg => self.fg = Some(v),
-          ColorTextKey::Bg => self.bg = Some(v),
+    match field {
+      TextField::Color(field) => {
+        let v = field.try_parse_value(&value)?;
+        match field {
+          ColorTextField::Fg => self.fg = Some(v),
+          ColorTextField::Bg => self.bg = Some(v),
         }
       }
-      TextKey::Usize(k) => {
-        let v = k.try_parse_value(&value)?;
-        match k {
-          UsizeTextKey::Above => self.above = v,
-          UsizeTextKey::Below => self.below = v,
+      TextField::Usize(field) => {
+        let v = field.try_parse_value(&value)?;
+        match field {
+          UsizeTextField::Above => self.above = v,
+          UsizeTextField::Below => self.below = v,
         }
       }
-      TextKey::Prefix => {
+      TextField::Prefix => {
         if let Value::String(s) = value {
           self.prefix = s.into(); 
         } else {
-          return Err(
-            format!("prefix doesnt take {:?}", value))
+          return Err(format!("prefix doesnt take {:?}", value))
         }
       }
     }
