@@ -8,70 +8,74 @@ use crate::{
 };
 use crossterm::{
   QueueableCommand,
-  style::{
-    Color, SetForegroundColor, 
-    SetBackgroundColor, Print, ResetColor
-  },
-  cursor::{self, MoveTo},
   terminal::{self, Clear, ClearType},
   event::{self, Event, KeyEvent, KeyEventKind, KeyCode, KeyModifiers},
 };
 use std::{
   fs, env,
   str::FromStr,
-  io::{self, stdout, Stdout, Write, Error},
+  io::{self, Write, Stdout},
 };
 
 pub struct App {
   pub usr:      User,
   pub page:     TextBox,
   pub clear:    bool,
-  pub stdout:   Stdout,
   pub quit:     bool,
 } 
 impl App {
-  pub fn init(usr_path: &str) -> Result<Self, Error> {
+  pub fn run(path: &str, stdout: &mut Stdout) -> io::Result<()> {
+
+    terminal::enable_raw_mode()?;
+    stdout
+      .queue(terminal::EnterAlternateScreen)?
+      .queue(terminal::DisableLineWrap)?;
+
+    let (w, h) = terminal::size()?;
+    let mut app = Self::init(&path, w, h);
+    app.view(stdout)?;
+
+    while !app.quit {
+      if app.update(event::read()?) {
+        app.view(stdout)?;
+      }
+    }
+
+    stdout
+      .queue(terminal::LeaveAlternateScreen)?
+      .queue(terminal::EnableLineWrap)?
+      .flush()?;
+
+    terminal::disable_raw_mode()
+  }
+  pub fn init(usr_path: &str, w: u16, h: u16) -> Self {
     let usr_text = fs::read_to_string(usr_path).unwrap_or_default();
     let usr      = User::from_str(&usr_text).unwrap_or_default();
     let text     = fs::read_to_string(&usr.init_url).unwrap_or_default();
 
-    terminal::enable_raw_mode()?;
-    let (w, h) = terminal::size()?;
     let mut rect = Rect::new(w, h);
     rect.crop_x(usr.style.x_margin);
     rect.crop_y(usr.style.y_margin);
+
     let mut text_box = TextBox::new(&text, &rect);
     text_box.fg = usr.style.fg;
     text_box.bg = usr.style.bg;
-    let mut app = Self {
+
+    Self {
       usr,
-      stdout:   stdout(),
-      page:     text_box,
-      quit:     false, 
-      clear:    false
-    };
-    app.stdout
-      .queue(terminal::EnterAlternateScreen)?
-      .queue(terminal::DisableLineWrap)?;
-    Ok(app)
-  }
-  pub fn run(&mut self) -> io::Result<()> {
-    while !self.quit {
-      if self.update(event::read()?) {
-        if self.clear {
-          self.stdout.queue(Clear(ClearType::All))?;
-        }
-        self.page.view(&mut self.stdout)?;
-        self.stdout.flush()?;
-      }
+      page:  text_box,
+      quit:  false, 
+      clear: false
     }
-    terminal::disable_raw_mode()?;
-    self.stdout
-      .queue(terminal::LeaveAlternateScreen)?
-      .queue(terminal::EnableLineWrap)?
-      .flush()
   }
-  pub fn update(&mut self, event: Event) -> bool {
+  fn view<W: Write>(&mut self, writer: &mut W) -> io::Result<()> {
+    if self.clear {
+      writer.queue(Clear(ClearType::All))?;
+    }
+    self.page.view(writer)?;
+    writer.flush()
+  }
+  fn update(&mut self, event: Event) -> bool {
     self.clear = false;
     match event {
       Event::Key(

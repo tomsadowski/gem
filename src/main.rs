@@ -13,14 +13,16 @@ mod usr;
 mod util;
 
 use crate::app::App;
-use std::{fs, env, io};
+use std::{
+  fs, env, 
+  io::{self, stdout},
+};
 
 fn main() -> io::Result<()> {
   let args: Vec<String> = env::args().collect();
   let default_path = String::from(".gemset");
-  let path = args.get(1).unwrap_or(&default_path); 
-  let text = fs::read_to_string(path).unwrap();
+  let init_path    = args.get(1).unwrap_or(&default_path); 
 
-  let mut app = App::init(&text)?;
-  app.run()
+  let mut stdout = stdout();
+  App::run(init_path, &mut stdout)
 }

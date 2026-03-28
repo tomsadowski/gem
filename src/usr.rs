@@ -29,7 +29,7 @@ pub struct User {
 impl Default for User {
   fn default() -> Self {
     Self {
-      init_url:  ".".into(),
+      init_url:  "src/main.rs".into(),
       style:     Style::default(),
       keys:      Keys::default(),
     }
