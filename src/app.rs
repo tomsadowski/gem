@@ -18,62 +18,65 @@ use std::{
 };
 
 pub struct App {
-  pub usr:      User,
-  pub page:     TextBox,
-  pub clear:    bool,
-  pub quit:     bool,
+  pub usr:   User,
+  pub page:  TextBox,
+  pub clear: bool,
+  pub quit:  bool,
 } 
 impl App {
   pub fn run(path: &str, stdout: &mut Stdout) -> io::Result<()> {
-
+    // register keystrokes 
     terminal::enable_raw_mode()?;
+    // handle line wrapping manually
     stdout
       .queue(terminal::EnterAlternateScreen)?
       .queue(terminal::DisableLineWrap)?;
-
-    let (w, h) = terminal::size()?;
-    let mut app = Self::init(&path, w, h);
+    // initialize app
+    let mut app = {
+      let usr_text = 
+        fs::read_to_string(path)
+          .unwrap_or_default();
+      let usr = 
+        User::from_str(&usr_text)
+          .unwrap_or_default();
+      let text = 
+        fs::read_to_string(&usr.init_url)
+          .unwrap_or_default();
+      let (w, h) = terminal::size()?;
+      let mut rect = Rect::new(w, h);
+      rect.crop_x(usr.style.x_margin);
+      rect.crop_y(usr.style.y_margin);
+      let mut text_box = TextBox::new(&text, &rect);
+      text_box.fg = usr.style.fg;
+      text_box.bg = usr.style.bg;
+      Self {
+        usr,
+        page:  text_box,
+        quit:  false, 
+        clear: false
+      }
+    };
+    // initial display
     app.view(stdout)?;
-
+    // main loop
     while !app.quit {
       if app.update(event::read()?) {
         app.view(stdout)?;
       }
     }
-
+    // return terminal to normal state
     stdout
       .queue(terminal::LeaveAlternateScreen)?
       .queue(terminal::EnableLineWrap)?
       .flush()?;
-
     terminal::disable_raw_mode()
   }
-  pub fn init(usr_path: &str, w: u16, h: u16) -> Self {
-    let usr_text = fs::read_to_string(usr_path).unwrap_or_default();
-    let usr      = User::from_str(&usr_text).unwrap_or_default();
-    let text     = fs::read_to_string(&usr.init_url).unwrap_or_default();
-
-    let mut rect = Rect::new(w, h);
-    rect.crop_x(usr.style.x_margin);
-    rect.crop_y(usr.style.y_margin);
-
-    let mut text_box = TextBox::new(&text, &rect);
-    text_box.fg = usr.style.fg;
-    text_box.bg = usr.style.bg;
-
-    Self {
-      usr,
-      page:  text_box,
-      quit:  false, 
-      clear: false
-    }
-  }
-  fn view<W: Write>(&mut self, writer: &mut W) -> io::Result<()> {
+  fn view(&mut self, stdout: &mut Stdout) -> io::Result<()> {
     if self.clear {
-      writer.queue(Clear(ClearType::All))?;
+      stdout.queue(Clear(ClearType::All))?;
     }
-    self.page.view(writer)?;
-    writer.flush()
+    self.page.view(stdout)?;
+    stdout.flush()
   }
   fn update(&mut self, event: Event) -> bool {
     self.clear = false;

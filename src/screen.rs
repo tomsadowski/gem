@@ -112,13 +112,13 @@ impl LineView {
       view_size
     }
   }
-  // damage control
+  // preserve cursor position if it still fits in the new bounds
   pub fn resize(&mut self, 
                 new_line_head:  usize, 
                 new_view_start: u16, 
                 new_view_size:  u16) 
   {
-    let view_head_relative = self.view_head - self.view_start;
+    let cursor_position = self.view_head - self.view_start;
 
     // go to beginning of line
     if new_line_head < usize::from(new_view_size) {
@@ -129,22 +129,22 @@ impl LineView {
       self.view_head  = self.view_start + u16::try_from(self.line_head)
           .expect("We do not have Allah's permission");
 
-    // view_head_relative is too large, fit it into new_view_size
-    } else if view_head_relative > new_view_size - 1 {
+    // cursor_position must be lowered to fit within new bounds
+    } else if cursor_position > new_view_size - 1 {
       self.view_start = new_view_start;
       self.view_size  = new_view_size;
       self.line_head  = new_line_head;
       self.view_head  = self.view_start + self.view_size - 1;
       self.line_start = self.line_head - usize::from(self.view_size - 1);
 
-    // view_head_relative can be preserved
+    // cursor_position can be preserved
     } else {
       self.view_start = new_view_start;
       self.view_size  = new_view_size;
       self.line_head  = new_line_head;
-      self.view_head  = self.view_start + view_head_relative;
+      self.view_head  = self.view_start + cursor_position;
       self.line_start = self.line_head
-        .saturating_sub(usize::from(view_head_relative));
+        .saturating_sub(usize::from(cursor_position));
     }
   }
   pub fn update(&mut self, new_line_head: usize) {
