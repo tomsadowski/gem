@@ -5,7 +5,8 @@ use crate::{
   screen::{Rect, PlaneView},
 };
 use crossterm::{
-  QueueableCommand, cursor,
+  QueueableCommand, 
+  cursor::{self, MoveTo},
   style::{Print, Color, SetForegroundColor, SetBackgroundColor, ResetColor},
 };
 use std::io::{self, stdout, Write};
@@ -21,17 +22,22 @@ pub struct TextBox {
   pub text: String,
 }
 impl TextBox {
-  pub fn new(text: &str, rect: &Rect) -> Self {
-    let mut text_rect = rect.clone();
-    text_rect.crop_x(1);
-    text_rect.crop_y(1);
+  pub fn new(text: &str, 
+             page_rect: &Rect, 
+             x_margin: u16, 
+             y_margin: u16
+             ) -> Self 
+  {
+    let mut text_rect = page_rect.clone();
+    text_rect.crop_x(x_margin);
+    text_rect.crop_y(y_margin);
     let doc  = TextPlane::new(text, text_rect.w);
     let pos  = PlaneView::new(&text_rect);
     Self {
       fg:   None,
       bg:   None,
       text: text.into(),
-      page_rect: rect.clone(),
+      page_rect: page_rect.clone(),
       pos, text_rect, doc, 
     }
   }
@@ -46,26 +52,29 @@ impl TextBox {
 
     for x in self.page_rect.x_range() {
       for y in self.page_rect.north_range(&self.text_rect) {
-        writer.queue(cursor::MoveTo(x, y))?.queue(Print(' '))?;
+        writer.queue(MoveTo(x, y))?.queue(Print(' '))?;
       }
       for y in self.page_rect.south_range(&self.text_rect) {
-        writer.queue(cursor::MoveTo(x, y))?.queue(Print(' '))?;
+        writer.queue(MoveTo(x, y))?.queue(Print(' '))?;
       }
     }
     for y in self.text_rect.y_range() {
       for x in self.page_rect.east_range(&self.text_rect) {
-        writer.queue(cursor::MoveTo(x, y))?.queue(Print(' '))?;
+        writer.queue(MoveTo(x, y))?.queue(Print(' '))?;
       }
       for x in self.page_rect.west_range(&self.text_rect) {
-        writer.queue(cursor::MoveTo(x, y))?.queue(Print(' '))?;
+        writer.queue(MoveTo(x, y))?.queue(Print(' '))?;
       }
     }
+
     let mut lines = self.doc.text[self.pos.y_scroll()..].iter();
     for y in self.text_rect.y_range() {
+
       if let Some(line) = lines.next() {
+
         let mut chars = line.text[self.pos.x_scroll()..].chars();
         for x in self.text_rect.x_range() {
-          writer.queue(cursor::MoveTo(x, y))?;
+          writer.queue(MoveTo(x, y))?;
           if let Some(c) = chars.next() {
             writer.queue(Print(c))?;
           } else {
@@ -74,21 +83,21 @@ impl TextBox {
         }
       } else {
         for x in self.text_rect.x_range() {
-          writer.queue(cursor::MoveTo(x, y))?.queue(Print(' '))?;
+          writer.queue(MoveTo(x, y))?.queue(Print(' '))?;
         }
       }
     }
     writer
       .queue(ResetColor)?
-      .queue(cursor::MoveTo(self.pos.x_cursor(), self.pos.y_cursor()))?
+      .queue(MoveTo(self.pos.x_cursor(), self.pos.y_cursor()))?
       .queue(cursor::Show)?;
     Ok(())
   }
-  pub fn resize(&mut self, rect: &Rect) {
-    self.page_rect = rect.clone();
-    self.text_rect = rect.clone();
-    self.text_rect.crop_x(1);
-    self.text_rect.crop_y(1);
+  pub fn resize(&mut self, page_rect: &Rect, x_margin: u16, y_margin: u16) {
+    self.page_rect = page_rect.clone();
+    self.text_rect = page_rect.clone();
+    self.text_rect.crop_x(x_margin);
+    self.text_rect.crop_y(y_margin);
     self.doc.resize(&self.text, self.text_rect.w);
     self.pos.resize(&self.doc, &self.text_rect);
   }

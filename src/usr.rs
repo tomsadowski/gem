@@ -74,8 +74,10 @@ impl FromStr for User {
 }
 #[derive(Clone)]
 pub struct Style {
-  pub x_margin: u16,
-  pub y_margin: u16,
+  pub x_text_margin: u16,
+  pub y_text_margin: u16,
+  pub x_page_margin: u16,
+  pub y_page_margin: u16,
   pub banner:   Option<Color>,
   pub bg:       Option<Color>,
   pub fg:       Option<Color>,
@@ -83,8 +85,10 @@ pub struct Style {
 impl Default for Style {
   fn default() -> Self {
     Self {
-      x_margin: 0,
-      y_margin: 0,
+      x_text_margin: 1,
+      y_text_margin: 1,
+      x_page_margin: 0,
+      y_page_margin: 0,
       fg:       None,
       bg:       None,
       banner:   None,
@@ -115,8 +119,10 @@ impl UserMod<StyleField> for Style {
           }
         )?;
         match field {
-          MarginField::X => self.x_margin = v,
-          MarginField::Y => self.y_margin = v,
+          MarginField::TextX => self.x_text_margin = v,
+          MarginField::TextY => self.y_text_margin = v,
+          MarginField::PageX => self.x_page_margin = v,
+          MarginField::PageY => self.y_page_margin = v,
         }
       }
     }
@@ -238,17 +244,19 @@ enum ColorField {
 }
 #[derive(Debug)]
 enum MarginField {
-  X, Y
+  TextX, TextY, PageX, PageY,
 }
 impl FromStr for StyleField {
   type Err = String;
   fn from_str(s: &str) -> Result<Self, Self::Err> {
     match s {
-      "fg"       => Ok(Self::Color(ColorField::Fg)),
-      "bg"       => Ok(Self::Color(ColorField::Bg)),
-      "banner"   => Ok(Self::Color(ColorField::Banner)),
-      "x_margin" => Ok(Self::Margin(MarginField::X)),
-      "y_margin" => Ok(Self::Margin(MarginField::Y)),
+      "fg"            => Ok(Self::Color(ColorField::Fg)),
+      "bg"            => Ok(Self::Color(ColorField::Bg)),
+      "banner"        => Ok(Self::Color(ColorField::Banner)),
+      "x_text_margin" => Ok(Self::Margin(MarginField::TextX)),
+      "y_text_margin" => Ok(Self::Margin(MarginField::TextY)),
+      "x_page_margin" => Ok(Self::Margin(MarginField::PageX)),
+      "y_page_margin" => Ok(Self::Margin(MarginField::PageY)),
       s => Err(format!("Style table does not contain field {}", s)),
     }
   }

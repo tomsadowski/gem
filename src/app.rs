@@ -38,9 +38,13 @@ impl App {
           .unwrap();
       let (w, h) = terminal::size()?;
       let mut rect = Rect::new(w, h);
-      rect.crop_x(usr.style.x_margin);
-      rect.crop_y(usr.style.y_margin);
-      let mut text_box = TextBox::new(&text, &rect);
+      rect.crop_x(usr.style.x_page_margin);
+      rect.crop_y(usr.style.y_page_margin);
+      let mut text_box = TextBox::new(
+        &text, 
+        &rect, 
+        usr.style.x_text_margin, 
+        usr.style.y_text_margin);
       text_box.fg = usr.style.fg;
       text_box.bg = usr.style.bg;
       Self {
@@ -93,10 +97,12 @@ impl App {
         true
       }
       Event::Resize(w, h) => {
-        let mut rect = Rect::new(w, h);
-        rect.crop_x(self.usr.style.x_margin);
-        rect.crop_y(self.usr.style.y_margin);
-        self.page.resize(&rect);
+        let mut page_rect = Rect::new(w, h);
+        page_rect.crop_x(self.usr.style.x_page_margin);
+        page_rect.crop_y(self.usr.style.y_page_margin);
+        self.page.resize(&page_rect,
+          self.usr.style.x_text_margin, 
+          self.usr.style.y_text_margin);
         self.clear = true;
         true
       }

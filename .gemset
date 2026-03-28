@@ -3,8 +3,10 @@
 init_url = "/home/tsadowski/.config/nvim/readme.md"
 
 style = {
-  x_margin = 2,
-  y_margin = 2,
+  x_page_margin = 6,
+  y_page_margin = 1,
+  x_text_margin = 1,
+  y_text_margin = 2,
   fg = "c0c0c0",
   bg = "101010",
   banner = "c0c0c0",
