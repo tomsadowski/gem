@@ -87,6 +87,7 @@ impl TextBox {
         }
       }
     }
+    self.debug_cursor(writer)?;
     writer
       .queue(ResetColor)?
       .queue(MoveTo(self.pos.x_cursor(), self.pos.y_cursor()))?
@@ -145,7 +146,8 @@ impl TextBox {
   }
   fn debug_cursor<W: Write>(&self, writer: &mut W) -> io::Result<()> {
     let debug = format!(
-      "data(x: {} y: {}) scroll(x: {} y: {}) cursor(x: {} y: {})",
+      "data(idx: {} x: {} y: {}) scroll(x: {} y: {}) cursor(x: {} y: {})",
+      self.doc.get_idx(), 
       self.doc.x_head(), 
       self.doc.y_head(), 
       self.pos.x_scroll(), 

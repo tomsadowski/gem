@@ -38,6 +38,17 @@ pub trait Linear {
       0
     }
   }
+  fn tight_forward(&mut self, mut step: usize) -> usize {
+    let max_head = self.len().saturating_sub(1);
+    if self.head() + step > max_head {
+      step = self.head() + step - max_head;
+      *self.head_mut() = max_head;
+      step
+    } else {
+      *self.head_mut() += step;
+      0
+    }
+  }
   fn forward(&mut self, mut step: usize) -> usize {
     let max_head = self.max_head();
     if self.head() + step > max_head {
@@ -172,7 +183,7 @@ impl TextPlane {
         .collect();
     Self {head: 0, text}
   }
-  pub fn flat_head(&self) -> usize {
+  pub fn get_idx(&self) -> usize {
     self.text[..self.head()]
       .iter()
       .map(|line| line.len())
@@ -180,15 +191,15 @@ impl TextPlane {
       .sum()
   }
   pub fn resize(&mut self, text: &str, width: u16) {
-    let idx = self.flat_head();
+    let idx = self.get_idx();
     self.text = 
       util::wrap_lines(text, width.into())
         .into_iter()
         .map(|line| TextLine::from(line.as_str()))
         .collect();
-    self.text[0].head = 0;
-    self.head = 0;
-    self.right(idx);
+    self.start();
+    self.text[self.head].start();
+    self.restore_idx(idx);
   }
   pub fn up(&mut self, step: usize) -> bool {
     let x = self.x_head();
@@ -211,6 +222,17 @@ impl TextPlane {
     } else if self.backward(1) == 0 {
       self.text[self.head].end();
       self.left(remainder.saturating_sub(1))
+    } else {
+      remainder
+    }
+  }
+  pub fn restore_idx(&mut self, step: usize) -> usize {
+    let remainder = self.text[self.head].tight_forward(step);
+    if remainder == 0 {
+      0
+    } else if self.forward(1) == 0 {
+      self.text[self.head].start();
+      self.restore_idx(remainder.saturating_sub(1))
     } else {
       remainder
     }
