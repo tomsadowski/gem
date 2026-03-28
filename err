@@ -1,3 +1,6 @@
-   Compiling gem v0.1.0 (/home/tsadowski/.local/source/gem)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.21s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.05s
      Running `target/debug/gem`
+
+thread 'main' (83643) panicked at src/app.rs:38:12:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

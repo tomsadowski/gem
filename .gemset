@@ -1,16 +1,13 @@
 
 
-init_path  = "~/.config/nvim/readme.md"
+init_url = "/home/tsadowski/.config/nvim/readme.md"
 
-layout = {
-  x_page = 2,
-  y_page = 2,
-  x_text = 2,
-  y_text = 2,
-  background = "101010",
-  border = "c0c0c0",
+style = {
+  x_margin = 2,
+  y_margin = 2,
+  fg = "c0c0c0",
+  bg = "101010",
   banner = "c0c0c0",
-  text = "c0c0c0",
 }
 
 keys = {

@@ -5,7 +5,17 @@ use crossterm::{
   event::KeyCode,
 };
 use toml::{Table, Value};
+use std::ops::Range;
 
+pub fn safe_range<T>(a: T, b: T) -> Range<T> 
+where T: PartialOrd + PartialEq
+{
+  if a <= b {
+    Range {start: a, end: b}
+  } else {
+    Range {start: b, end: a}
+  }
+}
 
 pub fn wrap_lines(text: &str, width: usize) -> Vec<String> {
   text.lines().map(|l| wrap(l, width)).flatten().collect()

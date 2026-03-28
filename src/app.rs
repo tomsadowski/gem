@@ -25,23 +25,17 @@ pub struct App {
 } 
 impl App {
   pub fn run(path: &str, stdout: &mut Stdout) -> io::Result<()> {
-    // register keystrokes 
-    terminal::enable_raw_mode()?;
-    // handle line wrapping manually
-    stdout
-      .queue(terminal::EnterAlternateScreen)?
-      .queue(terminal::DisableLineWrap)?;
     // initialize app
     let mut app = {
       let usr_text = 
         fs::read_to_string(path)
-          .unwrap_or_default();
+          .unwrap();
       let usr = 
         User::from_str(&usr_text)
-          .unwrap_or_default();
+          .unwrap();
       let text = 
         fs::read_to_string(&usr.init_url)
-          .unwrap_or_default();
+          .unwrap();
       let (w, h) = terminal::size()?;
       let mut rect = Rect::new(w, h);
       rect.crop_x(usr.style.x_margin);
@@ -56,6 +50,12 @@ impl App {
         clear: false
       }
     };
+    // register keystrokes 
+    terminal::enable_raw_mode()?;
+    // handle line wrapping manually
+    stdout
+      .queue(terminal::EnterAlternateScreen)?
+      .queue(terminal::DisableLineWrap)?;
     // initial display
     app.view(stdout)?;
     // main loop
@@ -93,7 +93,10 @@ impl App {
         true
       }
       Event::Resize(w, h) => {
-        self.page.resize(w, h);
+        let mut rect = Rect::new(w, h);
+        rect.crop_x(self.usr.style.x_margin);
+        rect.crop_y(self.usr.style.y_margin);
+        self.page.resize(&rect);
         self.clear = true;
         true
       }

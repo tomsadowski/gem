@@ -1,6 +1,9 @@
 // src/screen.rs
 
-use crate::text::{TextPlane, Linear, Planar};
+use crate::{
+  util,
+  text::{TextPlane, Linear, Planar}
+};
 use std::ops::Range;
 
 #[derive(Clone, Default)]
@@ -59,6 +62,26 @@ impl Rect {
       self.x += step;
       self.w -= step;
     }
+  }
+  pub fn south_range(&self, rect: &Rect) -> Range<u16> {
+    let a = self.y_end();
+    let b = rect.y_end();
+    util::safe_range(a, b)
+  }
+  pub fn east_range(&self, rect: &Rect) -> Range<u16> {
+    let a = self.x_end();
+    let b = rect.x_end();
+    util::safe_range(a, b)
+  }
+  pub fn north_range(&self, rect: &Rect) -> Range<u16> {
+    let a = self.y;
+    let b = rect.y;
+    util::safe_range(a, b)
+  }
+  pub fn west_range(&self, rect: &Rect) -> Range<u16> {
+    let a = self.x;
+    let b = rect.x;
+    util::safe_range(a, b)
   }
 }
 #[derive(Clone, Debug, Default)]
