@@ -50,29 +50,6 @@ pub trait Linear {
     }
   }
 }
-
-pub trait Planar {
-  fn x_len(&self) -> usize;
-  fn x_head(&self) -> usize;
-  fn y_len(&self) -> usize;
-  fn y_head(&self) -> usize;
-  fn y_head_mut(&mut self) -> &mut usize;
-}
-impl<P: Planar> Linear for P {
-  fn len(&self) -> usize {
-    self.y_len()
-  }
-  fn max_head(&self) -> usize {
-    self.y_len().saturating_sub(1)
-  }
-  fn head(&self) -> usize {
-    self.y_head()
-  }
-  fn head_mut(&mut self) -> &mut usize {
-    self.y_head_mut()
-  }
-}
-
 #[derive(Clone, Debug, Default)]
 pub struct TextLine {
   pub head: usize,
@@ -124,6 +101,27 @@ impl TextLine {
   }
 }
 
+pub trait Planar {
+  fn x_len(&self) -> usize;
+  fn x_head(&self) -> usize;
+  fn y_len(&self) -> usize;
+  fn y_head(&self) -> usize;
+  fn y_head_mut(&mut self) -> &mut usize;
+}
+impl<P: Planar> Linear for P {
+  fn len(&self) -> usize {
+    self.y_len()
+  }
+  fn max_head(&self) -> usize {
+    self.y_len().saturating_sub(1)
+  }
+  fn head(&self) -> usize {
+    self.y_head()
+  }
+  fn head_mut(&mut self) -> &mut usize {
+    self.y_head_mut()
+  }
+}
 #[derive(Clone, Default)]
 pub struct TextPlane {
   pub head: usize,

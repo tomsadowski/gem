@@ -5,15 +5,8 @@ use crate::{
   screen::{Rect, PlaneView},
 };
 use crossterm::{
-  QueueableCommand,
-  style::{
-    Print, 
-    Color, 
-    SetForegroundColor, 
-    SetBackgroundColor, 
-    ResetColor
-  },
-  cursor::{self, MoveTo},
+  QueueableCommand, cursor,
+  style::{Print, Color, SetForegroundColor, SetBackgroundColor, ResetColor},
 };
 use std::io::{self, stdout, Write};
 
@@ -29,24 +22,14 @@ pub struct TextBox {
 impl TextBox {
   pub fn new(text: &str, rect: &Rect) -> Self {
     let rect = rect.clone();
-    let doc = TextPlane::new(text, rect.w);
-    let pos = PlaneView::new(&rect);
+    let doc  = TextPlane::new(text, rect.w);
+    let pos  = PlaneView::new(&rect);
     Self {
+      fg:   None,
+      bg:   None,
+      text: text.into(),
       pos, rect, doc, 
-      fg: None,
-      bg: None,
-      text: text.into()}
-  }
-  pub fn debug_cursor(&self) -> String {
-    format!(
-      "data(x: {} y: {}) shift(x: {} y: {}) point(x: {} y: {})",
-      self.doc.x_head(), 
-      self.doc.y_head(), 
-      self.pos.x.shift, 
-      self.pos.y.shift,
-      self.pos.x.point, 
-      self.pos.y.point,
-      )
+    }
   }
   pub fn view<W: Write>(&self, writer: &mut W) -> io::Result<()> {
     if let Some(fg) = self.fg {
@@ -57,26 +40,21 @@ impl TextBox {
     }
     writer.queue(cursor::Hide)?;
 
-    for (line, y) in self.doc.text[self.pos.y.shift..]
-      .iter().zip(self.rect.y..(self.rect.y + self.rect.h)) 
+    for (line, y) in 
+      self.doc.text[self.pos.y_scroll()..]
+        .iter().zip(self.rect.y_range()) 
     {
-      let mut chars = line.text[self.pos.x.shift..].chars();
-      for x in self.rect.x..(self.rect.x + self.rect.w) {
+      let mut chars = line.text[self.pos.x_scroll()..].chars();
+      for x in self.rect.x_range() {
         writer
-          .queue(MoveTo(x, y))?
+          .queue(cursor::MoveTo(x, y))?
           .queue(Print(chars.next().unwrap_or(' ')))?;
       }
     }
-    let debug = self.debug_cursor();
-    let mut chars = debug.chars();
-    for x in self.rect.x..(self.rect.x + self.rect.w) {
-      writer
-        .queue(MoveTo(x, self.rect.y + self.rect.h + 1))?
-        .queue(Print(chars.next().unwrap_or(' ')))?;
-    }
+    self.debug_cursor(writer)?;
     writer
       .queue(ResetColor)?
-      .queue(MoveTo(self.pos.x.point, self.pos.y.point))?
+      .queue(cursor::MoveTo(self.pos.x_cursor(), self.pos.y_cursor()))?
       .queue(cursor::Show)?;
     Ok(())
   }
@@ -105,28 +83,46 @@ impl TextBox {
       true 
     } else {false}
   }
-  pub fn left(&mut self) -> bool {
-    if self.doc.left(1) == 0 {
+  pub fn left(&mut self, step: usize) -> bool {
+    if self.doc.left(step) == 0 {
       self.pos.update(&self.doc, &self.rect);
       true
     } else {false}
   }
-  pub fn right(&mut self) -> bool {
-    if self.doc.right(1) == 0 {
+  pub fn right(&mut self, step: usize) -> bool {
+    if self.doc.right(step) == 0 {
       self.pos.update(&self.doc, &self.rect);
       true
     } else {false}
   }
-  pub fn down(&mut self) -> bool {
-    if self.doc.down(1) {
+  pub fn down(&mut self, step: usize) -> bool {
+    if self.doc.down(step) {
       self.pos.update(&self.doc, &self.rect);
       true
     } else {false}
   }
-  pub fn up(&mut self) -> bool {
-    if self.doc.up(1) {
+  pub fn up(&mut self, step: usize) -> bool {
+    if self.doc.up(step) {
       self.pos.update(&self.doc, &self.rect);
       true
     } else {false}
+  }
+  fn debug_cursor<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    let debug = format!(
+      "data(x: {} y: {}) scroll(x: {} y: {}) cursor(x: {} y: {})",
+      self.doc.x_head(), 
+      self.doc.y_head(), 
+      self.pos.x_scroll(), 
+      self.pos.y_scroll(),
+      self.pos.x_cursor(), 
+      self.pos.y_cursor(),
+      );
+    let mut chars = debug.chars();
+    for x in self.rect.x_range() {
+      writer
+        .queue(cursor::MoveTo(x, self.rect.y_end() + 1))?
+        .queue(Print(chars.next().unwrap_or(' ')))?;
+    }
+    Ok(())
   }
 }

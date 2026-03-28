@@ -4,7 +4,7 @@ use crate::{
   text::{TextPlane},
   screen::{Rect},
   widget::{TextBox},
-  usr::{User, Layout, Keys},
+  usr::{self, User, Style, Keys},
 };
 use crossterm::{
   QueueableCommand,
@@ -18,6 +18,7 @@ use crossterm::{
 };
 use std::{
   fs, env,
+  str::FromStr,
   io::{self, stdout, Stdout, Write, Error},
 };
 
@@ -30,17 +31,18 @@ pub struct App {
 } 
 impl App {
   pub fn init(usr_path: &str) -> Result<Self, Error> {
-    terminal::enable_raw_mode()?;
     let usr_text = fs::read_to_string(usr_path).unwrap_or_default();
-    let usr = User::try_from_string(&usr_text).unwrap_or_default();
-    let text = fs::read_to_string(&usr.init_path).unwrap_or_default();
+    let usr      = User::from_str(&usr_text).unwrap_or_default();
+    let text     = fs::read_to_string(&usr.init_url).unwrap_or_default();
+
+    terminal::enable_raw_mode()?;
     let (w, h) = terminal::size()?;
     let mut rect = Rect::new(w, h);
-    rect.crop_x(usr.layout.x_page);
-    rect.crop_y(usr.layout.y_page);
+    rect.crop_x(usr.style.x_margin);
+    rect.crop_y(usr.style.y_margin);
     let mut text_box = TextBox::new(&text, &rect);
-    text_box.fg = usr.layout.text;
-    text_box.bg = usr.layout.background;
+    text_box.fg = usr.style.fg;
+    text_box.bg = usr.style.bg;
     let mut app = Self {
       usr,
       stdout:   stdout(),
@@ -95,13 +97,13 @@ impl App {
         }
       ) => {
         if kc == self.usr.keys.left {
-          self.page.left()
+          self.page.left(1)
         } else if kc == self.usr.keys.down {
-          self.page.down()
+          self.page.down(1)
         } else if kc == self.usr.keys.up {
-          self.page.up()
+          self.page.up(1)
         } else if kc == self.usr.keys.right {
-          self.page.right()
+          self.page.right(1)
         } else if kc == KeyCode::Backspace {
           self.page.backspace()
         } else if kc == KeyCode::Delete {

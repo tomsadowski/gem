@@ -1,6 +1,7 @@
 // src/screen.rs
 
 use crate::text::{TextPlane, Linear, Planar};
+use std::ops::Range;
 
 #[derive(Clone, Default)]
 pub struct Rect {
@@ -12,6 +13,18 @@ pub struct Rect {
 impl Rect {
   pub fn new(w: u16, h: u16) -> Self {
     Self {x: 0, y: 0, w, h}
+  }
+  pub fn x_range(&self) -> Range<u16> {
+    Range {start: self.x, end: self.x_end()}
+  }
+  pub fn y_range(&self) -> Range<u16> {
+    Range {start: self.y, end: self.y_end()}
+  }
+  pub fn x_end(&self) -> u16 {
+    self.x + self.w
+  }
+  pub fn y_end(&self) -> u16 {
+    self.y + self.h
   }
   pub fn resize(&mut self, w: u16, h: u16) {
     self.w = w; 
@@ -48,11 +61,10 @@ impl Rect {
     }
   }
 }
-
 #[derive(Clone, Debug, Default)]
 pub struct PlaneView {
-  pub x: LineView,
-  pub y: LineView,
+  x: LineView,
+  y: LineView,
 }
 impl PlaneView {
   pub fn new(rect: &Rect) -> Self {
@@ -60,6 +72,18 @@ impl PlaneView {
       x: LineView::new(rect.x, rect.w),
       y: LineView::new(rect.y, rect.h),
     }
+  }
+  pub fn x_cursor(&self) -> u16 {
+    self.x.view_head
+  }
+  pub fn y_cursor(&self) -> u16 {
+    self.y.view_head
+  }
+  pub fn x_scroll(&self) -> usize {
+    self.x.line_start
+  }
+  pub fn y_scroll(&self) -> usize {
+    self.y.line_start
   }
   pub fn resize<P: Planar>(&mut self, plane: &P, rect: &Rect) {
     self.x.resize(plane.x_head(), rect.x, rect.w);
@@ -71,54 +95,82 @@ impl PlaneView {
   }
 }
 #[derive(Clone, Debug, Default)]
-pub struct LineView {
-  pub head:   usize,
-  pub shift:  usize,
-  pub point:  u16,
-  pub start:  u16,
-  pub size:   u16,
+struct LineView {
+  pub line_head:  usize,
+  pub line_start: usize,
+  pub view_head:  u16,
+  pub view_start: u16,
+  pub view_size:  u16,
 }
 impl LineView {
-  pub fn new(start: u16, size: u16) -> Self {
-    Self {shift: 0, head: 0, point: start, start, size}
+  pub fn new(view_start: u16, view_size: u16) -> Self {
+    Self {
+      line_start: 0, 
+      line_head:  0, 
+      view_head:  view_start, 
+      view_start, 
+      view_size
+    }
   }
   // damage control
-  pub fn resize(&mut self, new_head: usize, new_start: u16, new_size: u16) {
-    let point_len = self.point - self.start;
-    self.start = new_start;
-    self.size  = new_size;
-    self.head  = new_head;
-    if new_head < usize::from(self.size) {
-      self.shift = 0;
-      self.point = self.start + u16::try_from(self.head).unwrap();
-    } else if point_len > self.size - 1 {
-      self.point = self.start + self.size - 1;
-      self.shift = self.head - usize::from(self.size - 1);
+  pub fn resize(&mut self, 
+                new_line_head:  usize, 
+                new_view_start: u16, 
+                new_view_size:  u16) 
+  {
+    let view_head_relative = self.view_head - self.view_start;
+
+    // go to beginning of line
+    if new_line_head < usize::from(new_view_size) {
+      self.line_start = 0;
+      self.view_start = new_view_start;
+      self.view_size  = new_view_size;
+      self.line_head  = new_line_head;
+      self.view_head  = self.view_start + u16::try_from(self.line_head)
+          .expect("We do not have Allah's permission");
+
+    // view_head_relative is too large, fit it into new_view_size
+    } else if view_head_relative > new_view_size - 1 {
+      self.view_start = new_view_start;
+      self.view_size  = new_view_size;
+      self.line_head  = new_line_head;
+      self.view_head  = self.view_start + self.view_size - 1;
+      self.line_start = self.line_head - usize::from(self.view_size - 1);
+
+    // view_head_relative can be preserved
     } else {
-      self.point = self.start + point_len;
-      self.shift = self.head.saturating_sub(usize::from(point_len));
+      self.view_start = new_view_start;
+      self.view_size  = new_view_size;
+      self.line_head  = new_line_head;
+      self.view_head  = self.view_start + view_head_relative;
+      self.line_start = self.line_head
+        .saturating_sub(usize::from(view_head_relative));
     }
   }
-  pub fn update(&mut self, new_head: usize) {
-    // move forward
-    if new_head > self.head {
-      let diff = new_head - self.head;
-      let proposed = usize::from(self.point) + diff;
-      let max = usize::from(self.start) + usize::from(self.size) - 1;
-      // shift forward
+  pub fn update(&mut self, new_line_head: usize) {
+    // forward
+    if new_line_head > self.line_head {
+      let diff     = new_line_head - self.line_head;
+      let proposed = usize::from(self.view_head) + diff;
+      let max = 
+        usize::from(self.view_start) + 
+        usize::from(self.view_size) - 1;
+      // line_start forward
       if proposed >= max {
-        self.shift = self.shift + proposed - max;
+        self.line_start = self.line_start + proposed - max;
       }
-    // move backward
-    } else if new_head < self.head {
-      let diff = self.head - new_head;
-      let max_diff = usize::from(self.point.saturating_sub(self.start));
-      // shift backward
+    // backward
+    } else if new_line_head < self.line_head {
+      let diff     = self.line_head - new_line_head;
+      let max_diff = usize::from(self.view_head.saturating_sub(self.view_start));
+      // line_start backward
       if diff > max_diff {
-        self.shift = self.shift.saturating_sub(diff - max_diff);
+        self.line_start = self.line_start.saturating_sub(diff - max_diff);
       }
     }
-    self.point = self.start + u16::try_from(new_head - self.shift).unwrap();
-    self.head = new_head;
+    self.view_head = self.view_start + 
+      u16::try_from(new_line_head - self.line_start)
+        .expect("We do not have Allah's permission");
+    self.line_head = new_line_head;
   }
 }
