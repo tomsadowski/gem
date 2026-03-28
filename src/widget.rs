@@ -7,26 +7,35 @@ use crate::{
 use crossterm::{
   QueueableCommand,
   style::{
-    Color, SetForegroundColor, 
-    SetBackgroundColor, Print, ResetColor
+    Print, 
+    Color, 
+    SetForegroundColor, 
+    SetBackgroundColor, 
+    ResetColor
   },
   cursor::{self, MoveTo},
 };
 use std::io::{self, stdout, Write};
 
-// coordinate Page and PageView
+// coordinate TextPlane and PlaneView
 pub struct TextBox {
+  pub fg:   Option<Color>,
+  pub bg:   Option<Color>,
   pub doc:  TextPlane,
   pub pos:  PlaneView,
   pub rect: Rect,
   pub text: String,
 }
 impl TextBox {
-  pub fn new(text: &str, w: u16, h: u16) -> Self {
-    let rect = Rect::new(w, h).crop_x(3).crop_y(3);
+  pub fn new(text: &str, rect: &Rect) -> Self {
+    let rect = rect.clone();
     let doc = TextPlane::new(text, rect.w);
     let pos = PlaneView::new(&rect);
-    Self {pos, rect, doc, text: text.into()}
+    Self {
+      pos, rect, doc, 
+      fg: None,
+      bg: None,
+      text: text.into()}
   }
   pub fn debug_cursor(&self) -> String {
     format!(
@@ -40,10 +49,13 @@ impl TextBox {
       )
   }
   pub fn view<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-    writer
-      .queue(cursor::Hide)?
-      .queue(SetForegroundColor(Color::Rgb {r: 185, g: 180, b: 175 }))?
-      .queue(SetBackgroundColor(Color::Rgb {r: 24, g: 24, b: 24}))?;
+    if let Some(fg) = self.fg {
+      writer.queue(SetForegroundColor(fg))?;
+    }
+    if let Some(bg) = self.bg {
+      writer.queue(SetBackgroundColor(bg))?;
+    }
+    writer.queue(cursor::Hide)?;
 
     for (line, y) in self.doc.text[self.pos.y.shift..]
       .iter().zip(self.rect.y..(self.rect.y + self.rect.h)) 
@@ -69,7 +81,9 @@ impl TextBox {
     Ok(())
   }
   pub fn resize(&mut self, w: u16, h: u16) {
-    self.rect = Rect::new(w, h).crop_x(3).crop_y(3);
+    self.rect = Rect::new(w, h);
+    self.rect.crop_x(3);
+    self.rect.crop_y(3);
     self.doc.resize(&self.text, self.rect.w);
     self.pos.resize(&self.doc, &self.rect)
   }

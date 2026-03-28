@@ -17,43 +17,35 @@ impl Rect {
     self.w = w; 
     self.h = h;
   }
-  pub fn crop_y(&self, step: u16) -> Self {
-    let rect = self.clone();
-    rect.crop_north(step).crop_south(step)
+  pub fn crop_y(&mut self, step: u16) {
+    self.crop_north(step);
+    self.crop_south(step);
   }
-  pub fn crop_x(&self, step: u16) -> Self {
-    let rect = self.clone();
-    rect.crop_east(step).crop_west(step)
+  pub fn crop_x(&mut self, step: u16) {
+    self.crop_east(step);
+    self.crop_west(step);
   }
-  pub fn crop_south(&self, step: u16) -> Self {
-    let mut rect = self.clone();
-    if step < rect.h {
-      rect.h -= step;
+  pub fn crop_south(&mut self, step: u16) {
+    if step < self.h {
+      self.h -= step;
     }
-    rect
   }
-  pub fn crop_east(&self, step: u16) -> Self {
-    let mut rect = self.clone();
-    if step < rect.w {
-      rect.w -= step
+  pub fn crop_east(&mut self, step: u16) {
+    if step < self.w {
+      self.w -= step
     }
-    rect
   }
-  pub fn crop_north(&self, step: u16) -> Self {
-    let mut rect = self.clone();
-    if step * 2 < rect.h {
-      rect.y += step;
-      rect.h -= step;
+  pub fn crop_north(&mut self, step: u16) {
+    if step * 2 < self.h {
+      self.y += step;
+      self.h -= step;
     }
-    rect
   }
-  pub fn crop_west(&self, step: u16) -> Self {
-    let mut rect = self.clone();
-    if step * 2 < rect.w {
-      rect.x += step;
-      rect.w -= step;
+  pub fn crop_west(&mut self, step: u16) {
+    if step * 2 < self.w {
+      self.x += step;
+      self.w -= step;
     }
-    rect
   }
 }
 

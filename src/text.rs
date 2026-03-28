@@ -20,17 +20,13 @@ pub trait Linear {
   fn peek_backward(&self, mut step: usize) -> usize {
     if step > self.head() {
       step - self.head()
-    } else {
-      0
-    }
+    } else {0}
   }
   fn peek_forward(&self, mut step: usize) -> usize {
     let max_head = self.max_head();
     if self.head() + step > max_head {
       self.head() + step - max_head
-    } else {
-      0
-    }
+    } else {0}
   }
   fn backward(&mut self, mut step: usize) -> usize {
     if step > self.head() {

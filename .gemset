@@ -1,59 +1,16 @@
 
-#init_url = "gemini://medusae.space"
-#init_url = "gemini://datapulp.smol.pub/"
 
-#init_url  = "gemini://geminiprotocol.net/"
-init_url  = "gemini://geminiprotocol.net/history/servers.gmi"
+init_path  = "~/.config/nvim/readme.md"
 
 layout = {
-  scroll_at = 6,
   x_page = 2,
-  y_page = 8,
-  background = "202020",
-  border = "706050",
-  banner = "706050",
-  dialog = "c0b090",
-
-  badlink = {
-    fg = "706050",
-  },
-  text = {
-    fg = "c0b090",
-    above = 1,
-    below = 1,
-  },
-  list = {
-    fg = "c0b090",
-    prefix = " - ",
-    below = 1,
-  },
-  preformat = {
-    fg = "70a070", 
-  },
-  link = {
-    fg = "90a0d0",
-    below = 1,
-  },
-  quote = {
-    fg = "70a070",
-    above = 1,
-    below = 1,
-  },
-  header1 = {
-    fg = "d06060",
-    prefix = "*** *** *** ",
-    above = 1,
-  },
-  header2 = {
-    prefix = "*** *** ",
-    fg = "d06060",
-    above = 1,
-  },
-  header3 = {
-    prefix = "*** ",
-    fg = "d06060",
-    above = 1,
-  },
+  y_page = 2,
+  x_text = 2,
+  y_text = 2,
+  background = "101010",
+  border = "c0c0c0",
+  banner = "c0c0c0",
+  text = "c0c0c0",
 }
 
 keys = {
@@ -69,7 +26,7 @@ keys = {
   cycle_right = "right",
   inspect     = "space",
   delete_tab  = "d",
-  new_tab     = "t",
+  new_tab    = "t",
   yes    = "y",
   no     = "n",
   ack    = "enter",
