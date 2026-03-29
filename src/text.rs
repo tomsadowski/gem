@@ -6,23 +6,31 @@ pub trait Linear {
   fn len(&self) -> usize;
   fn head(&self) -> usize;
   fn head_mut(&mut self) -> &mut usize;
-  fn max_head(&self) -> usize;
 
-  fn fit(&mut self, new_cursor: usize) {
+  fn max_head(&self) -> usize {
+    self.len().saturating_sub(1)
+  }
+  fn strict_fit(&mut self, new_cursor: usize) {
     *self.head_mut() = self.max_head().min(new_cursor);
+  }
+  fn loose_fit(&mut self, new_cursor: usize) {
+    *self.head_mut() = self.len().min(new_cursor);
   }
   fn start(&mut self) {
     *self.head_mut() = 0;
   }
-  fn end(&mut self) {
+  fn strict_end(&mut self) {
     *self.head_mut() = self.max_head();
+  }
+  fn loose_end(&mut self) {
+    *self.head_mut() = self.len();
   }
   fn peek_backward(&self, mut step: usize) -> usize {
     if step > self.head() {
       step - self.head()
     } else {0}
   }
-  fn peek_forward(&self, mut step: usize) -> usize {
+  fn peek_loose_forward(&self, mut step: usize) -> usize {
     let max_head = self.max_head();
     if self.head() + step > max_head {
       self.head() + step - max_head
@@ -38,22 +46,16 @@ pub trait Linear {
       0
     }
   }
-  fn tight_forward(&mut self, mut step: usize) -> usize {
-    let max_head = self.len().saturating_sub(1);
-    if self.head() + step > max_head {
-      step = self.head() + step - max_head;
-      *self.head_mut() = max_head;
-      step
-    } else {
-      *self.head_mut() += step;
-      0
-    }
+  fn strict_forward(&mut self, mut step: usize) -> usize {
+    self.forward(step, self.max_head())
   }
-  fn forward(&mut self, mut step: usize) -> usize {
-    let max_head = self.max_head();
-    if self.head() + step > max_head {
-      step = self.head() + step - max_head;
-      *self.head_mut() = max_head;
+  fn loose_forward(&mut self, mut step: usize) -> usize {
+    self.forward(step, self.len())
+  }
+  fn forward(&mut self, mut step: usize, limit: usize) -> usize {
+    if self.head() + step > limit {
+      step = self.head() + step - limit;
+      *self.head_mut() = limit;
       step
     } else {
       *self.head_mut() += step;
@@ -72,9 +74,6 @@ impl From<&str> for TextLine {
   }
 }
 impl Linear for TextLine {
-  fn max_head(&self) -> usize {
-    self.text.len()
-  }
   fn len(&self) -> usize {
     self.text.len()
   }
@@ -87,7 +86,7 @@ impl Linear for TextLine {
 }
 impl TextLine {
   pub fn delete(&mut self) -> bool {
-    if self.peek_forward(1) == 0 || self.text.len() != 0 {
+    if self.peek_loose_forward(1) == 0 || self.text.len() != 0 {
       self.text.remove(self.head);
       true
     } else {false}
@@ -102,11 +101,11 @@ impl TextLine {
   pub fn insert(&mut self, c: char) -> bool {
     if self.head + 1 == self.text.len() || self.text.len() == 0 {
       self.text.push(c);
-      self.forward(1);
+      self.loose_forward(1);
       true
     } else {
       self.text.insert(self.head, c);
-      self.forward(1);
+      self.loose_forward(1);
       true
     }
   }
@@ -122,9 +121,6 @@ pub trait Planar {
 impl<P: Planar> Linear for P {
   fn len(&self) -> usize {
     self.y_len()
-  }
-  fn max_head(&self) -> usize {
-    self.y_len().saturating_sub(1)
   }
   fn head(&self) -> usize {
     self.y_head()
@@ -158,7 +154,7 @@ impl Planar for TextPlane {
 impl TextPlane {
   pub fn delete(&mut self) -> bool {
     if !self.text[self.head].delete() {
-      if self.forward(1) == 0 {
+      if self.strict_forward(1) == 0 {
         self.text[self.head].start();
         self.delete() 
       } else {false} 
@@ -167,7 +163,7 @@ impl TextPlane {
   pub fn backspace(&mut self) -> bool {
     if !self.text[self.head].backspace() {
       if self.backward(1) == 0 {
-        self.text[self.head].end();
+        self.text[self.head].loose_end();
         self.backspace() 
       } else {false}
     } else {true}
@@ -190,6 +186,11 @@ impl TextPlane {
       .chain(std::iter::once(self.x_head()))
       .sum()
   }
+  fn set_idx(&mut self, idx: usize) {
+    self.start();
+    self.text[self.head].start();
+    self.strict_right(idx);
+  }
   pub fn resize(&mut self, text: &str, width: u16) {
     let idx = self.get_idx();
     self.text = 
@@ -197,21 +198,19 @@ impl TextPlane {
         .into_iter()
         .map(|line| TextLine::from(line.as_str()))
         .collect();
-    self.start();
-    self.text[self.head].start();
-    self.restore_idx(idx);
+    self.set_idx(idx);
   }
   pub fn up(&mut self, step: usize) -> bool {
     let x = self.x_head();
     if self.backward(step) == 0 {
-      self.text[self.head].fit(x);
+      self.text[self.head].loose_fit(x);
       true
     } else {false}
   }
   pub fn down(&mut self, step: usize) -> bool {
     let x = self.x_head();
-    if self.forward(step) == 0 {
-      self.text[self.head].fit(x);
+    if self.strict_forward(step) == 0 {
+      self.text[self.head].loose_fit(x);
       true
     } else {false}
   }
@@ -220,28 +219,30 @@ impl TextPlane {
     if remainder == 0 {
       0
     } else if self.backward(1) == 0 {
-      self.text[self.head].end();
+      self.text[self.head].loose_end();
       self.left(remainder.saturating_sub(1))
     } else {
       remainder
     }
   }
-  pub fn restore_idx(&mut self, step: usize) -> usize {
-    let remainder = self.text[self.head].tight_forward(step);
+  pub fn strict_right(&mut self, step: usize) -> usize {
+    let remainder = self.text[self.head].strict_forward(step);
     if remainder == 0 {
       0
-    } else if self.forward(1) == 0 {
+    } else if remainder == 1 {
+      self.text[self.head].loose_forward(1)
+    } else if self.strict_forward(1) == 0 {
       self.text[self.head].start();
-      self.restore_idx(remainder.saturating_sub(1))
+      self.strict_right(remainder.saturating_sub(1))
     } else {
       remainder
     }
   }
   pub fn right(&mut self, step: usize) -> usize {
-    let remainder = self.text[self.head].forward(step);
+    let remainder = self.text[self.head].loose_forward(step);
     if remainder == 0 {
       0
-    } else if self.forward(1) == 0 {
+    } else if self.strict_forward(1) == 0 {
       self.text[self.head].start();
       self.right(remainder.saturating_sub(1))
     } else {

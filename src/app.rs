@@ -9,6 +9,7 @@ use crate::{
 use crossterm::{
   QueueableCommand,
   terminal::{self, Clear, ClearType},
+  cursor::SetCursorStyle,
   event::{self, Event, KeyEvent, KeyEventKind, KeyCode, KeyModifiers},
 };
 use std::{
@@ -59,7 +60,9 @@ impl App {
     // handle line wrapping manually
     stdout
       .queue(terminal::EnterAlternateScreen)?
-      .queue(terminal::DisableLineWrap)?;
+      .queue(terminal::DisableLineWrap)?
+      .queue(SetCursorStyle::SteadyBar)?
+      ;
     // initial display
     app.view(stdout)?;
     // main loop
@@ -72,6 +75,7 @@ impl App {
     stdout
       .queue(terminal::LeaveAlternateScreen)?
       .queue(terminal::EnableLineWrap)?
+      .queue(SetCursorStyle::DefaultUserShape)?
       .flush()?;
     terminal::disable_raw_mode()
   }
