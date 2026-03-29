@@ -48,6 +48,7 @@ impl App {
         usr.style.y_text_margin);
       text_box.fg = usr.style.fg;
       text_box.bg = usr.style.bg;
+      text_box.margin_color = usr.style.margin_color;
       Self {
         usr,
         page:  text_box,

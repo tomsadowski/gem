@@ -72,15 +72,46 @@ impl FromStr for User {
     Self::default().read_table(&table)
   }
 }
+
+#[derive(Debug)]
+enum StyleField {
+  Color(ColorField), 
+  Margin(MarginField),
+}
+#[derive(Debug)]
+enum ColorField {
+  Fg, Bg, Banner, Margin,
+}
+#[derive(Debug)]
+enum MarginField {
+  TextX, TextY, PageX, PageY,
+}
+impl FromStr for StyleField {
+  type Err = String;
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    match s {
+      "fg"            => Ok(Self::Color(ColorField::Fg)),
+      "bg"            => Ok(Self::Color(ColorField::Bg)),
+      "banner"        => Ok(Self::Color(ColorField::Banner)),
+      "margin_color"  => Ok(Self::Color(ColorField::Margin)),
+      "x_text_margin" => Ok(Self::Margin(MarginField::TextX)),
+      "y_text_margin" => Ok(Self::Margin(MarginField::TextY)),
+      "x_page_margin" => Ok(Self::Margin(MarginField::PageX)),
+      "y_page_margin" => Ok(Self::Margin(MarginField::PageY)),
+      s => Err(format!("Style table does not contain field {}", s)),
+    }
+  }
+}
 #[derive(Clone)]
 pub struct Style {
   pub x_text_margin: u16,
   pub y_text_margin: u16,
   pub x_page_margin: u16,
   pub y_page_margin: u16,
-  pub banner:   Option<Color>,
-  pub bg:       Option<Color>,
-  pub fg:       Option<Color>,
+  pub banner:        Option<Color>,
+  pub bg:            Option<Color>,
+  pub fg:            Option<Color>,
+  pub margin_color:  Option<Color>,
 } 
 impl Default for Style {
   fn default() -> Self {
@@ -89,9 +120,10 @@ impl Default for Style {
       y_text_margin: 1,
       x_page_margin: 0,
       y_page_margin: 0,
-      fg:       None,
-      bg:       None,
-      banner:   None,
+      fg:            None,
+      bg:            None,
+      margin_color:  None,
+      banner:        None,
     }
   }
 }
@@ -104,9 +136,10 @@ impl UserMod<StyleField> for Style {
         let v = util::parse_color(value)
           .map_err(|e| format!("{:?} : {}", value, e))?;
         match field {
-          ColorField::Fg     => self.fg     = Some(v),
-          ColorField::Bg     => self.bg     = Some(v),
-          ColorField::Banner => self.banner = Some(v),
+          ColorField::Fg     => self.fg           = Some(v),
+          ColorField::Bg     => self.bg           = Some(v),
+          ColorField::Margin => self.margin_color = Some(v),
+          ColorField::Banner => self.banner       = Some(v),
         }
       }
       StyleField::Margin(field) => {
@@ -230,34 +263,6 @@ impl FromStr for UserField {
       "style"    => Ok(Self::Style),
       "keys"     => Ok(Self::Keys),
       s          => Err(format!("No field {} in User table", s)),
-    }
-  }
-}
-#[derive(Debug)]
-enum StyleField {
-  Color(ColorField), 
-  Margin(MarginField),
-}
-#[derive(Debug)]
-enum ColorField {
-  Fg, Bg, Banner
-}
-#[derive(Debug)]
-enum MarginField {
-  TextX, TextY, PageX, PageY,
-}
-impl FromStr for StyleField {
-  type Err = String;
-  fn from_str(s: &str) -> Result<Self, Self::Err> {
-    match s {
-      "fg"            => Ok(Self::Color(ColorField::Fg)),
-      "bg"            => Ok(Self::Color(ColorField::Bg)),
-      "banner"        => Ok(Self::Color(ColorField::Banner)),
-      "x_text_margin" => Ok(Self::Margin(MarginField::TextX)),
-      "y_text_margin" => Ok(Self::Margin(MarginField::TextY)),
-      "x_page_margin" => Ok(Self::Margin(MarginField::PageX)),
-      "y_page_margin" => Ok(Self::Margin(MarginField::PageY)),
-      s => Err(format!("Style table does not contain field {}", s)),
     }
   }
 }

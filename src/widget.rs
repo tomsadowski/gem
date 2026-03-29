@@ -15,6 +15,7 @@ use std::io::{self, stdout, Write};
 pub struct TextBox {
   pub fg:   Option<Color>,
   pub bg:   Option<Color>,
+  pub margin_color: Option<Color>,
   pub doc:  TextPlane,
   pub pos:  PlaneView,
   pub page_rect: Rect,
@@ -36,20 +37,21 @@ impl TextBox {
     Self {
       fg:   None,
       bg:   None,
+      margin_color: None,
       text: text.into(),
       page_rect: page_rect.clone(),
       pos, text_rect, doc, 
     }
   }
   pub fn view<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    writer.queue(cursor::Hide)?;
+
+    if let Some(margin) = self.margin_color {
+      writer.queue(SetBackgroundColor(margin))?;
+    }
     if let Some(fg) = self.fg {
       writer.queue(SetForegroundColor(fg))?;
     }
-    if let Some(bg) = self.bg {
-      writer.queue(SetBackgroundColor(bg))?;
-    }
-    writer.queue(cursor::Hide)?;
-
     for x in self.page_rect.x_range() {
       for y in self.page_rect.north_range(&self.text_rect) {
         writer.queue(MoveTo(x, y))?.queue(Print(' '))?;
@@ -65,6 +67,10 @@ impl TextBox {
       for x in self.page_rect.west_range(&self.text_rect) {
         writer.queue(MoveTo(x, y))?.queue(Print(' '))?;
       }
+    }
+
+    if let Some(bg) = self.bg {
+      writer.queue(SetBackgroundColor(bg))?;
     }
 
     let mut lines = self.doc.text[self.pos.y_scroll()..].iter();
